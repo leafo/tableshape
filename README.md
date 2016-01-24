@@ -82,7 +82,9 @@ Here we test for an array of numbers by using `array_of`:
 local numbers_shape = types.array_of(types.number)
 
 assert(numbers_shape:check_value({1,2,3}))
-assert(numbers_shape:check_value({1,"oops",3})) -- error: item 2 in array does not match: got type `string`, expected `number`
+
+-- error: item 2 in array does not match: got type `string`, expected `number`
+assert(numbers_shape:check_value({1,"oops",3}))
 ```
 
 > **Note:** The type checking is strict, a string that looks like a number,
@@ -116,8 +118,9 @@ assert(object_shape:check_value({
 ```
 
 The `is_optional` method can be called on a type checker to make that type also
-except `nil` as a value. The first error stops the rest of the type check, and
-is returned as the second return value.
+accept `nil` as a value.
+
+If multiple fields fail the type check, only the first one is reported as the second return value.
 
 You can also use a literal value to match it directly:
 
@@ -140,6 +143,7 @@ succeed if one of them matches.
 local func_or_bool = types.one_of{types.func, types.boolean}
 
 assert(func_or_bool:check_value(function() end))
+
 -- error: value `2345` did not match one of: type `function`, type `boolean`
 assert(func_or_bool:check_value(2345))
 ```
@@ -175,6 +179,96 @@ local types = require("tableshape").types
 
 ### Compound constructors
 
+#### `types.shape(table_dec)`
+
+Returns a type checker tests for a table where every key in `table_dec` has a
+type matching the associated value. The associated value can also be a literal
+value.
+
+```lua
+local t = types.shape {
+  id = types.number
+  name = types.string
+}
+```
+
+#### `types.array_of(item_type)`
+
+Returns a type checker that tests if the value is an array where each item
+matches the provided type.
+
+```lua
+local t = types.array_of(types.shape{
+  id = types.number
+})
+```
+
+#### `types.one_of({type1, type2, ...})`
+
+Returns a type checker that tests if the value matches one of the provided
+types. A literal value can also be passed as a type.
+
+```lua
+local t = types.array_of{"none", types.number}
+```
+
+#### `types.pattern(lua_pattern)`
+
+Returns a type checker that tests if a string matches the provided Lua pattern
+
+```lua
+local t = types.pattern("^#[a-fA-F%d]+$")
+```
+
 ### Types
 
+Basic types:
+
+* `types.string` - checks for `type(val) == "string"`
+* `types.number` - checks for `type(val) == "number"`
+* `types.func` - checks for `type(val) == "function"`
+* `types.boolean` - checks for `type(val) == "boolean"`
+* `types.userdata` - checks for `type(val) == "userdata"`
+* `types.table` - checks for `type(val) == "table"`
+* `types.array` - checks for table of numerically increasing indexes
+* `types.integer` - checks for a number with no decimal component
+
+### Type methods
+
+Every type checker has the follow methods:
+
+#### `type:check_value(value)`
+
+Tests `value` against the type checker. Returns `true` if the value passes the
+check. Returns `nil` and an error message as a string if there is a mismatch.
+The error message will identify where the mismatch happened as best it can.
+
+`check_value` will abort on the first error found, and only that error message is returned.
+
+#### `type:is_optional()`
+
+Returns a new type checker that matmches the same type, or `nil`.
+
+
+## License (MIT)
+
+Copyright (C) 2016 by Leaf Corcoran
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
