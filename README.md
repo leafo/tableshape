@@ -2,7 +2,8 @@
 # tableshape
 
 A Lua library for verifying the shape (schema, structure, etc.) of a table.
-It's inspired by the PropTypes module of React.
+It's inspired by the [PropTypes module of
+React](https://facebook.github.io/react/docs/reusable-components.html#prop-validation).
 
 ### Usage
 
