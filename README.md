@@ -85,8 +85,8 @@ assert(numbers_shape:check_value({1,2,3}))
 assert(numbers_shape:check_value({1,"oops",3})) -- error: item 2 in array does not match: got type `string`, expected `number`
 ```
 
-> Note: The type checking is strict, a string that looks like a number `"123"`
-> is not a number and will trigger an error!
+> **Note:** The type checking is strict, a string that looks like a number,
+> `"123"`, is not a number and will trigger an error!
 
 The structure of a hashtable can be tested with `types.shape`. It takes a hash
 table where the key is the field to check, and the value is the type checker:
