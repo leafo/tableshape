@@ -70,7 +70,7 @@ error message if it fails.
 
 ```lua
 assert(types.string:check_value("hello!")) -- success
-assert(types.string:check_value("hello!")) -- an error: got type `number`, expected `string`
+assert(types.string:check_value(777)) -- an error: got type `number`, expected `string`
 ```
 
 You can see the full list of the available types below in the reference.
