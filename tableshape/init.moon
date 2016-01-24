@@ -95,15 +95,15 @@ class ArrayOf extends BaseType
     return true if @check_optional value
     return nil, "expected table for array_of" unless type(value) == "table"
 
-    for item in *value
+    for idx, item in ipairs value
       continue if @expected == item
 
       if @expected.check_value and BaseType\is_base_type @expected
         res, err = @expected\check_value item
         unless res
-          return nil, "item in array does not match: #{err}"
+          return nil, "item #{idx} in array does not match: #{err}"
       else
-        return nil, "item in array does not match `#{@expected}`"
+        return nil, "item #{idx} in array does not match `#{@expected}`"
 
     true
 

@@ -270,10 +270,9 @@ do
       if not (type(value) == "table") then
         return nil, "expected table for array_of"
       end
-      for _index_0 = 1, #value do
+      for idx, item in ipairs(value) do
         local _continue_0 = false
         repeat
-          local item = value[_index_0]
           if self.expected == item then
             _continue_0 = true
             break
@@ -281,10 +280,10 @@ do
           if self.expected.check_value and BaseType:is_base_type(self.expected) then
             local res, err = self.expected:check_value(item)
             if not (res) then
-              return nil, "item in array does not match: " .. tostring(err)
+              return nil, "item " .. tostring(idx) .. " in array does not match: " .. tostring(err)
             end
           else
-            return nil, "item in array does not match `" .. tostring(self.expected) .. "`"
+            return nil, "item " .. tostring(idx) .. " in array does not match `" .. tostring(self.expected) .. "`"
           end
           _continue_0 = true
         until true
