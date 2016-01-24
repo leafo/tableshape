@@ -44,6 +44,9 @@ class Type extends BaseType
       return nil, "got type `#{got}`, expected `#{@t}`"
     true
 
+  describe: =>
+    "type `#{@t}`"
+
 class ArrayType extends BaseType
   new: (@opts) =>
 
@@ -82,7 +85,13 @@ class OneOf extends BaseType
       if item.check_value and BaseType\is_base_type item
         return true if item\check_value value
 
-    err_str = table.concat ["`#{i}`" for i in *@items], ", "
+    err_strs = for i in *@items
+      if type(i) == "table" and i.describe
+        i\describe!
+      else
+        "`#{i}`"
+
+    err_str = table.concat err_strs, ", "
     nil, "value `#{value}` did not match one of: #{err_str}"
 
 class ArrayOf extends BaseType
@@ -172,6 +181,7 @@ types = setmetatable {
   string: Type "string"
   number: Type "number"
   function: Type "function"
+  func: Type "function"
   boolean: Type "boolean"
   userdata: Type "userdata"
   table: Type "table"

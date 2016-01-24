@@ -81,6 +81,9 @@ do
         return nil, "got type `" .. tostring(got) .. "`, expected `" .. tostring(self.t) .. "`"
       end
       return true
+    end,
+    describe = function(self)
+      return "type `" .. tostring(self.t) .. "`"
     end
   }
   _base_0.__index = _base_0
@@ -205,17 +208,23 @@ do
           end
         end
       end
-      local err_str = table.concat((function()
+      local err_strs
+      do
         local _accum_0 = { }
         local _len_0 = 1
         local _list_1 = self.items
         for _index_0 = 1, #_list_1 do
           local i = _list_1[_index_0]
-          _accum_0[_len_0] = "`" .. tostring(i) .. "`"
+          if type(i) == "table" and i.describe then
+            _accum_0[_len_0] = i:describe()
+          else
+            _accum_0[_len_0] = "`" .. tostring(i) .. "`"
+          end
           _len_0 = _len_0 + 1
         end
-        return _accum_0
-      end)(), ", ")
+        err_strs = _accum_0
+      end
+      local err_str = table.concat(err_strs, ", ")
       return nil, "value `" .. tostring(value) .. "` did not match one of: " .. tostring(err_str)
     end
   }
@@ -501,6 +510,7 @@ local types = setmetatable({
   string = Type("string"),
   number = Type("number"),
   ["function"] = Type("function"),
+  func = Type("function"),
   boolean = Type("boolean"),
   userdata = Type("userdata"),
   table = Type("table"),
