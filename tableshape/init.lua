@@ -536,5 +536,6 @@ end
 return {
   check_shape = check_shape,
   types = types,
-  BaseType = BaseType
+  BaseType = BaseType,
+  VERSION = "1.0.0"
 }
