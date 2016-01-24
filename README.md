@@ -11,14 +11,14 @@ React](https://facebook.github.io/react/docs/reusable-components.html#prop-valid
 local types = require("tableshape").types
 
 -- define the shape of our player object
-local player_shape = types.shape {
+local player_shape = types.shape{
   class = types.one_of{"player", "enemy"},
   name = types.string,
   position = types.shape{
     x = types.number,
     y = types.number,
   },
-  inventory = types.array_of(types.shape {
+  inventory = types.array_of(types.shape{
     name = types.string,
     id = types.integer
   }):is_optional()
@@ -94,7 +94,7 @@ The structure of a hashtable can be tested with `types.shape`. It takes a hash
 table where the key is the field to check, and the value is the type checker:
 
 ```lua
-local object_shape = types.shape {
+local object_shape = types.shape{
   id = types.number,
   name = types.string:is_optional(),
 }
@@ -125,7 +125,7 @@ If multiple fields fail the type check, only the first one is reported as the se
 You can also use a literal value to match it directly:
 
 ```lua
-local object_shape = types.shape {
+local object_shape = types.shape{
   name = "Cowcat"
 }
 
@@ -186,8 +186,8 @@ type matching the associated value. The associated value can also be a literal
 value.
 
 ```lua
-local t = types.shape {
-  id = types.number
+local t = types.shape{
+  id = types.number,
   name = types.string
 }
 ```
