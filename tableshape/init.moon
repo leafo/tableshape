@@ -116,6 +116,40 @@ class ArrayOf extends BaseType
 
     true
 
+class MapOf extends BaseType
+  new: (@expected_key, @expected_value, @opts) =>
+
+  is_optional: =>
+    MapOf @expected_key, @expected_value, @clone_opts optional: true
+
+  check_value: (value) =>
+    return true if @check_optional value
+    return nil, "expected table for map_of" unless type(value) == "table"
+
+    for k,v in pairs value
+      -- check key
+      if @expected_key.check_value
+        res, err = @expected_key\check_value k
+        unless res
+          return nil, "field `#{k}` in table does not match: #{err}"
+
+      else
+        unless @expected_key == k
+          return nil, "field `#{k}` does not match `#{@expected_key}`"
+
+
+      -- check value
+      if @expected_value.check_value
+        res, err = @expected_value\check_value v
+        unless res
+          return nil, "field `#{k}` value in table does not match: #{err}"
+
+      else
+        unless @expected_value == v
+          return nil, "field `#{k}` value does not match `#{@expected_value}`"
+
+    true
+
 class Shape extends BaseType
   new: (@shape, @opts) =>
     assert type(@shape) == "table", "expected table for shape"
@@ -195,6 +229,7 @@ types = setmetatable {
   shape: Shape
   pattern: Pattern
   array_of: ArrayOf
+  map_of: MapOf
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
 

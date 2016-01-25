@@ -336,6 +336,81 @@ do
   end
   ArrayOf = _class_0
 end
+local MapOf
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    is_optional = function(self)
+      return MapOf(self.expected_key, self.expected_value, self:clone_opts({
+        optional = true
+      }))
+    end,
+    check_value = function(self, value)
+      if self:check_optional(value) then
+        return true
+      end
+      if not (type(value) == "table") then
+        return nil, "expected table for map_of"
+      end
+      for k, v in pairs(value) do
+        if self.expected_key.check_value then
+          local res, err = self.expected_key:check_value(k)
+          if not (res) then
+            return nil, "field `" .. tostring(k) .. "` in table does not match: " .. tostring(err)
+          end
+        else
+          if not (self.expected_key == k) then
+            return nil, "field `" .. tostring(k) .. "` does not match `" .. tostring(self.expected_key) .. "`"
+          end
+        end
+        if self.expected_value.check_value then
+          local res, err = self.expected_value:check_value(v)
+          if not (res) then
+            return nil, "field `" .. tostring(k) .. "` value in table does not match: " .. tostring(err)
+          end
+        else
+          if not (self.expected_value == v) then
+            return nil, "field `" .. tostring(k) .. "` value does not match `" .. tostring(self.expected_value) .. "`"
+          end
+        end
+      end
+      return true
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, expected_key, expected_value, opts)
+      self.expected_key, self.expected_value, self.opts = expected_key, expected_value, opts
+    end,
+    __base = _base_0,
+    __name = "MapOf",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  MapOf = _class_0
+end
 local Shape
 do
   local _class_0
@@ -522,7 +597,8 @@ local types = setmetatable({
   one_of = OneOf,
   shape = Shape,
   pattern = Pattern,
-  array_of = ArrayOf
+  array_of = ArrayOf,
+  map_of = MapOf
 }, {
   __index = function(self, fn_name)
     return error("Type checker does not exist: `" .. tostring(fn_name) .. "`")

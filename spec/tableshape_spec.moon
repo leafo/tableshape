@@ -135,6 +135,34 @@ describe "tableshape", ->
     assert.same {true}, {t "123"}
     assert.same nil, (t "2.5")
 
+
+  it "tests map_of", ->
+    stringmap = types.map_of types.string, types.string
+    assert.same {true}, {stringmap {}}
+
+    assert.same {true}, {stringmap {
+      hello: "world"
+    }}
+
+    assert.same {true}, {stringmap {
+      hello: "world"
+      butt: "zone"
+    }}
+
+    assert.same {true}, {stringmap\is_optional! nil}
+    assert.same nil, (stringmap nil)
+
+    assert.same nil, (stringmap { hello: 5 })
+    assert.same nil, (stringmap { "okay" })
+    assert.same nil, (stringmap { -> })
+
+    static = types.map_of "hello", "world"
+    assert.same {true}, {static {}}
+    assert.same {true}, {static { hello: "world" }}
+
+    assert.same nil, (static { helloz: "world" })
+    assert.same nil, (static { hello: "worldz" })
+
   it "tests array_of", ->
     numbers = types.array_of types.number
 
