@@ -242,4 +242,4 @@ check_shape = (value, shape) ->
   assert shape.check_value, "missing check_value method from shape"
   shape\check_value value
 
-{ :check_shape, :types, :BaseType, VERSION: "1.0.0" }
+{ :check_shape, :types, :BaseType, VERSION: "1.1.0" }

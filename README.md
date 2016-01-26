@@ -267,6 +267,17 @@ is overidden to call this method.
 
 Returns a new type checker that matmches the same type, or `nil`.
 
+## Changelog
+
+**Jan 25 2016** - 1.1.0
+
+* Add `types.map_of`
+* Add `types.any`
+
+**Jan 24 2016**
+
+* Initial release
+
 ## License (MIT)
 
 Copyright (C) 2016 by Leaf Corcoran
