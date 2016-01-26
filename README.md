@@ -205,6 +205,15 @@ local t = types.array_of(types.shape{
 })
 ```
 
+#### `types.map_of(key_type, value_type)`
+
+Returns a type checker that tests for a table where every key and value matches
+the respective type checkers provided as arguments.
+
+```lua
+local t = types.map_of(types.string, types.any)
+```
+
 #### `types.one_of({type1, type2, ...})`
 
 Returns a type checker that tests if the value matches one of the provided
@@ -235,6 +244,10 @@ Basic types:
 * `types.array` - checks for table of numerically increasing indexes
 * `types.integer` - checks for a number with no decimal component
 
+Additionally there's the following helper type:
+
+* `types.any` - succeeds no matter what the type
+
 ### Type methods
 
 Every type checker has the follow methods:
@@ -247,10 +260,12 @@ The error message will identify where the mismatch happened as best it can.
 
 `check_value` will abort on the first error found, and only that error message is returned.
 
+Can also be invoked by calling the type checker object, the `__call` metamethod
+is overidden to call this method.
+
 #### `type:is_optional()`
 
 Returns a new type checker that matmches the same type, or `nil`.
-
 
 ## License (MIT)
 
