@@ -3,6 +3,12 @@
 
 describe "tableshape", ->
   basic_types = {
+    {"any", valid: 1234}
+    {"any", valid: "hello"}
+    {"any", valid: ->}
+    {"any", valid: true}
+    {"any", valid: nil}
+
     {"number", valid: 1234, invalid: "hello"}
     {"function", valid: (->), invalid: {}}
     {"string", valid: "234", invalid: 777}

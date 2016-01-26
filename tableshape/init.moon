@@ -29,6 +29,10 @@ class BaseType
   __call: (...) =>
     @check_value ...
 
+class AnyType extends BaseType
+  check_value: => true
+  is_optional: => AnyType
+
 -- basic type check
 class Type extends BaseType
   new: (@t, @opts) =>
@@ -212,6 +216,7 @@ class Pattern extends BaseType
       nil, "doesn't match pattern `#{@pattern}`"
 
 types = setmetatable {
+  any: AnyType
   string: Type "string"
   number: Type "number"
   function: Type "function"
