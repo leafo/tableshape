@@ -140,7 +140,8 @@ class ArrayOf extends BaseType
         if item_fixed
           fixed = true
           copy or= [v for v in *tbl[1,(idx - 1)]]
-          table.insert copy, item_value
+          if item_value != nil
+            table.insert copy, item_value
         else
           if copy
             table.insert copy, item

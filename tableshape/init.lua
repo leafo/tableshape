@@ -360,7 +360,9 @@ do
               end
               return _accum_0
             end)()
-            table.insert(copy, item_value)
+            if item_value ~= nil then
+              table.insert(copy, item_value)
+            end
           else
             if copy then
               table.insert(copy, item)

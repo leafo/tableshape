@@ -23,6 +23,7 @@ test_examples = (t_fn, examples) ->
           assert.same true, fixed
           assert.same expected, out
         else
+          assert.true out == input
           assert.same false, fixed
 
       -- the repair didn't mutate original table
@@ -434,4 +435,42 @@ describe "tableshape", ->
       }
 
     describe "array_of repair", ->
+      local t
+      before_each ->
+        url_shape = types.pattern("^https?://")\on_repair (val) ->
+          return nil unless type(val) == "string"
+          "http://#{val}"
+
+        t = types.array_of url_shape
+
+      test_examples (-> t), {
+        -- empty array
+        { input: { } }
+
+        -- fixes all
+        {
+          input: { "one", "two" }
+          expected: { "http://one", "http://two" }
+        }
+
+        -- fixes some
+        {
+          input: { "leafo.net", "https://streak.club" }
+          expected: { "http://leafo.net", "https://streak.club" }
+        }
+
+        -- nil replacements are stripped from array
+        {
+          input: {false, false, "leafo.net", true, 234, "https://itch.io" }
+          expected: {"http://leafo.net", "https://itch.io"}
+        }
+
+        -- empties out bad array
+        -- TODO: we should keep the hash items
+        {
+          input: {1,2,3, hello: "zone"}
+          expected: {}
+        }
+      }
+
 
