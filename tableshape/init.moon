@@ -196,10 +196,16 @@ class Shape extends BaseType
 
     fixed = false
 
+    remaining_keys = unless @opts and @opts.open
+      {key, true for key in pairs tbl}
+
     local copy
 
     for shape_key, shape_val in pairs @shape
       item_value = tbl[shape_key]
+
+      if remaining_keys
+        remaining_keys[shape_key] = nil
 
       -- does the value know how to repair itself?
       if shape_val.repair and BaseType\is_base_type shape_val
@@ -217,6 +223,14 @@ class Shape extends BaseType
           fixed = true
           copy or= {k,v for k,v in pairs tbl}
           copy[shape_key] = fix_fn "field_invalid", shape_key, item_value, err, shape_val
+
+    if remaining_keys and next remaining_keys
+      fix_fn or= @opts and @opts.repair
+      copy or= {k,v for k,v in pairs tbl}
+      assert fix_fn, "missing repair function for: extra field"
+      for k in pairs remaining_keys
+        fixed = true
+        copy[k] = fix_fn "extra_field", k, copy[k]
 
     copy or tbl, fixed
 

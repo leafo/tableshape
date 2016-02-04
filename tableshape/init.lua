@@ -502,9 +502,22 @@ do
         return fix_fn("table_invalid", self.__class.type_err_message, tbl), true
       end
       local fixed = false
+      local remaining_keys
+      if not (self.opts and self.opts.open) then
+        do
+          local _tbl_0 = { }
+          for key in pairs(tbl) do
+            _tbl_0[key] = true
+          end
+          remaining_keys = _tbl_0
+        end
+      end
       local copy
       for shape_key, shape_val in pairs(self.shape) do
         local item_value = tbl[shape_key]
+        if remaining_keys then
+          remaining_keys[shape_key] = nil
+        end
         if shape_val.repair and BaseType:is_base_type(shape_val) then
           local field_value, field_fixed = shape_val:repair(item_value)
           if field_fixed then
@@ -533,6 +546,21 @@ do
             end)()
             copy[shape_key] = fix_fn("field_invalid", shape_key, item_value, err, shape_val)
           end
+        end
+      end
+      if remaining_keys and next(remaining_keys) then
+        fix_fn = fix_fn or (self.opts and self.opts.repair)
+        copy = copy or (function()
+          local _tbl_0 = { }
+          for k, v in pairs(tbl) do
+            _tbl_0[k] = v
+          end
+          return _tbl_0
+        end)()
+        assert(fix_fn, "missing repair function for: extra field")
+        for k in pairs(remaining_keys) do
+          fixed = true
+          copy[k] = fix_fn("extra_field", k, copy[k])
         end
       end
       return copy or tbl, fixed

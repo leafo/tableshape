@@ -260,7 +260,6 @@ describe "tableshape", ->
 
       assert.same { { hello: "world" }, true }, { t\repair { hello: "zone" } }
 
-
     it "repairs shape with shape's repair function when type is wrong", ->
       t = types.shape({})\on_repair (msg, err, val) ->
         assert.same msg, "table_invalid"
@@ -271,6 +270,22 @@ describe "tableshape", ->
         {cool: "yes"}
         true
       }, {t\repair "hello!"}
+
+    it "repairs shape with shape's repair function when extra fields", ->
+      t = types.shape({})\on_repair (msg, key, val) ->
+        assert.same "extra_field", msg
+        assert.same "color", key
+        assert.same "blue", val
+        nil
+
+      assert.same {
+        {}
+        true
+      }, {
+        t\repair {
+          color: "blue"
+        }
+      }
 
     it "repairs a copy of table, instead of mutating", ->
       to_repair = { hello: 888, cool: "pants" }
