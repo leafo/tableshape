@@ -5,6 +5,17 @@ do
     check_value = function(self)
       return error("override me")
     end,
+    repair = function(self, val, fix_fn)
+      local fixed = false
+      local pass, err = self:check_value(val)
+      if not (pass) then
+        fix_fn = fix_fn or (self.opts and self.opts.repair)
+        assert(fix_fn, "missing repair function for: " .. tostring(err))
+        fixed = true
+        val = fix_fn(val, err)
+      end
+      return val, fixed
+    end,
     check_optional = function(self, value)
       return value == nil and self.opts and self.opts.optional
     end,

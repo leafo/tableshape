@@ -11,6 +11,20 @@ class BaseType
   check_value: =>
     error "override me"
 
+  repair: (val, fix_fn) =>
+    fixed = false
+
+    pass, err = @check_value val
+
+    unless pass
+      fix_fn or= @opts and @opts.repair
+      assert fix_fn, "missing repair function for: #{err}"
+
+      fixed = true
+      val = fix_fn val, err
+
+    val, fixed
+
   check_optional: (value) =>
     value == nil and @opts and @opts.optional
 

@@ -208,3 +208,19 @@ describe "tableshape", ->
       }
     )
 
+  describe "repair", ->
+    it "doesn't repair basic type", ->
+      assert.same {
+        "hi", false
+      }, {
+        types.string\repair "hi", (val, err) -> tostring val
+      }
+
+    it "repairs a basic type", ->
+      assert.same {
+        "2334232", true
+      }, {
+        types.string\repair 2334232, (val, err) -> tostring val
+      }
+
+
