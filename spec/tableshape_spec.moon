@@ -250,7 +250,8 @@ describe "tableshape", ->
     it "repairs shape with shape's repair func on plain field", ->
       t = types.shape({
         hello: "world"
-      })\on_repair (key, val, err, expected_val) ->
+      })\on_repair (msg, key, val, err, expected_val) ->
+        assert.same "field_invalid", msg
         assert.same "hello", key
         assert.same "zone", val
         assert.same "world", expected_val
@@ -258,6 +259,18 @@ describe "tableshape", ->
         "world"
 
       assert.same { { hello: "world" }, true }, { t\repair { hello: "zone" } }
+
+
+    it "repairs shape with shape's repair function when type is wrong", ->
+      t = types.shape({})\on_repair (msg, err, val) ->
+        assert.same msg, "table_invalid"
+        assert.same err, "expecting table"
+        {cool: "yes"}
+
+      assert.same {
+        {cool: "yes"}
+        true
+      }, {t\repair "hello!"}
 
     it "repairs a copy of table, instead of mutating", ->
       to_repair = { hello: 888, cool: "pants" }

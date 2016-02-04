@@ -498,8 +498,8 @@ do
       end
       if not (type(tbl) == "table") then
         fix_fn = fix_fn or (self.opts and self.opts.repair)
-        assert(fix_fn, "missing repair function for: expecting table")
-        return fix_fn(nil, nil, self, tbl), true
+        assert(fix_fn, "missing repair function for: " .. tostring(self.__class.type_err_message))
+        return fix_fn("table_invalid", self.__class.type_err_message, tbl), true
       end
       local fixed = false
       local copy
@@ -531,7 +531,7 @@ do
               end
               return _tbl_0
             end)()
-            copy[shape_key] = fix_fn(shape_key, item_value, err, shape_val)
+            copy[shape_key] = fix_fn("field_invalid", shape_key, item_value, err, shape_val)
           end
         end
       end
@@ -556,7 +556,7 @@ do
         return true
       end
       if not (type(value) == "table") then
-        return nil, "expecting table"
+        return nil, self.__class.type_err_message
       end
       local remaining_keys
       if not (self.opts and self.opts.open) then
@@ -618,6 +618,8 @@ do
     end
   })
   _base_0.__class = _class_0
+  local self = _class_0
+  self.type_err_message = "expecting table"
   if _parent_0.__inherited then
     _parent_0.__inherited(_parent_0, _class_0)
   end

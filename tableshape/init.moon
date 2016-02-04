@@ -172,6 +172,8 @@ class MapOf extends BaseType
     true
 
 class Shape extends BaseType
+  @type_err_message: "expecting table"
+
   new: (@shape, @opts) =>
     assert type(@shape) == "table", "expected table for shape"
 
@@ -189,8 +191,8 @@ class Shape extends BaseType
     return tbl, false if @check_optional tbl
     unless type(tbl) == "table"
       fix_fn or= @opts and @opts.repair
-      assert fix_fn, "missing repair function for: expecting table"
-      return fix_fn(nil, nil, @, tbl), true
+      assert fix_fn, "missing repair function for: #{@@type_err_message}"
+      return fix_fn("table_invalid", @@type_err_message, tbl), true
 
     fixed = false
 
@@ -214,7 +216,7 @@ class Shape extends BaseType
           assert fix_fn, "missing repair function for: #{err}"
           fixed = true
           copy or= {k,v for k,v in pairs tbl}
-          copy[shape_key] = fix_fn shape_key, item_value, err, shape_val
+          copy[shape_key] = fix_fn "field_invalid", shape_key, item_value, err, shape_val
 
     copy or tbl, fixed
 
@@ -233,7 +235,7 @@ class Shape extends BaseType
 
   check_value: (value) =>
     return true if @check_optional value
-    return nil, "expecting table" unless type(value) == "table"
+    return nil, @@type_err_message unless type(value) == "table"
 
     remaining_keys = unless @opts and @opts.open
       {key, true for key in pairs value}
