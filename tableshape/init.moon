@@ -178,6 +178,9 @@ class Shape extends BaseType
   is_optional: =>
     Shape @shape, @clone_opts optional: true
 
+  on_repair: (repair_fn) =>
+    Shape @shape, @clone_opts repair: repair_fn
+
   -- don't allow extra fields
   is_open: =>
     Shape @shape, @clone_opts open: true
@@ -205,7 +208,7 @@ class Shape extends BaseType
           assert fix_fn, "missing repair function for: #{err}"
           fixed = true
           copy or= {k,v for k,v in pairs tbl}
-          copy[shape_key] = fix_fn shape_key, item_value, err
+          copy[shape_key] = fix_fn shape_key, item_value, err, shape_val
 
     copy or tbl, fixed
 

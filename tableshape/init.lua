@@ -482,6 +482,11 @@ do
         optional = true
       }))
     end,
+    on_repair = function(self, repair_fn)
+      return Shape(self.shape, self:clone_opts({
+        repair = repair_fn
+      }))
+    end,
     is_open = function(self)
       return Shape(self.shape, self:clone_opts({
         open = true
@@ -518,7 +523,7 @@ do
               end
               return _tbl_0
             end)()
-            copy[shape_key] = fix_fn(shape_key, item_value, err)
+            copy[shape_key] = fix_fn(shape_key, item_value, err, shape_val)
           end
         end
       end

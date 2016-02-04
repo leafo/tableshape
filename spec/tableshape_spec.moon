@@ -235,7 +235,10 @@ describe "tableshape", ->
       assert.same { nil, false }, { int_string\repair nil }
 
     it "repairs shape with repairable field", ->
-      int_string = types.pattern "^%d+$", repair: (str) => "0"
+      int_string = types.pattern "^%d+$", repair: (str, err) ->
+        assert.same "zone", str
+        assert.same "doesn't match pattern `^%d+$`", err
+        "0"
 
       t = types.shape {
         hello: int_string
@@ -243,6 +246,18 @@ describe "tableshape", ->
 
       assert.same { {hello: "0"}, true }, { t\repair { hello: "zone" } }
       assert.same { {hello: "123"}, false }, { t\repair { hello: "123" } }
+
+    it "repairs shape with shape's repair func on plain field", ->
+      t = types.shape({
+        hello: "world"
+      })\on_repair (key, val, err, expected_val) ->
+        assert.same "hello", key
+        assert.same "zone", val
+        assert.same "world", expected_val
+        assert.same "field `hello` expected `world`", err
+        "world"
+
+      assert.same { { hello: "world" }, true }, { t\repair { hello: "zone" } }
 
     it "repairs a copy of table, instead of mutating", ->
       to_repair = { hello: 888, cool: "pants" }
