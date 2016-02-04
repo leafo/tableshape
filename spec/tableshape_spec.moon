@@ -1,6 +1,34 @@
 
 {check_shape: check, :types} = require "tableshape"
 
+deep_copy = (v) ->
+  if type(v) == "table"
+    {k, deep_copy(v) for k,v in pairs v}
+  else
+    v
+
+test_examples = (t_fn, examples) ->
+  for id, {:input, :expected, :fails} in ipairs examples
+    it "repairs object #{id}", ->
+      t = t_fn!
+
+      clone = deep_copy input
+      if fails
+        assert.has_error ->
+          out, fixed = t\repair input
+      else
+        out, fixed = t\repair input
+
+        if expected
+          assert.same true, fixed
+          assert.same expected, out
+        else
+          assert.same false, fixed
+
+      -- the repair didn't mutate original table
+      assert.same clone, input
+
+
 describe "tableshape", ->
   basic_types = {
     {"any", valid: 1234}
@@ -308,14 +336,8 @@ describe "tableshape", ->
       assert.same { cool: "zone", hello: "zone" }, out
       assert.true out == to_repair
 
-    describe "full object repair", ->
+    describe "shape repair", ->
       local t
-
-      deep_copy = (v) ->
-        if type(v) == "table"
-          {k, deep_copy(v) for k,v in pairs v}
-        else
-          v
 
       before_each ->
         number = types.number\on_repair (v) ->
@@ -334,7 +356,7 @@ describe "tableshape", ->
           color2: color\is_optional!
         }
 
-      for id, {:input, :expected, :fails} in ipairs {
+      test_examples (-> t), {
         -- fixes color, provies name
         {
           input: {
@@ -408,20 +430,8 @@ describe "tableshape", ->
           }
           fails: true
         }
+
       }
-        it "repairs object #{id}", ->
-          clone = deep_copy input
-          if fails
-            assert.has_error ->
-              out, fixed = t\repair input
-          else
-            out, fixed = t\repair input
 
-            if expected
-              assert.same true, fixed
-              assert.same expected, out
-            else
-              assert.same false, fixed
+    describe "array_of repair", ->
 
-          -- the repair didn't mutate original table
-          assert.same clone, input
