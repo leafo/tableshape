@@ -482,6 +482,43 @@ do
         open = true
       }))
     end,
+    repair = function(self, tbl, fix_fn)
+      local fixed = false
+      local copy
+      for shape_key, shape_val in pairs(self.shape) do
+        local item_value = tbl[shape_key]
+        if shape_val.repair and BaseType:is_base_type(shape_val) then
+          local field_value, field_fixed = shape_val:repair(item_value)
+          if field_fixed then
+            copy = copy or (function()
+              local _tbl_0 = { }
+              for k, v in pairs(tbl) do
+                _tbl_0[k] = v
+              end
+              return _tbl_0
+            end)()
+            fixed = true
+            copy[shape_key] = field_value
+          end
+        else
+          local pass, err = self:check_field(shape_key, item_value, shape_val, tbl)
+          if not (pass) then
+            fix_fn = fix_fn or (self.opts and self.opts.repair)
+            assert(fix_fn, "missing repair function for: " .. tostring(err))
+            fixed = true
+            copy = copy or (function()
+              local _tbl_0 = { }
+              for k, v in pairs(tbl) do
+                _tbl_0[k] = v
+              end
+              return _tbl_0
+            end)()
+            copy[shape_key] = fix_fn(shape_key, item_value, err)
+          end
+        end
+      end
+      return copy or tbl, fixed
+    end,
     check_field = function(self, key, value, expected_value, tbl)
       if value == expected_value then
         return true

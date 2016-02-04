@@ -179,6 +179,33 @@ class Shape extends BaseType
   is_open: =>
     Shape @shape, @clone_opts open: true
 
+  repair: (tbl, fix_fn) =>
+    fixed = false
+
+    local copy
+
+    for shape_key, shape_val in pairs @shape
+      item_value = tbl[shape_key]
+
+      -- does the value know how to repair itself?
+      if shape_val.repair and BaseType\is_base_type shape_val
+        field_value, field_fixed = shape_val\repair item_value
+        if field_fixed
+          copy or= {k,v for k,v in pairs tbl}
+          fixed = true
+          copy[shape_key] = field_value
+      else
+        -- check the field, repair with table's repair function
+        pass, err = @check_field shape_key, item_value, shape_val, tbl
+        unless pass
+          fix_fn or= @opts and @opts.repair
+          assert fix_fn, "missing repair function for: #{err}"
+          fixed = true
+          copy or= {k,v for k,v in pairs tbl}
+          copy[shape_key] = fix_fn shape_key, item_value, err
+
+    copy or tbl, fixed
+
   check_field: (key, value, expected_value, tbl) =>
     return true if value == expected_value
 
