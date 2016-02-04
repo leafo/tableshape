@@ -280,3 +280,120 @@ describe "tableshape", ->
       assert.same { cool: "zone", hello: "zone" }, out
       assert.true out == to_repair
 
+    describe "full object repair", ->
+      local t
+
+      deep_copy = (v) ->
+        if type(v) == "table"
+          {k, deep_copy(v) for k,v in pairs v}
+        else
+          v
+
+      before_each ->
+        number = types.number\on_repair (v) ->
+          tonumber(v) or 0
+
+        color = types.shape {
+          r: number
+          g: number
+          b: number
+        }
+
+        t = types.shape {
+          name: types.string\on_repair -> "unknown"
+          id: types.number\is_optional!\on_repair -> nil
+          color: color
+          color2: color\is_optional!
+        }
+
+      for id, {:input, :expected, :fails} in ipairs {
+        -- fixes color, provies name
+        {
+          input: {
+            color: {
+              r: "cool"
+              g: "123"
+              b: 99
+            }
+          }
+
+          expected: {
+            name: "unknown"
+            color: {
+              r: 0
+              g: 123
+              b: 99
+            }
+          }
+        }
+
+        -- keeps okay id
+        {
+          input: {
+            id: 234
+            color: {}
+          }
+
+          expected: {
+            id: 234
+            name: "unknown"
+            color: {r:0, g: 0, b: 0}
+          }
+        }
+
+        -- strips bad id
+        {
+          input: {
+            name: "bum zone"
+            id: "freak"
+            color: {}
+          }
+
+          expected: {
+            name: "bum zone"
+            color: {r:0, g: 0, b: 0}
+          }
+        }
+
+
+        -- fixed bad color2
+        {
+          input: {
+            name: "leaf"
+            color: {r:1, g: 2, b: 3}
+            color2: {}
+          }
+
+          expected: {
+            name: "leaf"
+            color: {r:1, g: 2, b: 3}
+            color2: {r: 0, g: 0, b: 0}
+          }
+        }
+
+        -- fails to fix field that can't repair itself
+        {
+          input: {
+            name: "leaf"
+            color: {r:1, g: 2, b: 3}
+            color2: "hello world"
+          }
+          fails: true
+        }
+      }
+        it "repairs object #{id}", ->
+          clone = deep_copy input
+          if fails
+            assert.has_error ->
+              out, fixed = t\repair input
+          else
+            out, fixed = t\repair input
+
+            if expected
+              assert.same true, fixed
+              assert.same expected, out
+            else
+              assert.same false, fixed
+
+          -- the repair didn't mutate original table
+          assert.same clone, input

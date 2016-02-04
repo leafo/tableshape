@@ -493,6 +493,14 @@ do
       }))
     end,
     repair = function(self, tbl, fix_fn)
+      if self:check_optional(tbl) then
+        return tbl, false
+      end
+      if not (type(tbl) == "table") then
+        fix_fn = fix_fn or (self.opts and self.opts.repair)
+        assert(fix_fn, "missing repair function for: expecting table")
+        return fix_fn(nil, nil, self, tbl), true
+      end
       local fixed = false
       local copy
       for shape_key, shape_val in pairs(self.shape) do

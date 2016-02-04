@@ -186,6 +186,12 @@ class Shape extends BaseType
     Shape @shape, @clone_opts open: true
 
   repair: (tbl, fix_fn) =>
+    return tbl, false if @check_optional tbl
+    unless type(tbl) == "table"
+      fix_fn or= @opts and @opts.repair
+      assert fix_fn, "missing repair function for: expecting table"
+      return fix_fn(nil, nil, @, tbl), true
+
     fixed = false
 
     local copy
