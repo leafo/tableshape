@@ -344,6 +344,32 @@ do
       end
       local fixed = false
       local copy
+      if self.expected.repair and BaseType:is_base_type(self.expected) then
+        for idx, item in ipairs(tbl) do
+          local item_value, item_fixed = self.expected:repair(item)
+          if item_fixed then
+            fixed = true
+            copy = copy or (function()
+              local _accum_0 = { }
+              local _len_0 = 1
+              local _max_0 = (idx - 1)
+              for _index_0 = 1, _max_0 < 0 and #tbl + _max_0 or _max_0 do
+                local v = tbl[_index_0]
+                _accum_0[_len_0] = v
+                _len_0 = _len_0 + 1
+              end
+              return _accum_0
+            end)()
+            table.insert(copy, item_value)
+          else
+            if copy then
+              table.insert(copy, item)
+            end
+          end
+        end
+      else
+        error("not yet")
+      end
       return copy or tbl, fixed
     end,
     check_field = function(self, key, value, tbl)

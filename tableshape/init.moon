@@ -133,6 +133,21 @@ class ArrayOf extends BaseType
     fixed = false
     local copy
 
+    if @expected.repair and BaseType\is_base_type @expected
+      -- use the repair function built into type checker
+      for idx, item in ipairs tbl
+        item_value, item_fixed = @expected\repair item
+        if item_fixed
+          fixed = true
+          copy or= [v for v in *tbl[1,(idx - 1)]]
+          table.insert copy, item_value
+        else
+          if copy
+            table.insert copy, item
+    else
+      -- use the type checker built into array_of
+      error "not yet"
+
     copy or tbl, fixed
 
   check_field: (key, value, tbl) =>
