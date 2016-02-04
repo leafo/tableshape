@@ -223,4 +223,14 @@ describe "tableshape", ->
         types.string\repair 2334232, (val, err) -> tostring val
       }
 
+    it "repairs using repair option callback", ->
+      int_string = types.pattern "^%d+$", {
+        optional: true
+        repair: (str) =>
+          "0"
+      }
+
+      assert.same { "123", false }, { int_string\repair "123" }
+      assert.same { "0", true }, { int_string\repair "what" }
+      assert.same { nil, false }, { int_string\repair nil }
 
