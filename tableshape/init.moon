@@ -116,24 +116,45 @@ class OneOf extends BaseType
     nil, "value `#{value}` did not match one of: #{err_str}"
 
 class ArrayOf extends BaseType
+  @type_err_message: "expecting table"
+
   new: (@expected, @opts) =>
 
   is_optional: =>
     ArrayOf @expected, @clone_opts optional: true
+
+  repair: (tbl, repair_fn) =>
+    return tbl, false if @check_optional tbl
+    unless type(tbl) == "table"
+      fix_fn or= @opts and @opts.repair
+      assert fix_fn, "missing repair function for: #{@@type_err_message}"
+      return fix_fn("table_invalid", @@type_err_message, tbl), true
+
+    fixed = false
+    local copy
+
+    copy or tbl, fixed
+
+  check_field: (key, value, tbl) =>
+    return true if value == @expected
+
+    if @expected.check_value and BaseType\is_base_type @expected
+      res, err = @expected\check_value value
+      unless res
+        return nil, "item #{key} in array does not match: #{err}"
+    else
+      return nil, "item #{key} in array does not match `#{@expected}`"
+
+    true
 
   check_value: (value) =>
     return true if @check_optional value
     return nil, "expected table for array_of" unless type(value) == "table"
 
     for idx, item in ipairs value
-      continue if @expected == item
-
-      if @expected.check_value and BaseType\is_base_type @expected
-        res, err = @expected\check_value item
-        unless res
-          return nil, "item #{idx} in array does not match: #{err}"
-      else
-        return nil, "item #{idx} in array does not match `#{@expected}`"
+      pass, err = @check_field idx, item, value
+      unless pass
+        return nil, err
 
     true
 
@@ -274,6 +295,9 @@ class Pattern extends BaseType
 
   is_optional: =>
     Pattern @pattern, @clone_opts optional: true
+
+  on_repair: (repair_fn) =>
+    Pattern @pattern, @clone_opts repair: repair_fn
 
   describe: =>
     "pattern `#{@pattern}`"

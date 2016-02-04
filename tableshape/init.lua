@@ -333,6 +333,33 @@ do
         optional = true
       }))
     end,
+    repair = function(self, tbl, repair_fn)
+      if self:check_optional(tbl) then
+        return tbl, false
+      end
+      if not (type(tbl) == "table") then
+        local fix_fn = fix_fn or (self.opts and self.opts.repair)
+        assert(fix_fn, "missing repair function for: " .. tostring(self.__class.type_err_message))
+        return fix_fn("table_invalid", self.__class.type_err_message, tbl), true
+      end
+      local fixed = false
+      local copy
+      return copy or tbl, fixed
+    end,
+    check_field = function(self, key, value, tbl)
+      if value == self.expected then
+        return true
+      end
+      if self.expected.check_value and BaseType:is_base_type(self.expected) then
+        local res, err = self.expected:check_value(value)
+        if not (res) then
+          return nil, "item " .. tostring(key) .. " in array does not match: " .. tostring(err)
+        end
+      else
+        return nil, "item " .. tostring(key) .. " in array does not match `" .. tostring(self.expected) .. "`"
+      end
+      return true
+    end,
     check_value = function(self, value)
       if self:check_optional(value) then
         return true
@@ -341,24 +368,9 @@ do
         return nil, "expected table for array_of"
       end
       for idx, item in ipairs(value) do
-        local _continue_0 = false
-        repeat
-          if self.expected == item then
-            _continue_0 = true
-            break
-          end
-          if self.expected.check_value and BaseType:is_base_type(self.expected) then
-            local res, err = self.expected:check_value(item)
-            if not (res) then
-              return nil, "item " .. tostring(idx) .. " in array does not match: " .. tostring(err)
-            end
-          else
-            return nil, "item " .. tostring(idx) .. " in array does not match `" .. tostring(self.expected) .. "`"
-          end
-          _continue_0 = true
-        until true
-        if not _continue_0 then
-          break
+        local pass, err = self:check_field(idx, item, value)
+        if not (pass) then
+          return nil, err
         end
       end
       return true
@@ -392,6 +404,8 @@ do
     end
   })
   _base_0.__class = _class_0
+  local self = _class_0
+  self.type_err_message = "expecting table"
   if _parent_0.__inherited then
     _parent_0.__inherited(_parent_0, _class_0)
   end
@@ -661,6 +675,11 @@ do
     is_optional = function(self)
       return Pattern(self.pattern, self:clone_opts({
         optional = true
+      }))
+    end,
+    on_repair = function(self, repair_fn)
+      return Pattern(self.pattern, self:clone_opts({
+        repair = repair_fn
       }))
     end,
     describe = function(self)
