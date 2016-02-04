@@ -568,6 +568,9 @@ do
         optional = true
       }))
     end,
+    describe = function(self)
+      return "pattern `" .. tostring(self.pattern) .. "`"
+    end,
     check_value = function(self, value)
       if self:check_optional(value) then
         return true

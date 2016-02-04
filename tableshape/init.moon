@@ -200,6 +200,9 @@ class Pattern extends BaseType
   is_optional: =>
     Pattern @pattern, @clone_opts optional: true
 
+  describe: =>
+    "pattern `#{@pattern}`"
+
   check_value: (value) =>
     return true if @check_optional value
 
