@@ -381,6 +381,10 @@ callback associated with it for when `repair` is used.
 
 ## Changelog
 
+**Feb 04 2016** - 1.2.0
+
+* Add the repair interface
+
 **Jan 25 2016** - 1.1.0
 
 * Add `types.map_of`
