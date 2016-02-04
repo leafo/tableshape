@@ -482,6 +482,20 @@ do
         open = true
       }))
     end,
+    check_field = function(self, key, value, expected_value, tbl)
+      if value == expected_value then
+        return true
+      end
+      if expected_value.check_value and BaseType:is_base_type(expected_value) then
+        local res, err = expected_value:check_value(value)
+        if not (res) then
+          return nil, "field `" .. tostring(key) .. "`: " .. tostring(err)
+        end
+      else
+        return nil, "field `" .. tostring(key) .. "` expected `" .. tostring(expected_value) .. "`"
+      end
+      return true
+    end,
     check_value = function(self, value)
       if self:check_optional(value) then
         return true
@@ -500,28 +514,13 @@ do
         end
       end
       for shape_key, shape_val in pairs(self.shape) do
-        local _continue_0 = false
-        repeat
-          local item_value = value[shape_key]
-          if remaining_keys then
-            remaining_keys[shape_key] = nil
-          end
-          if shape_val == item_value then
-            _continue_0 = true
-            break
-          end
-          if shape_val.check_value and BaseType:is_base_type(shape_val) then
-            local res, err = shape_val:check_value(item_value)
-            if not (res) then
-              return nil, "field `" .. tostring(shape_key) .. "`: " .. tostring(err)
-            end
-          else
-            return nil, "field `" .. tostring(shape_key) .. "` expected `" .. tostring(shape_val) .. "`"
-          end
-          _continue_0 = true
-        until true
-        if not _continue_0 then
-          break
+        local item_value = value[shape_key]
+        if remaining_keys then
+          remaining_keys[shape_key] = nil
+        end
+        local pass, err = self:check_field(shape_key, item_value, shape_val, value)
+        if not (pass) then
+          return nil, err
         end
       end
       if remaining_keys then

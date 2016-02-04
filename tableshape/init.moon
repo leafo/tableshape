@@ -179,6 +179,19 @@ class Shape extends BaseType
   is_open: =>
     Shape @shape, @clone_opts open: true
 
+  check_field: (key, value, expected_value, tbl) =>
+    return true if value == expected_value
+
+    if expected_value.check_value and BaseType\is_base_type expected_value
+      res, err = expected_value\check_value value
+
+      unless res
+        return nil, "field `#{key}`: #{err}"
+    else
+      return nil, "field `#{key}` expected `#{expected_value}`"
+
+    true
+
   check_value: (value) =>
     return true if @check_optional value
     return nil, "expecting table" unless type(value) == "table"
@@ -192,15 +205,8 @@ class Shape extends BaseType
       if remaining_keys
         remaining_keys[shape_key] = nil
 
-      continue if shape_val == item_value
-
-      if shape_val.check_value and BaseType\is_base_type shape_val
-        res, err = shape_val\check_value item_value
-
-        unless res
-          return nil, "field `#{shape_key}`: #{err}"
-      else
-        return nil, "field `#{shape_key}` expected `#{shape_val}`"
+      pass, err = @check_field shape_key, item_value, shape_val, value
+      return nil, err unless pass
 
     if remaining_keys
       if extra_key = next remaining_keys
