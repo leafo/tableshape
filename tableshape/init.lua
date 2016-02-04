@@ -333,6 +333,11 @@ do
         optional = true
       }))
     end,
+    on_repair = function(self, repair_fn)
+      return ArrayOf(self.expected, self:clone_opts({
+        repair = repair_fn
+      }))
+    end,
     repair = function(self, tbl, repair_fn)
       if self:check_optional(tbl) then
         return tbl, false
@@ -370,7 +375,30 @@ do
           end
         end
       else
-        error("not yet")
+        for idx, item in ipairs(tbl) do
+          local pass, err = self:check_field(shape_key, item_value, shape_val, tbl)
+          if pass then
+            if copy then
+              table.insert(copy, item)
+            end
+          else
+            local fix_fn = fix_fn or (self.opts and self.opts.repair)
+            assert(fix_fn, "missing repair function for: " .. tostring(err))
+            fixed = true
+            copy = copy or (function()
+              local _accum_0 = { }
+              local _len_0 = 1
+              local _max_0 = (idx - 1)
+              for _index_0 = 1, _max_0 < 0 and #tbl + _max_0 or _max_0 do
+                local v = tbl[_index_0]
+                _accum_0[_len_0] = v
+                _len_0 = _len_0 + 1
+              end
+              return _accum_0
+            end)()
+            table.insert(copy, fix_fn("field_invalid", idx, item))
+          end
+        end
       end
       return copy or tbl, fixed
     end,

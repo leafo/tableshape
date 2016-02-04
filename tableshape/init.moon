@@ -123,6 +123,9 @@ class ArrayOf extends BaseType
   is_optional: =>
     ArrayOf @expected, @clone_opts optional: true
 
+  on_repair: (repair_fn) =>
+    ArrayOf @expected, @clone_opts repair: repair_fn
+
   repair: (tbl, repair_fn) =>
     return tbl, false if @check_optional tbl
     unless type(tbl) == "table"
@@ -146,8 +149,18 @@ class ArrayOf extends BaseType
           if copy
             table.insert copy, item
     else
-      -- use the type checker built into array_of
-      error "not yet"
+      for idx, item in ipairs tbl
+        pass, err = @check_field shape_key, item_value, shape_val, tbl
+        if pass
+          if copy
+            table.insert copy, item
+        else
+          fix_fn or= @opts and @opts.repair
+          assert fix_fn, "missing repair function for: #{err}"
+
+          fixed = true
+          copy or= [v for v in *tbl[1,(idx - 1)]]
+          table.insert copy, fix_fn "field_invalid", idx, item
 
     copy or tbl, fixed
 

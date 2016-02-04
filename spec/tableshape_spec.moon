@@ -435,6 +435,17 @@ describe "tableshape", ->
       }
 
     describe "array_of repair", ->
+      it "uses array_of's handler for plain types", ->
+        a = types.array_of("hello")\on_repair (msg, idx, v)->
+          assert.same "field_invalid", msg
+          return nil if idx == 2
+          "hello-#{idx}-#{v}"
+
+        assert.same {{
+          "hello-1-9"
+          "hello-3-7"
+        }, true}, { a\repair {9,8,7} }
+
       local t
       before_each ->
         url_shape = types.pattern("^https?://")\on_repair (val) ->
