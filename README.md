@@ -3,9 +3,9 @@
 
 [![Build Status](https://travis-ci.org/leafo/tableshape.svg?branch=master)](https://travis-ci.org/leafo/tableshape)
 
-A Lua library for verifying the shape (schema, structure, etc.) of a table.
-It's inspired by the [PropTypes module of
-React](https://facebook.github.io/react/docs/reusable-components.html#prop-validation).
+A Lua library for verifying the shape (schema, structure, etc.) of a table, and
+repairing it if necessary. The type checking syntax is inspired by the [PropTypes
+module of React](https://facebook.github.io/react/docs/reusable-components.html#prop-validation).
 
 ### Usage
 
@@ -48,17 +48,19 @@ assert(player_shape:check_value(player))
 -- error: field `position`: field `x`: got type `string`, expected `number`
 ```
 
-Table shape can also be used to repair your values into things that match the
-shape:
+#### Repairing
+
+A malformed table can be repaired by providing the repair callbacks where appropriate:
 
 
 ```lua
 local types = require("tableshape").types
 
 -- a type checker that will repair invalid number
-local number = types.number\on_repair(function(val)
+local number = types.number:on_repair(function(val)
   return tonumber(val) or 0
 end)
+
 
 -- a compound type checker that can repair multiple fields
 local player_shape = types.shape({
@@ -73,12 +75,12 @@ local player_shape = types.shape({
 
 local bad_player = {
   position = {
-    x = "234"
-    y = "invalid"
+    x = "234",
+    y = false
   }
 }
 
-local fixed_player, did_repair = player_shape\repair(bad_player)
+local fixed_player, did_repair = player_shape:repair(bad_player)
 
 -- did_repair --> true
 -- fixed_player --> {
@@ -213,6 +215,47 @@ assert(no_spaces:check_value("hello!"))
 
 -- error: doesn't match pattern `^[^%s]*$`
 assert(no_spaces:check_value("oh no!"))
+```
+
+### Repairing
+
+Every type checking object can optionally have a repair callback associated
+with it. When using the `repair` method on a type checker, the repair callback
+is used to fix the value.
+
+For example, we can take pattern type checker for URLs that fixes the input:
+
+```lua
+local url_shape = types.pattern("^https?://"):on_repair(function(val)
+  return "http://" .. val
+end)
+```
+
+Any values that match the type checker are returned unchanged when repaired. If
+the type checker is not matched then the repair callback is used to fix the
+value.
+
+```lua
+url_shape:repair("https://itch.io") --> https://itch.io
+url_shape:repair("leafo.net") --> http://leafo.net
+```
+
+The `repair` has a second return value: it's `true` if the value was repaired,
+false otherwise.
+
+Just like the type checkers can be nested and composed, the repair-aware type
+checkers can be too. Here we use our `url_shape` type checker combined with
+`array_of` to repair an array of URLs.
+
+
+```lua
+local urls_array = types.array_of(url_shape)
+
+local fixed_urls = urls_array:repair({
+  "https://itch.io",
+  "leafo.net",
+  "www.streak.club",
+})
 ```
 
 ## Reference
