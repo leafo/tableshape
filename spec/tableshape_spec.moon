@@ -234,3 +234,34 @@ describe "tableshape", ->
       assert.same { "0", true }, { int_string\repair "what" }
       assert.same { nil, false }, { int_string\repair nil }
 
+    it "repairs shape with repairable field", ->
+      int_string = types.pattern "^%d+$", repair: (str) => "0"
+
+      t = types.shape {
+        hello: int_string
+      }
+
+      assert.same { {hello: "0"}, true }, { t\repair { hello: "zone" } }
+      assert.same { {hello: "123"}, false }, { t\repair { hello: "123" } }
+
+    it "repairs a copy of table, instead of mutating", ->
+      to_repair = { hello: 888, cool: "pants" }
+      copy = {k,v for k,v in pairs to_repair}
+
+      t = types.shape {
+        hello: types.string\on_repair => "butt"
+        cool: types.string
+      }
+
+      out, changed = t\repair to_repair
+      assert.same { cool: "pants", hello: "butt" }, out
+      assert.same true, changed
+
+      assert.false to_repair == out
+
+      to_repair = {hello: "zone", cool: "zone"}
+      out, changed = t\repair to_repair
+      assert.false changed
+      assert.same { cool: "zone", hello: "zone" }, out
+      assert.true out == to_repair
+

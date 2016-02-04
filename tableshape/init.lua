@@ -128,6 +128,11 @@ do
         optional = true
       }))
     end,
+    on_repair = function(self, repair_fn)
+      return Type(self.t, self:clone_opts({
+        repair = repair_fn
+      }))
+    end,
     check_value = function(self, value)
       if self:check_optional(value) then
         return true

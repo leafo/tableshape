@@ -54,6 +54,9 @@ class Type extends BaseType
   is_optional: =>
     Type @t, @clone_opts optional: true
 
+  on_repair: (repair_fn) =>
+    Type @t, @clone_opts repair: repair_fn
+
   check_value: (value) =>
     return true if @check_optional value
 
