@@ -74,6 +74,9 @@ class ArrayType extends BaseType
   is_optional: =>
     ArrayType @clone_opts optional: true
 
+  on_repair: (repair_fn) =>
+    ArrayType @clone_opts repair: repair_fn
+
   check_value: (value) =>
     return true if @check_optional value
     return nil, "expecting table" unless type(value) == "table"
@@ -96,6 +99,9 @@ class OneOf extends BaseType
 
   is_optional: =>
     OneOf @items, @clone_opts optional: true
+
+  on_repair: (repair_fn) =>
+    OneOf @items, @clone_opts repair: repair_fn
 
   check_value: (value) =>
     return true if @check_optional value
@@ -188,10 +194,15 @@ class ArrayOf extends BaseType
     true
 
 class MapOf extends BaseType
+  -- TODO: this needs its own repair implementation
+
   new: (@expected_key, @expected_value, @opts) =>
 
   is_optional: =>
     MapOf @expected_key, @expected_value, @clone_opts optional: true
+
+  on_repair: (repair_fn) =>
+    MapOf @expected_key, @expected_value, @clone_opts repair: repair_fn
 
   check_value: (value) =>
     return true if @check_optional value

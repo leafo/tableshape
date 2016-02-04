@@ -190,6 +190,11 @@ do
         optional = true
       }))
     end,
+    on_repair = function(self, repair_fn)
+      return ArrayType(self:clone_opts({
+        repair = repair_fn
+      }))
+    end,
     check_value = function(self, value)
       if self:check_optional(value) then
         return true
@@ -251,6 +256,11 @@ do
     is_optional = function(self)
       return OneOf(self.items, self:clone_opts({
         optional = true
+      }))
+    end,
+    on_repair = function(self, repair_fn)
+      return OneOf(self.items, self:clone_opts({
+        repair = repair_fn
       }))
     end,
     check_value = function(self, value)
@@ -475,6 +485,11 @@ do
     is_optional = function(self)
       return MapOf(self.expected_key, self.expected_value, self:clone_opts({
         optional = true
+      }))
+    end,
+    on_repair = function(self, repair_fn)
+      return MapOf(self.expected_key, self.expected_value, self:clone_opts({
+        repair = repair_fn
       }))
     end,
     check_value = function(self, value)
