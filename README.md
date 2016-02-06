@@ -317,6 +317,14 @@ local t = types.shape{
 }
 ```
 
+##### Repair callback
+
+The first argument of the repair callback is a type string which indicates what
+
+* `table_invalid` - Receives `error_message`, `original_value`. The type of the value is not a table, the return value of the callback replaces the value. No further checking is done.
+* `field_invalid` - Receives `field_key`, `field_value`, `error_message`, `expected_type`. The return value is used to replace the field in the table. Return `nil` to remove the field.
+* `extra_field` - Receives `field_key`, `field_value`. The return value is used to replace the field in the table. Return `nil` to remove the field.
+
 #### `types.array_of(item_type)`
 
 Returns a type checker that tests if the value is an array where each item
