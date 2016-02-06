@@ -365,6 +365,7 @@ types = setmetatable {
   func: Type "function"
   boolean: Type "boolean"
   userdata: Type "userdata"
+  nil: Type "nil"
   table: Type "table"
   array: ArrayType!
 
