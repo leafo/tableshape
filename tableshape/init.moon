@@ -304,7 +304,7 @@ class Shape extends BaseType
       unless res
         return nil, "field `#{key}`: #{err}"
     else
-      return nil, "field `#{key}` expected `#{expected_value}`"
+      return nil, "field `#{key}` expected `#{expected_value}`, got `#{value}`"
 
     true
 

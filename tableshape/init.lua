@@ -660,7 +660,7 @@ do
           return nil, "field `" .. tostring(key) .. "`: " .. tostring(err)
         end
       else
-        return nil, "field `" .. tostring(key) .. "` expected `" .. tostring(expected_value) .. "`"
+        return nil, "field `" .. tostring(key) .. "` expected `" .. tostring(expected_value) .. "`, got `" .. tostring(value) .. "`"
       end
       return true
     end,
