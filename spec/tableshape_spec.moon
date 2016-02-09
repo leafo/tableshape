@@ -284,7 +284,7 @@ describe "tableshape", ->
         assert.same "hello", key
         assert.same "zone", val
         assert.same "world", expected_val
-        assert.same "field `hello` expected `world`", err
+        assert.same "field `hello` expected `world`, got `zone`", err
         "world"
 
       assert.same { { hello: "world" }, true }, { t\repair { hello: "zone" } }
