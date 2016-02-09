@@ -144,7 +144,7 @@ class ArrayOf extends BaseType
     fixed = false
     local copy
 
-    if @expected.repair and BaseType\is_base_type @expected
+    if BaseType\is_base_type(@expected) and @expected.repair
       -- use the repair function built into type checker
       for idx, item in ipairs tbl
         item_value, item_fixed = @expected\repair item
@@ -175,7 +175,7 @@ class ArrayOf extends BaseType
   check_field: (key, value, tbl) =>
     return true if value == @expected
 
-    if @expected.check_value and BaseType\is_base_type @expected
+    if BaseType\is_base_type(@expected) and @expected.check_value
       res, err = @expected\check_value value
       unless res
         return nil, "item #{key} in array does not match: #{err}"
@@ -271,7 +271,7 @@ class Shape extends BaseType
         remaining_keys[shape_key] = nil
 
       -- does the value know how to repair itself?
-      if shape_val.repair and BaseType\is_base_type shape_val
+      if BaseType\is_base_type(shape_val) and shape_val.repair
         field_value, field_fixed = shape_val\repair item_value
         if field_fixed
           copy or= {k,v for k,v in pairs tbl}

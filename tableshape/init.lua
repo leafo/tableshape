@@ -362,7 +362,7 @@ do
       end
       local fixed = false
       local copy
-      if self.expected.repair and BaseType:is_base_type(self.expected) then
+      if BaseType:is_base_type(self.expected) and self.expected.repair then
         for idx, item in ipairs(tbl) do
           local item_value, item_fixed = self.expected:repair(item)
           if item_fixed then
@@ -419,7 +419,7 @@ do
       if value == self.expected then
         return true
       end
-      if self.expected.check_value and BaseType:is_base_type(self.expected) then
+      if BaseType:is_base_type(self.expected) and self.expected.check_value then
         local res, err = self.expected:check_value(value)
         if not (res) then
           return nil, "item " .. tostring(key) .. " in array does not match: " .. tostring(err)
@@ -606,7 +606,7 @@ do
         if remaining_keys then
           remaining_keys[shape_key] = nil
         end
-        if shape_val.repair and BaseType:is_base_type(shape_val) then
+        if BaseType:is_base_type(shape_val) and shape_val.repair then
           local field_value, field_fixed = shape_val:repair(item_value)
           if field_fixed then
             copy = copy or (function()

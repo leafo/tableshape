@@ -290,6 +290,13 @@ describe "tableshape", ->
       }
     )
 
+    twothreefours = types.array_of 234
+
+    assert.same {true}, {twothreefours {}}
+    assert.same {true}, {twothreefours {234}}
+    assert.same {true}, {twothreefours {234, 234}}
+    assert.same nil, (twothreefours {"uh"})
+
   describe "repair", ->
     it "doesn't repair basic type", ->
       assert.same {
