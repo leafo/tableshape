@@ -1,5 +1,7 @@
 class BaseType
   @is_base_type: (val) =>
+    return false unless type(val) == "table"
+
     cls = val and val.__class
     return false unless cls
     return true if BaseType == cls
@@ -298,7 +300,7 @@ class Shape extends BaseType
   check_field: (key, value, expected_value, tbl) =>
     return true if value == expected_value
 
-    if expected_value.check_value and BaseType\is_base_type expected_value
+    if BaseType\is_base_type(expected_value) and expected_value.check_value
       res, err = expected_value\check_value value
 
       unless res

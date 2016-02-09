@@ -157,6 +157,52 @@ describe "tableshape", ->
       }
     )
 
+  it "tests shape with literals", ->
+    check = types.shape {
+      color: "green"
+      weight: 123
+      ready: true
+    }
+
+    assert.same nil, (
+      check {
+        color: "greenz"
+        weight: 123
+        ready: true
+      }
+    )
+
+    assert.same nil, (
+      check {
+        color: "greenz"
+        weight: 125
+        ready: true
+      }
+    )
+
+    assert.same nil, (
+      check {
+        color: "greenz"
+        weight: 125
+        ready: false
+      }
+    )
+
+    assert.same nil, (
+      check {
+        free: true
+      }
+    )
+
+    assert.same true, (
+      check {
+        color: "green"
+        weight: 123
+        ready: true
+      }
+    )
+
+
   it "tests pattern", ->
     t = types.pattern "^hello"
 

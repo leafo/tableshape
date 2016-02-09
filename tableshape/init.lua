@@ -59,6 +59,9 @@ do
   _base_0.__class = _class_0
   local self = _class_0
   self.is_base_type = function(self, val)
+    if not (type(val) == "table") then
+      return false
+    end
     local cls = val and val.__class
     if not (cls) then
       return false
@@ -654,7 +657,7 @@ do
       if value == expected_value then
         return true
       end
-      if expected_value.check_value and BaseType:is_base_type(expected_value) then
+      if BaseType:is_base_type(expected_value) and expected_value.check_value then
         local res, err = expected_value:check_value(value)
         if not (res) then
           return nil, "field `" .. tostring(key) .. "`: " .. tostring(err)
