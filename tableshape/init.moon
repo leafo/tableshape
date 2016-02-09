@@ -111,7 +111,7 @@ class OneOf extends BaseType
     for item in *@items
       return true if item == value
 
-      if item.check_value and BaseType\is_base_type item
+      if BaseType\is_base_type(item) and item.check_value
         return true if item\check_value value
 
     err_strs = for i in *@items

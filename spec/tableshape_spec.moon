@@ -106,6 +106,13 @@ describe "tableshape", ->
     assert.same true, (misc "g")
     assert.same nil, (misc nil)
 
+    more = types.one_of {true, 123}
+    assert.same nil, (more "c")
+    assert.same nil, (more false)
+    assert.same nil, (more 124)
+    assert.same true, (more 123)
+    assert.same true, (more true)
+
   it "tests shape", ->
     check = types.shape { color: "red" }
     assert.same nil, (check color: "blue")

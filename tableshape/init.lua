@@ -276,7 +276,7 @@ do
         if item == value then
           return true
         end
-        if item.check_value and BaseType:is_base_type(item) then
+        if BaseType:is_base_type(item) and item.check_value then
           if item:check_value(value) then
             return true
           end
