@@ -851,5 +851,5 @@ return {
   check_shape = check_shape,
   types = types,
   BaseType = BaseType,
-  VERSION = "1.2.0"
+  VERSION = "1.2.1"
 }
