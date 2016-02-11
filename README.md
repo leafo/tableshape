@@ -372,6 +372,7 @@ Basic types:
 * `types.boolean` - checks for `type(val) == "boolean"`
 * `types.userdata` - checks for `type(val) == "userdata"`
 * `types.table` - checks for `type(val) == "table"`
+* `types.nil` - checks for `type(val) == "nil"`
 * `types.array` - checks for table of numerically increasing indexes
 * `types.integer` - checks for a number with no decimal component
 
@@ -426,6 +427,12 @@ Returns a new type checker that matches the same type, but also has a repair
 callback associated with it for when `repair` is used.
 
 ## Changelog
+
+**Feb 10 2016** - 1.2.1
+
+* Fix bug where literal fields with no dot operator could not be checked
+* Better failure message when field doesn't match literal value
+* Add `types.nil`
 
 **Feb 04 2016** - 1.2.0
 
