@@ -332,6 +332,39 @@ class Shape extends BaseType
 
     true
 
+class Mixed extends Shape
+  check_value: (value) =>
+    return true if @check_optional value
+    return nil, @@type_err_message unless type(value) == "table"
+
+    remaining_keys = unless @opts and @opts.open
+      {key, true for key in pairs value}
+
+    for shape_key, shape_val in pairs @shape
+      if type(shape_key) == "number" and not @shape[shape_key+1]
+        for shape_key=shape_key, #value
+          item_value = value[shape_key]
+
+          if remaining_keys
+            remaining_keys[shape_key] = nil
+
+          pass, err = @check_field shape_key, item_value, shape_val, value
+          return nil, err unless pass
+      else
+        item_value = value[shape_key]
+
+        if remaining_keys
+          remaining_keys[shape_key] = nil
+
+        pass, err = @check_field shape_key, item_value, shape_val, value
+        return nil, err unless pass
+
+    if remaining_keys
+      if extra_key = next remaining_keys
+        return nil, "has extra field: `#{extra_key}`"
+
+    true
+
 class Pattern extends BaseType
   new: (@pattern, @opts) =>
 
@@ -377,6 +410,7 @@ types = setmetatable {
   -- type constructors
   one_of: OneOf
   shape: Shape
+  mixed: Mixed
   pattern: Pattern
   array_of: ArrayOf
   map_of: MapOf
