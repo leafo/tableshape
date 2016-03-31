@@ -351,12 +351,12 @@ do
         repair = repair_fn
       }))
     end,
-    repair = function(self, tbl, repair_fn)
+    repair = function(self, tbl, fix_fn)
       if self:check_optional(tbl) then
         return tbl, false
       end
       if not (type(tbl) == "table") then
-        local fix_fn = fix_fn or (self.opts and self.opts.repair)
+        fix_fn = fix_fn or (self.opts and self.opts.repair)
         assert(fix_fn, "missing repair function for: " .. tostring(self.__class.type_err_message))
         return fix_fn("table_invalid", self.__class.type_err_message, tbl), true
       end
@@ -395,7 +395,7 @@ do
               table.insert(copy, item)
             end
           else
-            local fix_fn = fix_fn or (self.opts and self.opts.repair)
+            fix_fn = fix_fn or (self.opts and self.opts.repair)
             assert(fix_fn, "missing repair function for: " .. tostring(err))
             fixed = true
             copy = copy or (function()

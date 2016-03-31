@@ -134,7 +134,7 @@ class ArrayOf extends BaseType
   on_repair: (repair_fn) =>
     ArrayOf @expected, @clone_opts repair: repair_fn
 
-  repair: (tbl, repair_fn) =>
+  repair: (tbl, fix_fn) =>
     return tbl, false if @check_optional tbl
     unless type(tbl) == "table"
       fix_fn or= @opts and @opts.repair
