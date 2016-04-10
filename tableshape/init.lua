@@ -847,9 +847,14 @@ check_shape = function(value, shape)
   assert(shape.check_value, "missing check_value method from shape")
   return shape:check_value(value)
 end
+local is_type
+is_type = function(val)
+  return BaseType:is_base_type(val)
+end
 return {
   check_shape = check_shape,
   types = types,
+  is_type = is_type,
   BaseType = BaseType,
   VERSION = "1.2.1"
 }

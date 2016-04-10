@@ -30,6 +30,19 @@ test_examples = (t_fn, examples) ->
       assert.same clone, input
 
 
+describe "tableshape.is_type", ->
+  it "detects type", ->
+    import is_type, types from require "tableshape"
+    assert.falsy is_type!
+    assert.falsy is_type "hello"
+    assert.falsy is_type {}
+    assert.falsy is_type ->
+
+    assert.truthy is_type types.string
+    assert.truthy is_type types.shape {}
+    assert.truthy is_type types.array_of { types.string}
+
+
 describe "tableshape", ->
   basic_types = {
     {"any", valid: 1234}
