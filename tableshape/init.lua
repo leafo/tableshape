@@ -645,7 +645,19 @@ do
           end
           return _tbl_0
         end)()
-        assert(fix_fn, "missing repair function for: extra field")
+        if not (fix_fn) then
+          local keys
+          do
+            local _accum_0 = { }
+            local _len_0 = 1
+            for key in pairs(remaining_keys) do
+              _accum_0[_len_0] = tostring(key)
+              _len_0 = _len_0 + 1
+            end
+            keys = _accum_0
+          end
+          error("missing repair function for: extra field (" .. tostring(table.concat(keys, ", ")) .. ")")
+        end
         for k in pairs(remaining_keys) do
           fixed = true
           copy[k] = fix_fn("extra_field", k, copy[k])

@@ -290,7 +290,11 @@ class Shape extends BaseType
     if remaining_keys and next remaining_keys
       fix_fn or= @opts and @opts.repair
       copy or= {k,v for k,v in pairs tbl}
-      assert fix_fn, "missing repair function for: extra field"
+
+      unless fix_fn
+        keys = [tostring key for key in pairs remaining_keys]
+        error "missing repair function for: extra fields (#{table.concat keys, ", "})"
+
       for k in pairs remaining_keys
         fixed = true
         copy[k] = fix_fn "extra_field", k, copy[k]
