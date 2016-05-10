@@ -235,9 +235,9 @@ If a repair is not required, the same exact value is returned. If a repair is
 required, the callback is used to create a new repaired object that is
 returned.
 
-> If you pass a mutable object, like a table, then on repair a brand new table
-> will be returned. The original object will not be mutated. If a repair is not
-> necessary then that same table is returned.
+> If you pass a mutable object, like a table, then any repairs will be done on
+> a copy of the table. The original object will not be mutated. If a repair is
+> not necessary then the same object is returned.
 
 ```lua
 url_shape:repair("https://itch.io") --> https://itch.io
