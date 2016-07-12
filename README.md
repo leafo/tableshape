@@ -412,7 +412,7 @@ then a Lua error is thrown.
 
 #### `type:is_optional()`
 
-Returns a new type checker that matmches the same type, or `nil`.
+Returns a new type checker that matches the same type, or `nil`.
 
 #### `shape_type:is_open()`
 
