@@ -1,3 +1,4 @@
+local OptionalType
 local BaseType
 do
   local _class_0
@@ -16,8 +17,8 @@ do
       end
       return val, fixed
     end,
-    check_optional = function(self, value)
-      return value == nil and self.opts and self.opts.optional
+    is_optional = function(self)
+      return OptionalType(self)
     end,
     clone_opts = function(self, merge)
       local opts
@@ -73,8 +74,92 @@ do
   end
   self.__inherited = function(self, cls)
     cls.__base.__call = cls.__call
+    local mt = getmetatable(cls)
+    local create = mt.__call
+    mt.__call = function(cls, ...)
+      local ret = create(cls, ...)
+      if ret.opts and ret.opts.optional then
+        return ret:is_optional()
+      else
+        return ret
+      end
+    end
   end
   BaseType = _class_0
+end
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    check_value = function(self, value)
+      if value == nil then
+        return true
+      end
+      return self.base_type:check_value(value)
+    end,
+    is_optional = function(self)
+      return self
+    end,
+    on_repair = function(self, repair_fn)
+      return OptionalType(self.base_type, self:clone_opts({
+        repair = repair_fn
+      }))
+    end,
+    repair = function(self, value, fix_fn)
+      fix_fn = fix_fn or (self.opts and self.opts.repair)
+      fix_fn = fix_fn or (function()
+        local _base_1 = self.base_type
+        local _fn_0 = _base_1.repair
+        return function(...)
+          return _fn_0(_base_1, ...)
+        end
+      end)()
+      return _class_0.__parent.__base.repair(self, value, fix_fn)
+    end,
+    describe = function(self)
+      if self.base_type.describe then
+        local base_description = self.base_type:describe()
+        return "optional " .. tostring(base_description)
+      end
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, base_type, opts)
+      self.base_type, self.opts = base_type, opts
+      assert(BaseType:is_base_type(base_type) and base_type.check_value, "expected a type checker")
+      if (self.base_type.opts or { }).repair and not (self.opts or { }).repair then
+        self.opts = self.opts or { }
+        self.opts.repair = self.base_type.opts.repair
+      end
+    end,
+    __base = _base_0,
+    __name = "OptionalType",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  OptionalType = _class_0
 end
 local AnyType
 do
@@ -126,20 +211,12 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    is_optional = function(self)
-      return Type(self.t, self:clone_opts({
-        optional = true
-      }))
-    end,
     on_repair = function(self, repair_fn)
       return Type(self.t, self:clone_opts({
         repair = repair_fn
       }))
     end,
     check_value = function(self, value)
-      if self:check_optional(value) then
-        return true
-      end
       local got = type(value)
       if self.t ~= got then
         return nil, "got type `" .. tostring(got) .. "`, expected `" .. tostring(self.t) .. "`"
@@ -188,20 +265,12 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    is_optional = function(self)
-      return ArrayType(self:clone_opts({
-        optional = true
-      }))
-    end,
     on_repair = function(self, repair_fn)
       return ArrayType(self:clone_opts({
         repair = repair_fn
       }))
     end,
     check_value = function(self, value)
-      if self:check_optional(value) then
-        return true
-      end
       if not (type(value) == "table") then
         return nil, "expecting table"
       end
@@ -256,20 +325,12 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    is_optional = function(self)
-      return OneOf(self.items, self:clone_opts({
-        optional = true
-      }))
-    end,
     on_repair = function(self, repair_fn)
       return OneOf(self.items, self:clone_opts({
         repair = repair_fn
       }))
     end,
     check_value = function(self, value)
-      if self:check_optional(value) then
-        return true
-      end
       local _list_0 = self.items
       for _index_0 = 1, #_list_0 do
         local item = _list_0[_index_0]
@@ -341,20 +402,12 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    is_optional = function(self)
-      return ArrayOf(self.expected, self:clone_opts({
-        optional = true
-      }))
-    end,
     on_repair = function(self, repair_fn)
       return ArrayOf(self.expected, self:clone_opts({
         repair = repair_fn
       }))
     end,
     repair = function(self, tbl, fix_fn)
-      if self:check_optional(tbl) then
-        return tbl, false
-      end
       if not (type(tbl) == "table") then
         fix_fn = fix_fn or (self.opts and self.opts.repair)
         assert(fix_fn, "missing repair function for: " .. tostring(self.__class.type_err_message))
@@ -430,9 +483,6 @@ do
       return true
     end,
     check_value = function(self, value)
-      if self:check_optional(value) then
-        return true
-      end
       if not (type(value) == "table") then
         return nil, "expected table for array_of"
       end
@@ -485,20 +535,12 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    is_optional = function(self)
-      return MapOf(self.expected_key, self.expected_value, self:clone_opts({
-        optional = true
-      }))
-    end,
     on_repair = function(self, repair_fn)
       return MapOf(self.expected_key, self.expected_value, self:clone_opts({
         repair = repair_fn
       }))
     end,
     check_value = function(self, value)
-      if self:check_optional(value) then
-        return true
-      end
       if not (type(value) == "table") then
         return nil, "expected table for map_of"
       end
@@ -565,11 +607,6 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    is_optional = function(self)
-      return Shape(self.shape, self:clone_opts({
-        optional = true
-      }))
-    end,
     on_repair = function(self, repair_fn)
       return Shape(self.shape, self:clone_opts({
         repair = repair_fn
@@ -581,9 +618,6 @@ do
       }))
     end,
     repair = function(self, tbl, fix_fn)
-      if self:check_optional(tbl) then
-        return tbl, false
-      end
       if not (type(tbl) == "table") then
         fix_fn = fix_fn or (self.opts and self.opts.repair)
         assert(fix_fn, "missing repair function for: " .. tostring(self.__class.type_err_message))
@@ -680,9 +714,6 @@ do
       return true
     end,
     check_value = function(self, value)
-      if self:check_optional(value) then
-        return true
-      end
       if not (type(value) == "table") then
         return nil, self.__class.type_err_message
       end
@@ -758,11 +789,6 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    is_optional = function(self)
-      return Pattern(self.pattern, self:clone_opts({
-        optional = true
-      }))
-    end,
     on_repair = function(self, repair_fn)
       return Pattern(self.pattern, self:clone_opts({
         repair = repair_fn
@@ -772,9 +798,6 @@ do
       return "pattern `" .. tostring(self.pattern) .. "`"
     end,
     check_value = function(self, value)
-      if self:check_optional(value) then
-        return true
-      end
       do
         local initial = self.opts and self.opts.initial_type
         if initial then

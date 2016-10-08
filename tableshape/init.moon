@@ -1,3 +1,5 @@
+local OptionalType
+
 class BaseType
   @is_base_type: (val) =>
     return false unless type(val) == "table"
@@ -9,6 +11,15 @@ class BaseType
 
   @__inherited: (cls) =>
     cls.__base.__call = cls.__call
+
+    mt = getmetatable cls
+    create = mt.__call
+    mt.__call = (cls, ...) ->
+      ret = create cls, ...
+      if ret.opts and ret.opts.optional
+        ret\is_optional!
+      else
+        ret
 
   check_value: =>
     error "override me"
@@ -27,8 +38,8 @@ class BaseType
 
     val, fixed
 
-  check_optional: (value) =>
-    value == nil and @opts and @opts.optional
+  is_optional: =>
+    OptionalType @
 
   clone_opts: (merge) =>
     opts = if @opts
@@ -45,6 +56,32 @@ class BaseType
   __call: (...) =>
     @check_value ...
 
+class OptionalType extends BaseType
+  new: (@base_type, @opts) =>
+    assert BaseType\is_base_type(base_type) and base_type.check_value, "expected a type checker"
+    if (@base_type.opts or {}).repair and not (@opts or {}).repair
+      @opts or= {}
+      @opts.repair = @base_type.opts.repair
+
+  check_value: (value) =>
+    return true if value == nil
+    @base_type\check_value value
+
+  is_optional: => @
+
+  on_repair: (repair_fn) =>
+    OptionalType @base_type, @clone_opts repair: repair_fn
+
+  repair: (value, fix_fn) =>
+    fix_fn or= @opts and @opts.repair
+    fix_fn or= @base_type\repair
+    super value, fix_fn
+
+  describe: =>
+    if @base_type.describe
+      base_description = @base_type\describe!
+      "optional #{base_description}"
+
 class AnyType extends BaseType
   check_value: => true
   is_optional: => AnyType
@@ -53,15 +90,10 @@ class AnyType extends BaseType
 class Type extends BaseType
   new: (@t, @opts) =>
 
-  is_optional: =>
-    Type @t, @clone_opts optional: true
-
   on_repair: (repair_fn) =>
     Type @t, @clone_opts repair: repair_fn
 
   check_value: (value) =>
-    return true if @check_optional value
-
     got = type(value)
     if @t != got
       return nil, "got type `#{got}`, expected `#{@t}`"
@@ -73,14 +105,10 @@ class Type extends BaseType
 class ArrayType extends BaseType
   new: (@opts) =>
 
-  is_optional: =>
-    ArrayType @clone_opts optional: true
-
   on_repair: (repair_fn) =>
     ArrayType @clone_opts repair: repair_fn
 
   check_value: (value) =>
-    return true if @check_optional value
     return nil, "expecting table" unless type(value) == "table"
 
     k = 1
@@ -99,15 +127,10 @@ class OneOf extends BaseType
   new: (@items, @opts) =>
     assert type(@items) == "table", "expected table for items in one_of"
 
-  is_optional: =>
-    OneOf @items, @clone_opts optional: true
-
   on_repair: (repair_fn) =>
     OneOf @items, @clone_opts repair: repair_fn
 
   check_value: (value) =>
-    return true if @check_optional value
-
     for item in *@items
       return true if item == value
 
@@ -128,14 +151,10 @@ class ArrayOf extends BaseType
 
   new: (@expected, @opts) =>
 
-  is_optional: =>
-    ArrayOf @expected, @clone_opts optional: true
-
   on_repair: (repair_fn) =>
     ArrayOf @expected, @clone_opts repair: repair_fn
 
   repair: (tbl, fix_fn) =>
-    return tbl, false if @check_optional tbl
     unless type(tbl) == "table"
       fix_fn or= @opts and @opts.repair
       assert fix_fn, "missing repair function for: #{@@type_err_message}"
@@ -185,7 +204,6 @@ class ArrayOf extends BaseType
     true
 
   check_value: (value) =>
-    return true if @check_optional value
     return nil, "expected table for array_of" unless type(value) == "table"
 
     for idx, item in ipairs value
@@ -200,14 +218,10 @@ class MapOf extends BaseType
 
   new: (@expected_key, @expected_value, @opts) =>
 
-  is_optional: =>
-    MapOf @expected_key, @expected_value, @clone_opts optional: true
-
   on_repair: (repair_fn) =>
     MapOf @expected_key, @expected_value, @clone_opts repair: repair_fn
 
   check_value: (value) =>
-    return true if @check_optional value
     return nil, "expected table for map_of" unless type(value) == "table"
 
     for k,v in pairs value
@@ -240,9 +254,6 @@ class Shape extends BaseType
   new: (@shape, @opts) =>
     assert type(@shape) == "table", "expected table for shape"
 
-  is_optional: =>
-    Shape @shape, @clone_opts optional: true
-
   on_repair: (repair_fn) =>
     Shape @shape, @clone_opts repair: repair_fn
 
@@ -251,7 +262,6 @@ class Shape extends BaseType
     Shape @shape, @clone_opts open: true
 
   repair: (tbl, fix_fn) =>
-    return tbl, false if @check_optional tbl
     unless type(tbl) == "table"
       fix_fn or= @opts and @opts.repair
       assert fix_fn, "missing repair function for: #{@@type_err_message}"
@@ -315,7 +325,6 @@ class Shape extends BaseType
     true
 
   check_value: (value) =>
-    return true if @check_optional value
     return nil, @@type_err_message unless type(value) == "table"
 
     remaining_keys = unless @opts and @opts.open
@@ -339,9 +348,6 @@ class Shape extends BaseType
 class Pattern extends BaseType
   new: (@pattern, @opts) =>
 
-  is_optional: =>
-    Pattern @pattern, @clone_opts optional: true
-
   on_repair: (repair_fn) =>
     Pattern @pattern, @clone_opts repair: repair_fn
 
@@ -349,8 +355,6 @@ class Pattern extends BaseType
     "pattern `#{@pattern}`"
 
   check_value: (value) =>
-    return true if @check_optional value
-
     if initial = @opts and @opts.initial_type
       return nil, "expected `#{initial}`" unless type(value) == initial
 
