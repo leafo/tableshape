@@ -126,6 +126,40 @@ describe "tableshape", ->
     assert.same true, (more 123)
     assert.same true, (more true)
 
+  describe "all_of", ->
+    it "checks value", ->
+      t = types.all_of {
+       types.string
+       types.custom (k) -> k == "hello", "#{k} is not hello"
+      }
+
+      assert.same {nil, "zone is not hello"}, {t "zone"}
+      assert.same {nil, "got type `number`, expected `string`"}, {t 5}
+
+    it "repairs using function on checker", ->
+      t = types.all_of {
+        types.string
+      }, repair: (val) -> "okay"
+
+      assert.same {"okay", true}, { t\repair 5 }
+      assert.same {"sure", false}, { t\repair "sure" }
+
+    it "user repair function of checker that fails", ->
+      t = types.all_of {
+        types.string
+        types.custom(-> false)\on_repair (val) -> "fixed"
+      }
+
+      assert.same {"fixed", true}, { t\repair "wow" }
+
+    it "fails to repair with no repair function", ->
+      t = types.all_of {
+        types.string
+      }
+
+      assert.has_error ->
+        t\repair 5
+
   describe "shape", ->
     it "gets field errors, short_circuit", ->
       check = types.shape { color: "red" }
@@ -381,6 +415,11 @@ describe "tableshape", ->
 
       assert.same {true}, { check 1 }
       assert.same {true}, { check\check_value 1 }
+
+    it "checks with default error message", ->
+      t = types.custom (n) -> n % 2 == 0
+
+      assert.same {nil, "5 is invalid"}, {t 5}
 
     it "checks optional", ->
       check = types.custom(

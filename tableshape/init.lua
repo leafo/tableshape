@@ -6,6 +6,9 @@ do
     check_value = function(self)
       return error("override me")
     end,
+    has_repair = function(self)
+      return self.opts and self.opts.repair
+    end,
     repair = function(self, val, fix_fn)
       local fixed = false
       local pass, err = self:check_value(val)
@@ -396,6 +399,90 @@ do
     _parent_0.__inherited(_parent_0, _class_0)
   end
   OneOf = _class_0
+end
+local AllOf
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    on_repair = function(self, repair_fn)
+      return AllOf(self.types, self:clone_opts({
+        repair = repair_fn
+      }))
+    end,
+    repair = function(self, val, repair_fn)
+      local has_own_repair = self:has_repair() or repair_fn
+      local _list_0 = self.types
+      for _index_0 = 1, #_list_0 do
+        local _continue_0 = false
+        repeat
+          local t = _list_0[_index_0]
+          if has_own_repair and not t:has_repair() then
+            _continue_0 = true
+            break
+          end
+          local res, fixed = t:repair(val)
+          if fixed then
+            return res, fixed
+          end
+          _continue_0 = true
+        until true
+        if not _continue_0 then
+          break
+        end
+      end
+      return _class_0.__parent.__base.repair(self, val, repair_fn)
+    end,
+    check_value = function(self, value)
+      local _list_0 = self.types
+      for _index_0 = 1, #_list_0 do
+        local t = _list_0[_index_0]
+        local pass, err = t:check_value(value)
+        if not (pass) then
+          return nil, err
+        end
+      end
+      return true
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, types, opts)
+      self.types, self.opts = types, opts
+      assert(type(self.types) == "table", "expected table for first argument")
+      local _list_0 = self.types
+      for _index_0 = 1, #_list_0 do
+        local checker = _list_0[_index_0]
+        assert(BaseType:is_base_type(checker), "all_of expects all type checkers")
+      end
+    end,
+    __base = _base_0,
+    __name = "AllOf",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  AllOf = _class_0
 end
 local ArrayOf
 do
@@ -1097,6 +1184,7 @@ local types = setmetatable({
     initial_type = "number"
   }),
   one_of = OneOf,
+  all_of = AllOf,
   shape = Shape,
   pattern = Pattern,
   array_of = ArrayOf,

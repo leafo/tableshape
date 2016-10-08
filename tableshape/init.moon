@@ -24,6 +24,9 @@ class BaseType
   check_value: =>
     error "override me"
 
+  has_repair: =>
+    @opts and @opts.repair
+
   repair: (val, fix_fn) =>
     fixed = false
 
@@ -145,6 +148,37 @@ class OneOf extends BaseType
 
     err_str = table.concat err_strs, ", "
     nil, "value `#{value}` did not match one of: #{err_str}"
+
+class AllOf extends BaseType
+  new: (@types, @opts) =>
+    assert type(@types) == "table", "expected table for first argument"
+
+    for checker in *@types
+      assert BaseType\is_base_type(checker), "all_of expects all type checkers"
+
+  on_repair: (repair_fn) =>
+    AllOf @types, @clone_opts repair: repair_fn
+
+  repair: (val, repair_fn) =>
+    has_own_repair = @has_repair! or repair_fn
+
+    for t in *@types
+      if has_own_repair and not t\has_repair!
+        continue
+
+      res, fixed = t\repair val
+      if fixed
+        return res, fixed
+
+    super val, repair_fn
+
+  check_value: (value) =>
+    for t in *@types
+      pass, err = t\check_value value
+      unless pass
+        return nil, err
+
+    true
 
 class ArrayOf extends BaseType
   @type_err_message: "expecting table"
@@ -468,6 +502,7 @@ types = setmetatable {
 
   -- type constructors
   one_of: OneOf
+  all_of: AllOf
   shape: Shape
   pattern: Pattern
   array_of: ArrayOf
