@@ -147,7 +147,7 @@ class OneOf extends BaseType
         "`#{i}`"
 
     err_str = table.concat err_strs, ", "
-    nil, "value `#{value}` did not match one of: #{err_str}"
+    nil, "value `#{value}` does not match one of: #{err_str}"
 
 class AllOf extends BaseType
   new: (@types, @opts) =>

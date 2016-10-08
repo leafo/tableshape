@@ -363,7 +363,7 @@ do
         err_strs = _accum_0
       end
       local err_str = table.concat(err_strs, ", ")
-      return nil, "value `" .. tostring(value) .. "` did not match one of: " .. tostring(err_str)
+      return nil, "value `" .. tostring(value) .. "` does not match one of: " .. tostring(err_str)
     end
   }
   _base_0.__index = _base_0
