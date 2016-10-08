@@ -304,6 +304,17 @@ local types = require("tableshape").types
 
 ### Compound constructors
 
+Type constructors build a type checker configured by the parameters you pass.
+Here are all the available ones, full documentation is below.
+
+* `types.shape` - checks the shape of a table
+* `types.one_of` - checks if value matches one of the types provided
+* `types.pattern` - checks if Lua pattern matches value
+* `types.array_of` - checks if value is array of type
+* `types.map_of` - checks if value is table that matches key and value types
+* `types.literal` - checks if value matches the provided value with `==`
+* `types.custom` - lets you provide a function to check the type
+
 #### `types.shape(table_dec)`
 
 Returns a type checker tests for a table where every key in `table_dec` has a
@@ -360,6 +371,43 @@ Returns a type checker that tests if a string matches the provided Lua pattern
 
 ```lua
 local t = types.pattern("^#[a-fA-F%d]+$")
+```
+
+#### `types.literal(value)`
+
+Returns a type checker that checks if value is equal to the one provided. When
+using shape this is normally unnecessary since non-type checker values will be
+checked literally with `==`. This lets you attach a repair function to a
+literal check.
+
+```lua
+local t = types.literal "hello world"
+assert(t("hello world") == true)
+assert(t("jello world") == false)
+```
+
+#### `types.custom(value)`
+
+
+Returns a type checker that calls the function provided to verify the value.
+The function will receive the value being tested as the first argument, and the
+type checker as the second.
+
+The function should return true if the value passes, or `nil` and an error
+message if it fails.
+
+```lua
+local is_even = types.custom(function(val)
+  if type(val) == "number" then
+    if val % 2 == 0 then
+      return true
+    else
+      return nil, "number is not even"
+    end
+  else
+    return nil, "expected number"
+  end
+end)
 ```
 
 ### Types
