@@ -404,6 +404,22 @@ class Literal extends BaseType
 
     true
 
+class Custom extends BaseType
+  new: (@fn, @opts) =>
+
+  describe: =>
+    @opts.describe or "custom checker #{@fn}"
+
+  on_repair: (repair_fn) =>
+    Custom @fn, @clone_opts repair: repair_fn
+
+  check_value: (val) =>
+    pass, err = @.fn val, @
+
+    unless pass
+      return nil, err or "#{val} is invalid"
+
+    true
 
 types = setmetatable {
   any: AnyType
@@ -427,6 +443,7 @@ types = setmetatable {
   array_of: ArrayOf
   map_of: MapOf
   literal: Literal
+  custom: Custom
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
 

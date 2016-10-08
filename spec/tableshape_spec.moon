@@ -365,6 +365,59 @@ describe "tableshape", ->
         t\repair "zone drone"
       }
 
+  describe "custom", ->
+    it "checks value", ->
+      check = types.custom (v) ->
+        if v == 1
+          true
+        else
+          nil, "v is not 1"
+
+      assert.same {nil, "v is not 1"}, { check 2 }
+      assert.same {nil, "v is not 1"}, { check\check_value 2 }
+
+      assert.same {nil, "v is not 1"}, { check nil }
+      assert.same {nil, "v is not 1"}, { check\check_value nil }
+
+      assert.same {true}, { check 1 }
+      assert.same {true}, { check\check_value 1 }
+
+    it "checks optional", ->
+      check = types.custom(
+        (v) ->
+          if v == 1
+            true
+          else
+            nil, "v is not 1"
+
+        optional: true
+      )
+
+      assert.same {nil, "v is not 1"}, { check 2 }
+      assert.same {nil, "v is not 1"}, { check\check_value 2 }
+
+      assert.same {true}, { check nil }
+      assert.same {true}, { check\check_value nil }
+
+      assert.same {true}, { check 1 }
+      assert.same {true}, { check\check_value 1 }
+
+    describe "repair", ->
+      check = types.custom(
+        (v) ->
+          if v == 1
+            true
+          else
+            nil, "v is not 1"
+
+        repair: (...) ->
+          assert.same {"cool", "v is not 1"}, {...}
+          "okay"
+      )
+
+      assert.same {"okay", true}, { check\repair "cool" }
+      assert.same {1, false}, { check\repair 1 }
+
   describe "repair", ->
     it "doesn't repair basic type", ->
       assert.same {
