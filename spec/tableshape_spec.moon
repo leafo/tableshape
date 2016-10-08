@@ -96,35 +96,41 @@ describe "tableshape", ->
 
         assert.same {true}, {check nil, t}
 
-  it "tests one_of", ->
-    ab = types.one_of {"a", "b"}
-    ab_opt = ab\is_optional!
+  describe "one of", ->
+    it "check value", ->
+      ab = types.one_of {"a", "b"}
 
-    assert.same nil, (ab "c")
-    assert.same true, (ab "a")
-    assert.same true, (ab "b")
-    assert.same nil, (ab nil)
+      assert.same nil, (ab "c")
+      assert.same true, (ab "a")
+      assert.same true, (ab "b")
+      assert.same nil, (ab nil)
 
-    assert.same nil, (ab_opt "c")
-    assert.same true, (ab_opt "a")
-    assert.same true, (ab_opt "b")
-    assert.same true, (ab_opt nil)
+      more = types.one_of {true, 123}
+      assert.same nil, (more "c")
+      assert.same nil, (more false)
+      assert.same nil, (more 124)
+      assert.same true, (more 123)
+      assert.same true, (more true)
 
-    -- with sub type checkers
-    misc = types.one_of { "g", types.number, types.function }
+    it "check value optional", ->
+      ab = types.one_of {"a", "b"}
+      ab_opt = ab\is_optional!
 
-    assert.same nil, (misc "c")
-    assert.same true, (misc 2354)
-    assert.same true, (misc ->)
-    assert.same true, (misc "g")
-    assert.same nil, (misc nil)
+      assert.same nil, (ab_opt "c")
+      assert.same true, (ab_opt "a")
+      assert.same true, (ab_opt "b")
+      assert.same true, (ab_opt nil)
 
-    more = types.one_of {true, 123}
-    assert.same nil, (more "c")
-    assert.same nil, (more false)
-    assert.same nil, (more 124)
-    assert.same true, (more 123)
-    assert.same true, (more true)
+    it "check value with sub types", ->
+      -- with sub type checkers
+      misc = types.one_of { "g", types.number, types.function }
+
+      assert.same nil, (misc "c")
+      assert.same true, (misc 2354)
+      assert.same true, (misc ->)
+      assert.same true, (misc "g")
+      assert.same nil, (misc nil)
+
 
   describe "all_of", ->
     it "checks value", ->
