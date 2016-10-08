@@ -310,6 +310,29 @@ describe "tableshape", ->
     assert.same {true}, {twothreefours {234, 234}}
     assert.same nil, (twothreefours {"uh"})
 
+  describe "literal", ->
+    it "checks value", ->
+      t = types.literal "hello world"
+
+      assert.same {true}, {t "hello world"}
+      assert.same {true}, {t\check_value "hello world"}
+
+      assert.same {
+        nil, "got `hello zone`, expected `hello world`"
+      }, { t "hello zone" }
+
+      assert.same {
+        nil, "got `hello zone`, expected `hello world`"
+      }, { t\check_value "hello zone" }
+
+      assert.same {nil, "got `nil`, expected `hello world`"}, { t nil }
+      assert.same {nil, "got `nil`, expected `hello world`"}, { t\check_value nil }
+
+    it "checks value when optional", ->
+      t = types.literal "hello world", optional: true
+      assert.same {true}, { t nil }
+      assert.same {true}, { t\check_value nil}
+
   describe "repair", ->
     it "doesn't repair basic type", ->
       assert.same {

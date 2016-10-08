@@ -367,6 +367,19 @@ class Pattern extends BaseType
     else
       nil, "doesn't match pattern `#{@pattern}`"
 
+class Literal extends BaseType
+  new: (@value, @opts) =>
+
+  on_repair: (repair_fn) =>
+    Literal @value, @clone_opts repair: repair_fn
+
+  check_value: (val) =>
+    if @value != val
+      return nil, "got `#{val}`, expected `#{@value}`"
+
+    true
+
+
 types = setmetatable {
   any: AnyType
   string: Type "string"
@@ -388,6 +401,7 @@ types = setmetatable {
   pattern: Pattern
   array_of: ArrayOf
   map_of: MapOf
+  literal: Literal
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
 

@@ -690,7 +690,7 @@ do
             end
             keys = _accum_0
           end
-          error("missing repair function for: extra field (" .. tostring(table.concat(keys, ", ")) .. ")")
+          error("missing repair function for: extra fields (" .. tostring(table.concat(keys, ", ")) .. ")")
         end
         for k in pairs(remaining_keys) do
           fixed = true
@@ -852,6 +852,56 @@ do
   end
   Pattern = _class_0
 end
+local Literal
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    on_repair = function(self, repair_fn)
+      return Literal(self.value, self:clone_opts({
+        repair = repair_fn
+      }))
+    end,
+    check_value = function(self, val)
+      if self.value ~= val then
+        return nil, "got `" .. tostring(val) .. "`, expected `" .. tostring(self.value) .. "`"
+      end
+      return true
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, value, opts)
+      self.value, self.opts = value, opts
+    end,
+    __base = _base_0,
+    __name = "Literal",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  Literal = _class_0
+end
 local types = setmetatable({
   any = AnyType,
   string = Type("string"),
@@ -871,7 +921,8 @@ local types = setmetatable({
   shape = Shape,
   pattern = Pattern,
   array_of = ArrayOf,
-  map_of = MapOf
+  map_of = MapOf,
+  literal = Literal
 }, {
   __index = function(self, fn_name)
     return error("Type checker does not exist: `" .. tostring(fn_name) .. "`")
