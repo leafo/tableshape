@@ -941,6 +941,146 @@ do
   end
   Literal = _class_0
 end
+local Custom
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    describe = function(self)
+      return self.opts.describe or "custom checker " .. tostring(self.fn)
+    end,
+    on_repair = function(self, repair_fn)
+      return Custom(self.fn, self:clone_opts({
+        repair = repair_fn
+      }))
+    end,
+    check_value = function(self, val)
+      local pass, err = self.fn(val, self)
+      if not (pass) then
+        return nil, err or tostring(val) .. " is invalid"
+      end
+      return true
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, fn, opts)
+      self.fn, self.opts = fn, opts
+    end,
+    __base = _base_0,
+    __name = "Custom",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  Custom = _class_0
+end
+local Equivalent
+do
+  local _class_0
+  local values_equivalent
+  local _parent_0 = BaseType
+  local _base_0 = {
+    on_repair = function(self)
+      return Equivalent(self.val, self:clone_opts({
+        repair = repair_fn
+      }))
+    end,
+    check_value = function(self, val)
+      if values_equivalent(self.val, val) then
+        return true
+      else
+        return nil, tostring(val) .. " is not equivalent to " .. tostring(self.val)
+      end
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, val, opts)
+      self.val, self.opts = val, opts
+    end,
+    __base = _base_0,
+    __name = "Equivalent",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  local self = _class_0
+  values_equivalent = function(a, b)
+    if a == b then
+      return true
+    end
+    if type(a) == "table" and type(b) == "table" then
+      local seen_keys = { }
+      for k, v in pairs(a) do
+        seen_keys[k] = true
+        if not (values_equivalent(v, b[k])) then
+          return false
+        end
+      end
+      for k, v in pairs(b) do
+        local _continue_0 = false
+        repeat
+          if seen_keys[k] then
+            _continue_0 = true
+            break
+          end
+          if not (values_equivalent(v, a[k])) then
+            return false
+          end
+          _continue_0 = true
+        until true
+        if not _continue_0 then
+          break
+        end
+      end
+      return true
+    else
+      return false
+    end
+  end
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  Equivalent = _class_0
+end
 local types = setmetatable({
   any = AnyType,
   string = Type("string"),
@@ -961,7 +1101,9 @@ local types = setmetatable({
   pattern = Pattern,
   array_of = ArrayOf,
   map_of = MapOf,
-  literal = Literal
+  literal = Literal,
+  equivalent = Equivalent,
+  custom = Custom
 }, {
   __index = function(self, fn_name)
     return error("Type checker does not exist: `" .. tostring(fn_name) .. "`")

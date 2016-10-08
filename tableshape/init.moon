@@ -421,6 +421,36 @@ class Custom extends BaseType
 
     true
 
+class Equivalent extends BaseType
+  values_equivalent = (a,b) ->
+    return true if a == b
+
+    if type(a) == "table" and type(b) == "table"
+      seen_keys = {}
+
+      for k,v in pairs a
+        seen_keys[k] = true
+        return false unless values_equivalent v, b[k]
+
+      for k,v in pairs b
+        continue if seen_keys[k]
+        return false unless values_equivalent v, a[k]
+
+      true
+    else
+      false
+
+  new: (@val, @opts) =>
+
+  on_repair: =>
+    Equivalent @val, @clone_opts repair: repair_fn
+
+  check_value: (val) =>
+    if values_equivalent @val, val
+      true
+    else
+      nil, "#{val} is not equivalent to #{@val}"
+
 types = setmetatable {
   any: AnyType
   string: Type "string"
@@ -443,6 +473,7 @@ types = setmetatable {
   array_of: ArrayOf
   map_of: MapOf
   literal: Literal
+  equivalent: Equivalent
   custom: Custom
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"

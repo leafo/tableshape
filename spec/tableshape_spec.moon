@@ -418,6 +418,37 @@ describe "tableshape", ->
       assert.same {"okay", true}, { check\repair "cool" }
       assert.same {1, false}, { check\repair 1 }
 
+  describe "equivalent", ->
+    it "checks value", ->
+      assert.same true, (types.equivalent({}) {})
+      assert.same true, (types.equivalent({1}) {1})
+      assert.same true, (types.equivalent({hello: "world"}) {hello: "world"})
+      assert.falsy (types.equivalent({hello: "world"}) {hello: "worlds"})
+
+      check = types.equivalent {
+        "great"
+        color: {
+          {}, {2}, { no: true}
+        }
+      }
+
+      assert.same nil, (check\check_value "hello")
+      assert.same nil, (check\check_value {})
+
+      assert.same nil, (check\check_value {
+        "great"
+        color: {
+          {}, {4}, { no: true}
+        }
+      })
+
+      assert.same true, (check\check_value {
+        "great"
+        color: {
+          {}, {2}, { no: true}
+        }
+      })
+
   describe "repair", ->
     it "doesn't repair basic type", ->
       assert.same {
