@@ -146,102 +146,101 @@ describe "tableshape", ->
       assert.same {"has extra field: `height`"}, check\field_errors { color: "red", height: 10 }
       assert.same {}, check\field_errors { color: "red" }
 
+    it "checks value", ->
+      check = types.shape { color: "red" }
+      assert.same nil, (check color: "blue")
+      assert.same true, (check color: "red")
 
-  it "tests shape", ->
-    check = types.shape { color: "red" }
-    assert.same nil, (check color: "blue")
-    assert.same true, (check color: "red")
-
-    check = types.shape {
-      color: types.one_of {"red", "blue"}
-      weight: types.number
-    }
-
-    -- correct
-    assert.same {true}, {
-      check {
-        color: "blue"
-        weight: 234
+      check = types.shape {
+        color: types.one_of {"red", "blue"}
+        weight: types.number
       }
-    }
 
-    -- failed sub type
-    assert.same nil, (
-      check {
-        color: "green"
-        weight: 234
+      -- correct
+      assert.same {true}, {
+        check {
+          color: "blue"
+          weight: 234
+        }
       }
-    )
 
-    -- missing data
-    assert.same nil, (
-      check {
-        color: "green"
+      -- failed sub type
+      assert.same nil, (
+        check {
+          color: "green"
+          weight: 234
+        }
+      )
+
+      -- missing data
+      assert.same nil, (
+        check {
+          color: "green"
+        }
+      )
+
+      -- extra data
+      assert.same {true}, {
+        check\is_open! {
+          color: "red"
+          weight: 9
+          age: 3
+        }
       }
-    )
 
-    -- extra data
-    assert.same {true}, {
-      check\is_open! {
-        color: "red"
-        weight: 9
-        age: 3
-      }
-    }
+      -- extra data
+      assert.same nil, (
+        check {
+          color: "red"
+          weight: 9
+          age: 3
+        }
+      )
 
-    -- extra data
-    assert.same nil, (
-      check {
-        color: "red"
-        weight: 9
-        age: 3
-      }
-    )
-
-  it "tests shape with literals", ->
-    check = types.shape {
-      color: "green"
-      weight: 123
-      ready: true
-    }
-
-    assert.same nil, (
-      check {
-        color: "greenz"
-        weight: 123
-        ready: true
-      }
-    )
-
-    assert.same nil, (
-      check {
-        color: "greenz"
-        weight: 125
-        ready: true
-      }
-    )
-
-    assert.same nil, (
-      check {
-        color: "greenz"
-        weight: 125
-        ready: false
-      }
-    )
-
-    assert.same nil, (
-      check {
-        free: true
-      }
-    )
-
-    assert.same true, (
-      check {
+    it "checks value with literals", ->
+      check = types.shape {
         color: "green"
         weight: 123
         ready: true
       }
-    )
+
+      assert.same nil, (
+        check {
+          color: "greenz"
+          weight: 123
+          ready: true
+        }
+      )
+
+      assert.same nil, (
+        check {
+          color: "greenz"
+          weight: 125
+          ready: true
+        }
+      )
+
+      assert.same nil, (
+        check {
+          color: "greenz"
+          weight: 125
+          ready: false
+        }
+      )
+
+      assert.same nil, (
+        check {
+          free: true
+        }
+      )
+
+      assert.same true, (
+        check {
+          color: "green"
+          weight: 123
+          ready: true
+        }
+      )
 
 
   it "tests pattern", ->
