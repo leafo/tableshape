@@ -333,6 +333,18 @@ describe "tableshape", ->
       assert.same {true}, { t nil }
       assert.same {true}, { t\check_value nil}
 
+    it "repairs", ->
+      t = types.literal "hello world", repair: (...) ->
+        assert.same (...), "zone drone"
+        "FIXED"
+
+      assert.same {
+        "FIXED"
+        true
+      }, {
+        t\repair "zone drone"
+      }
+
   describe "repair", ->
     it "doesn't repair basic type", ->
       assert.same {
