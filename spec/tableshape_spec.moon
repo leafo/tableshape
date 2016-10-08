@@ -134,8 +134,7 @@ describe "tableshape", ->
     it "renders error message", ->
       t = types.one_of {
         "a", "b"
-        with types.literal "MY THING"
-          .describe = => "(my thing)"
+        types.literal "MY THING", describe: => "(my thing)"
       }
 
       assert.same {

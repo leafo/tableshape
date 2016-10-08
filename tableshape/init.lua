@@ -49,7 +49,11 @@ do
   }
   _base_0.__index = _base_0
   _class_0 = setmetatable({
-    __init = function() end,
+    __init = function(self)
+      if self.opts then
+        self.describe = self.opts.describe
+      end
+    end,
     __base = _base_0,
     __name = "BaseType"
   }, {
@@ -131,6 +135,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, base_type, opts)
       self.base_type, self.opts = base_type, opts
+      _class_0.__parent.__init(self)
       assert(BaseType:is_base_type(base_type) and base_type.check_value, "expected a type checker")
       if (self.base_type.opts or { }).repair and not (self.opts or { }).repair then
         self.opts = self.opts or { }
@@ -235,6 +240,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, t, opts)
       self.t, self.opts = t, opts
+      return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
     __name = "Type",
@@ -295,6 +301,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, opts)
       self.opts = opts
+      return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
     __name = "ArrayType",
@@ -371,6 +378,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, items, opts)
       self.items, self.opts = items, opts
+      _class_0.__parent.__init(self)
       return assert(type(self.items) == "table", "expected table for items in one_of")
     end,
     __base = _base_0,
@@ -450,6 +458,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, types, opts)
       self.types, self.opts = types, opts
+      _class_0.__parent.__init(self)
       assert(type(self.types) == "table", "expected table for first argument")
       local _list_0 = self.types
       for _index_0 = 1, #_list_0 do
@@ -587,6 +596,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, expected, opts)
       self.expected, self.opts = expected, opts
+      return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
     __name = "ArrayOf",
@@ -661,6 +671,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, expected_key, expected_value, opts)
       self.expected_key, self.expected_value, self.opts = expected_key, expected_value, opts
+      return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
     __name = "MapOf",
@@ -876,6 +887,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, shape, opts)
       self.shape, self.opts = shape, opts
+      _class_0.__parent.__init(self)
       return assert(type(self.shape) == "table", "expected table for shape")
     end,
     __base = _base_0,
@@ -947,6 +959,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, pattern, opts)
       self.pattern, self.opts = pattern, opts
+      return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
     __name = "Pattern",
@@ -1000,6 +1013,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, value, opts)
       self.value, self.opts = value, opts
+      return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
     __name = "Literal",
@@ -1054,6 +1068,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, fn, opts)
       self.fn, self.opts = fn, opts
+      return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
     __name = "Custom",
@@ -1106,6 +1121,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, val, opts)
       self.val, self.opts = val, opts
+      return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
     __name = "Equivalent",

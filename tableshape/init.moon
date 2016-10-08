@@ -21,6 +21,10 @@ class BaseType
       else
         ret
 
+  new: =>
+    if @opts
+      @describe = @opts.describe
+
   check_value: =>
     error "override me"
 
@@ -61,6 +65,7 @@ class BaseType
 
 class OptionalType extends BaseType
   new: (@base_type, @opts) =>
+    super!
     assert BaseType\is_base_type(base_type) and base_type.check_value, "expected a type checker"
     if (@base_type.opts or {}).repair and not (@opts or {}).repair
       @opts or= {}
@@ -92,6 +97,7 @@ class AnyType extends BaseType
 -- basic type check
 class Type extends BaseType
   new: (@t, @opts) =>
+    super!
 
   on_repair: (repair_fn) =>
     Type @t, @clone_opts repair: repair_fn
@@ -107,6 +113,7 @@ class Type extends BaseType
 
 class ArrayType extends BaseType
   new: (@opts) =>
+    super!
 
   on_repair: (repair_fn) =>
     ArrayType @clone_opts repair: repair_fn
@@ -128,6 +135,7 @@ class ArrayType extends BaseType
 
 class OneOf extends BaseType
   new: (@items, @opts) =>
+    super!
     assert type(@items) == "table", "expected table for items in one_of"
 
   on_repair: (repair_fn) =>
@@ -151,6 +159,7 @@ class OneOf extends BaseType
 
 class AllOf extends BaseType
   new: (@types, @opts) =>
+    super!
     assert type(@types) == "table", "expected table for first argument"
 
     for checker in *@types
@@ -184,6 +193,7 @@ class ArrayOf extends BaseType
   @type_err_message: "expecting table"
 
   new: (@expected, @opts) =>
+    super!
 
   on_repair: (repair_fn) =>
     ArrayOf @expected, @clone_opts repair: repair_fn
@@ -251,6 +261,7 @@ class MapOf extends BaseType
   -- TODO: this needs its own repair implementation
 
   new: (@expected_key, @expected_value, @opts) =>
+    super!
 
   on_repair: (repair_fn) =>
     MapOf @expected_key, @expected_value, @clone_opts repair: repair_fn
@@ -286,6 +297,7 @@ class Shape extends BaseType
   @type_err_message: "expecting table"
 
   new: (@shape, @opts) =>
+    super!
     assert type(@shape) == "table", "expected table for shape"
 
   on_repair: (repair_fn) =>
@@ -403,6 +415,7 @@ class Shape extends BaseType
 
 class Pattern extends BaseType
   new: (@pattern, @opts) =>
+    super!
 
   on_repair: (repair_fn) =>
     Pattern @pattern, @clone_opts repair: repair_fn
@@ -425,6 +438,7 @@ class Pattern extends BaseType
 
 class Literal extends BaseType
   new: (@value, @opts) =>
+    super!
 
   describe: =>
     "literal `#{@value}`"
@@ -440,6 +454,7 @@ class Literal extends BaseType
 
 class Custom extends BaseType
   new: (@fn, @opts) =>
+    super!
 
   describe: =>
     @opts.describe or "custom checker #{@fn}"
@@ -475,6 +490,7 @@ class Equivalent extends BaseType
       false
 
   new: (@val, @opts) =>
+    super!
 
   on_repair: =>
     Equivalent @val, @clone_opts repair: repair_fn
