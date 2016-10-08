@@ -1,7 +1,6 @@
 local OptionalType
 local BaseType
 do
-  local _class_0
   local _base_0 = {
     check_value = function(self)
       return error("override me")
@@ -48,7 +47,7 @@ do
     end
   }
   _base_0.__index = _base_0
-  _class_0 = setmetatable({
+  local _class_0 = setmetatable({
     __init = function() end,
     __base = _base_0,
     __name = "BaseType"
@@ -166,7 +165,6 @@ do
 end
 local AnyType
 do
-  local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
     check_value = function(self)
@@ -178,9 +176,9 @@ do
   }
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
-  _class_0 = setmetatable({
+  local _class_0 = setmetatable({
     __init = function(self, ...)
-      return _class_0.__parent.__init(self, ...)
+      return _parent_0.__init(self, ...)
     end,
     __base = _base_0,
     __name = "AnyType",
@@ -189,10 +187,7 @@ do
     __index = function(cls, name)
       local val = rawget(_base_0, name)
       if val == nil then
-        local parent = rawget(cls, "__parent")
-        if parent then
-          return parent[name]
-        end
+        return _parent_0[name]
       else
         return val
       end
@@ -211,7 +206,6 @@ do
 end
 local Type
 do
-  local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
     on_repair = function(self, repair_fn)
@@ -232,7 +226,7 @@ do
   }
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
-  _class_0 = setmetatable({
+  local _class_0 = setmetatable({
     __init = function(self, t, opts)
       self.t, self.opts = t, opts
     end,
@@ -243,10 +237,7 @@ do
     __index = function(cls, name)
       local val = rawget(_base_0, name)
       if val == nil then
-        local parent = rawget(cls, "__parent")
-        if parent then
-          return parent[name]
-        end
+        return _parent_0[name]
       else
         return val
       end
@@ -265,7 +256,6 @@ do
 end
 local ArrayType
 do
-  local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
     on_repair = function(self, repair_fn)
@@ -292,7 +282,7 @@ do
   }
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
-  _class_0 = setmetatable({
+  local _class_0 = setmetatable({
     __init = function(self, opts)
       self.opts = opts
     end,
@@ -303,10 +293,7 @@ do
     __index = function(cls, name)
       local val = rawget(_base_0, name)
       if val == nil then
-        local parent = rawget(cls, "__parent")
-        if parent then
-          return parent[name]
-        end
+        return _parent_0[name]
       else
         return val
       end
@@ -325,7 +312,6 @@ do
 end
 local OneOf
 do
-  local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
     on_repair = function(self, repair_fn)
@@ -368,7 +354,7 @@ do
   }
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
-  _class_0 = setmetatable({
+  local _class_0 = setmetatable({
     __init = function(self, items, opts)
       self.items, self.opts = items, opts
       return assert(type(self.items) == "table", "expected table for items in one_of")
@@ -380,10 +366,7 @@ do
     __index = function(cls, name)
       local val = rawget(_base_0, name)
       if val == nil then
-        local parent = rawget(cls, "__parent")
-        if parent then
-          return parent[name]
-        end
+        return _parent_0[name]
       else
         return val
       end
@@ -402,7 +385,6 @@ do
 end
 local AllOf
 do
-  local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
     on_repair = function(self, repair_fn)
@@ -584,7 +566,7 @@ do
   }
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
-  _class_0 = setmetatable({
+  local _class_0 = setmetatable({
     __init = function(self, expected, opts)
       self.expected, self.opts = expected, opts
     end,
@@ -595,10 +577,7 @@ do
     __index = function(cls, name)
       local val = rawget(_base_0, name)
       if val == nil then
-        local parent = rawget(cls, "__parent")
-        if parent then
-          return parent[name]
-        end
+        return _parent_0[name]
       else
         return val
       end
@@ -619,7 +598,6 @@ do
 end
 local MapOf
 do
-  local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
     on_repair = function(self, repair_fn)
@@ -658,7 +636,7 @@ do
   }
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
-  _class_0 = setmetatable({
+  local _class_0 = setmetatable({
     __init = function(self, expected_key, expected_value, opts)
       self.expected_key, self.expected_value, self.opts = expected_key, expected_value, opts
     end,
@@ -669,10 +647,7 @@ do
     __index = function(cls, name)
       local val = rawget(_base_0, name)
       if val == nil then
-        local parent = rawget(cls, "__parent")
-        if parent then
-          return parent[name]
-        end
+        return _parent_0[name]
       else
         return val
       end
@@ -691,7 +666,6 @@ do
 end
 local Shape
 do
-  local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
     on_repair = function(self, repair_fn)
@@ -873,7 +847,7 @@ do
   }
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
-  _class_0 = setmetatable({
+  local _class_0 = setmetatable({
     __init = function(self, shape, opts)
       self.shape, self.opts = shape, opts
       return assert(type(self.shape) == "table", "expected table for shape")
@@ -885,10 +859,7 @@ do
     __index = function(cls, name)
       local val = rawget(_base_0, name)
       if val == nil then
-        local parent = rawget(cls, "__parent")
-        if parent then
-          return parent[name]
-        end
+        return _parent_0[name]
       else
         return val
       end
@@ -907,9 +878,93 @@ do
   end
   Shape = _class_0
 end
+local Mixed
+do
+  local _parent_0 = Shape
+  local _base_0 = {
+    check_value = function(self, value)
+      if self:check_optional(value) then
+        return true
+      end
+      if not (type(value) == "table") then
+        return nil, self.__class.type_err_message
+      end
+      local remaining_keys
+      if not (self.opts and self.opts.open) then
+        do
+          local _tbl_0 = { }
+          for key in pairs(value) do
+            _tbl_0[key] = true
+          end
+          remaining_keys = _tbl_0
+        end
+      end
+      for shape_key, shape_val in pairs(self.shape) do
+        if type(shape_key) == "number" and not self.shape[shape_key + 1] then
+          for shape_key = shape_key, #value do
+            local item_value = value[shape_key]
+            if remaining_keys then
+              remaining_keys[shape_key] = nil
+            end
+            local pass, err = self:check_field(shape_key, item_value, shape_val, value)
+            if not (pass) then
+              return nil, err
+            end
+          end
+        else
+          local item_value = value[shape_key]
+          if remaining_keys then
+            remaining_keys[shape_key] = nil
+          end
+          local pass, err = self:check_field(shape_key, item_value, shape_val, value)
+          if not (pass) then
+            return nil, err
+          end
+        end
+      end
+      if remaining_keys then
+        do
+          local extra_key = next(remaining_keys)
+          if extra_key then
+            return nil, "has extra field: `" .. tostring(extra_key) .. "`"
+          end
+        end
+      end
+      return true
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  local _class_0 = setmetatable({
+    __init = function(self, ...)
+      return _parent_0.__init(self, ...)
+    end,
+    __base = _base_0,
+    __name = "Mixed",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        return _parent_0[name]
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  Mixed = _class_0
+end
 local Pattern
 do
-  local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
     on_repair = function(self, repair_fn)
@@ -944,7 +999,7 @@ do
   }
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
-  _class_0 = setmetatable({
+  local _class_0 = setmetatable({
     __init = function(self, pattern, opts)
       self.pattern, self.opts = pattern, opts
     end,
@@ -955,10 +1010,7 @@ do
     __index = function(cls, name)
       local val = rawget(_base_0, name)
       if val == nil then
-        local parent = rawget(cls, "__parent")
-        if parent then
-          return parent[name]
-        end
+        return _parent_0[name]
       else
         return val
       end
@@ -1186,6 +1238,7 @@ local types = setmetatable({
   one_of = OneOf,
   all_of = AllOf,
   shape = Shape,
+  mixed = Mixed,
   pattern = Pattern,
   array_of = ArrayOf,
   map_of = MapOf,
