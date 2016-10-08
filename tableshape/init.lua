@@ -706,16 +706,30 @@ do
       if BaseType:is_base_type(expected_value) and expected_value.check_value then
         local res, err = expected_value:check_value(value)
         if not (res) then
-          return nil, "field `" .. tostring(key) .. "`: " .. tostring(err)
+          return nil, "field `" .. tostring(key) .. "`: " .. tostring(err), err
         end
       else
-        return nil, "field `" .. tostring(key) .. "` expected `" .. tostring(expected_value) .. "`, got `" .. tostring(value) .. "`"
+        local err = "expected `" .. tostring(expected_value) .. "`, got `" .. tostring(value) .. "`"
+        return nil, "field `" .. tostring(key) .. "` " .. tostring(err), err
       end
       return true
     end,
-    check_value = function(self, value)
+    field_errors = function(self, value, short_circuit)
+      if short_circuit == nil then
+        short_circuit = false
+      end
       if not (type(value) == "table") then
-        return nil, self.__class.type_err_message
+        if short_circuit then
+          return self.__class.type_err_message
+        else
+          return {
+            self.__class.type_err_message
+          }
+        end
+      end
+      local errors
+      if not (short_circuit) then
+        errors = { }
       end
       local remaining_keys
       if not (self.opts and self.opts.open) then
@@ -732,20 +746,42 @@ do
         if remaining_keys then
           remaining_keys[shape_key] = nil
         end
-        local pass, err = self:check_field(shape_key, item_value, shape_val, value)
+        local pass, err, standalone_err = self:check_field(shape_key, item_value, shape_val, value)
         if not (pass) then
-          return nil, err
+          if short_circuit then
+            return err
+          else
+            errors[shape_key] = standalone_err or err
+            table.insert(errors, err)
+          end
         end
       end
       if remaining_keys then
         do
           local extra_key = next(remaining_keys)
           if extra_key then
-            return nil, "has extra field: `" .. tostring(extra_key) .. "`"
+            local msg = "has extra field: `" .. tostring(extra_key) .. "`"
+            if short_circuit then
+              return msg
+            else
+              return {
+                msg
+              }
+            end
           end
         end
       end
-      return true
+      return errors
+    end,
+    check_value = function(self, value)
+      do
+        local err = self:field_errors(value, true)
+        if err then
+          return nil, err
+        else
+          return true
+        end
+      end
     end
   }
   _base_0.__index = _base_0
@@ -857,6 +893,9 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    describe = function(self)
+      return "literal `" .. tostring(self.t) .. "`"
+    end,
     on_repair = function(self, repair_fn)
       return Literal(self.value, self:clone_opts({
         repair = repair_fn

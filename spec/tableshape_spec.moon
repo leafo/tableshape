@@ -126,6 +126,27 @@ describe "tableshape", ->
     assert.same true, (more 123)
     assert.same true, (more true)
 
+  describe "shape", ->
+    it "gets field errors, short_circuit", ->
+      check = types.shape { color: "red" }
+      assert.same "field `color` expected `red`, got `nil`", check\field_errors {}, true
+      assert.same "expecting table", check\field_errors "blue", true
+      assert.same "has extra field: `height`", check\field_errors { color: "red", height: 10 }, true
+      assert.same nil, check\field_errors { color: "red" }, true
+
+    it "gets field errors", ->
+      check = types.shape { color: "red" }
+
+      assert.same {
+        "field `color` expected `red`, got `nil`"
+        color: "expected `red`, got `nil`"
+      }, check\field_errors {}, false
+
+      assert.same {"expecting table"}, check\field_errors "blue"
+      assert.same {"has extra field: `height`"}, check\field_errors { color: "red", height: 10 }
+      assert.same {}, check\field_errors { color: "red" }
+
+
   it "tests shape", ->
     check = types.shape { color: "red" }
     assert.same nil, (check color: "blue")

@@ -318,14 +318,21 @@ class Shape extends BaseType
       res, err = expected_value\check_value value
 
       unless res
-        return nil, "field `#{key}`: #{err}"
+        return nil, "field `#{key}`: #{err}", err
     else
-      return nil, "field `#{key}` expected `#{expected_value}`, got `#{value}`"
+      err = "expected `#{expected_value}`, got `#{value}`"
+      return nil, "field `#{key}` #{err}", err
 
     true
 
-  check_value: (value) =>
-    return nil, @@type_err_message unless type(value) == "table"
+  field_errors: (value, short_circuit=false) =>
+    unless type(value) == "table"
+      if short_circuit
+        return @@type_err_message
+      else
+        return { @@type_err_message }
+
+    errors = unless short_circuit then {}
 
     remaining_keys = unless @opts and @opts.open
       {key, true for key in pairs value}
@@ -336,14 +343,29 @@ class Shape extends BaseType
       if remaining_keys
         remaining_keys[shape_key] = nil
 
-      pass, err = @check_field shape_key, item_value, shape_val, value
-      return nil, err unless pass
+      pass, err, standalone_err = @check_field shape_key, item_value, shape_val, value
+      unless pass
+        if short_circuit
+          return err
+        else
+          errors[shape_key] = standalone_err or err
+          table.insert errors, err
 
     if remaining_keys
       if extra_key = next remaining_keys
-        return nil, "has extra field: `#{extra_key}`"
+        msg = "has extra field: `#{extra_key}`"
+        if short_circuit
+          return msg
+        else
+          return { msg }
 
-    true
+    errors
+
+  check_value: (value) =>
+    if err = @field_errors value, true
+      nil, err
+    else
+      true
 
 class Pattern extends BaseType
   new: (@pattern, @opts) =>
