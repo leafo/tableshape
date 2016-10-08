@@ -131,6 +131,18 @@ describe "tableshape", ->
       assert.same true, (misc "g")
       assert.same nil, (misc nil)
 
+    it "renders error message", ->
+      t = types.one_of {
+        "a", "b"
+        with types.literal "MY THING"
+          .describe = => "(my thing)"
+      }
+
+      assert.same {
+        nil
+        "value `wow` does not match one of: `a`, `b`, (my thing)"
+      }, {t "wow"}
+
 
   describe "all_of", ->
     it "checks value", ->

@@ -427,7 +427,7 @@ class Literal extends BaseType
   new: (@value, @opts) =>
 
   describe: =>
-    "literal `#{@t}`"
+    "literal `#{@value}`"
 
   on_repair: (repair_fn) =>
     Literal @value, @clone_opts repair: repair_fn

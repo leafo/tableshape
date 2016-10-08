@@ -981,7 +981,7 @@ do
   local _parent_0 = BaseType
   local _base_0 = {
     describe = function(self)
-      return "literal `" .. tostring(self.t) .. "`"
+      return "literal `" .. tostring(self.value) .. "`"
     end,
     on_repair = function(self, repair_fn)
       return Literal(self.value, self:clone_opts({
