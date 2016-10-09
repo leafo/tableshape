@@ -142,6 +142,56 @@ describe "tableshape", ->
         "value `wow` does not match one of: `a`, `b`, (my thing)"
       }, {t "wow"}
 
+    it "repairs with individual repair function", ->
+      t = types.one_of {
+        "okay"
+        types.number\on_repair (val) -> tonumber val
+      }
+
+      assert.same {
+        55, true
+      }, {
+        t\repair "55"
+      }
+
+      assert.same {
+        "okay", false
+      }, {
+        t\repair "okay"
+      }
+
+    it "repairs with global repair function", ->
+      t = types.one_of {
+        "okay"
+        types.number
+      }, repair: (val) -> "nope"
+
+      assert.same {
+        "nope", true
+      }, {
+        t\repair "55"
+      }
+
+    it "repairs in order until success", ->
+      k = ->
+
+      t = types.one_of {
+        types.number\on_repair (v) -> if v == "oops" then 5
+        types.function\on_repair (v) -> k
+      }
+
+      assert.same {
+        5, true
+      }, {
+        t\repair "oops"
+      }
+
+      assert.same {
+        k, true
+      }, {
+        t\repair "well"
+      }
+
 
   describe "all_of", ->
     it "checks value", ->

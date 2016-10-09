@@ -149,6 +149,20 @@ class OneOf extends BaseType
   on_repair: (repair_fn) =>
     OneOf @items, @clone_opts repair: repair_fn
 
+  -- go through all items, repairing if possible
+  repair: (value, fn) =>
+    for item in *@items
+      if value == item
+        return value, false
+
+      if BaseType\is_base_type(item) and item\has_repair!
+        res, fixed = item\repair value
+        if fixed and item\check_value res
+          return res, fixed
+
+    -- try own repair function
+    super value, fn
+
   describe: =>
     item_names = for i in *@items
       if type(i) == "table" and i.describe

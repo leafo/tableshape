@@ -353,14 +353,17 @@ do
       local _list_0 = self.items
       for _index_0 = 1, #_list_0 do
         local item = _list_0[_index_0]
+        if value == item then
+          return value, false
+        end
         if BaseType:is_base_type(item) and item:has_repair() then
-          local res, fixed = item:repair(value, fn)
-          if fixed then
+          local res, fixed = item:repair(value)
+          if fixed and item:check_value(res) then
             return res, fixed
           end
         end
       end
-      return _class_0.__parent.__base.repair(self, fn)
+      return _class_0.__parent.__base.repair(self, value, fn)
     end,
     describe = function(self)
       local item_names
