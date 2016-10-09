@@ -203,7 +203,7 @@ describe "tableshape", ->
       assert.same {nil, "zone is not hello"}, {t "zone"}
       assert.same {nil, "got type `number`, expected `string`"}, {t 5}
 
-    it "repairs using function on checker", ->
+    it "repairs using global repair checker", ->
       t = types.all_of {
         types.string
       }, repair: (val) -> "okay"
@@ -226,6 +226,36 @@ describe "tableshape", ->
 
       assert.has_error ->
         t\repair 5
+
+    it "repairs with every function", ->
+      t = types.all_of {
+        types.table\on_repair (v) -> { v }
+        types.shape {
+          hello: "world"
+        }, open: true, repair: (msg, field, value) -> "world"
+      }
+
+      assert.same {
+        {
+          "calzone"
+          hello: "world"
+        }
+        true
+      }, { t\repair "calzone" }
+
+    it "repair short circuit", ->
+      t = types.all_of {
+        types.number\on_repair (v) -> tonumber v
+        types.custom ((k) -> k >= 500), {
+          repair: (v) -> math.max 500, v
+        }
+      }
+
+      -- goes through
+      assert.same {500, true}, { t\repair "5" }
+
+      -- short circuits
+      assert.same {nil, true}, { t\repair "five" }
 
   describe "shape", ->
     it "gets field errors, short_circuit", ->

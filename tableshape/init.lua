@@ -352,15 +352,24 @@ do
     repair = function(self, value, fn)
       local _list_0 = self.items
       for _index_0 = 1, #_list_0 do
-        local item = _list_0[_index_0]
-        if value == item then
-          return value, false
-        end
-        if BaseType:is_base_type(item) and item:has_repair() then
+        local _continue_0 = false
+        repeat
+          local item = _list_0[_index_0]
+          if value == item then
+            return value, false
+          end
+          if not (BaseType:is_base_type(item) and item:has_repair()) then
+            _continue_0 = true
+            break
+          end
           local res, fixed = item:repair(value)
           if fixed and item:check_value(res) then
             return res, fixed
           end
+          _continue_0 = true
+        until true
+        if not _continue_0 then
+          break
         end
       end
       return _class_0.__parent.__base.repair(self, value, fn)
@@ -447,18 +456,21 @@ do
     end,
     repair = function(self, val, repair_fn)
       local has_own_repair = self:has_repair() or repair_fn
+      local repairs = 0
       local _list_0 = self.types
       for _index_0 = 1, #_list_0 do
         local _continue_0 = false
         repeat
           local t = _list_0[_index_0]
-          if has_own_repair and not t:has_repair() then
+          if not (t:has_repair()) then
             _continue_0 = true
             break
           end
-          local res, fixed = t:repair(val)
-          if fixed then
-            return res, fixed
+          repairs = repairs + 1
+          local fixed
+          val, fixed = t:repair(val)
+          if fixed and not t:check_value(val) then
+            return val, fixed
           end
           _continue_0 = true
         until true
@@ -466,7 +478,11 @@ do
           break
         end
       end
-      return _class_0.__parent.__base.repair(self, val, repair_fn)
+      if repairs == 0 or self:has_repair() then
+        return _class_0.__parent.__base.repair(self, val, repair_fn)
+      else
+        return val, true
+      end
     end,
     check_value = function(self, value)
       local _list_0 = self.types

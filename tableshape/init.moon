@@ -155,10 +155,12 @@ class OneOf extends BaseType
       if value == item
         return value, false
 
-      if BaseType\is_base_type(item) and item\has_repair!
-        res, fixed = item\repair value
-        if fixed and item\check_value res
-          return res, fixed
+      continue unless BaseType\is_base_type(item) and item\has_repair!
+
+      res, fixed = item\repair value
+      if fixed and item\check_value res
+        -- short circuit on a successful repair
+        return res, fixed
 
     -- try own repair function
     super value, fn
@@ -192,18 +194,25 @@ class AllOf extends BaseType
   on_repair: (repair_fn) =>
     AllOf @types, @clone_opts repair: repair_fn
 
+  -- repair with every checker
   repair: (val, repair_fn) =>
     has_own_repair = @has_repair! or repair_fn
 
+    repairs = 0
+
     for t in *@types
-      if has_own_repair and not t\has_repair!
-        continue
+      continue unless t\has_repair!
+      repairs += 1
+      val, fixed = t\repair val
 
-      res, fixed = t\repair val
-      if fixed
-        return res, fixed
+      if fixed and not t\check_value val
+        -- short circuit if repair fails
+        return val, fixed
 
-    super val, repair_fn
+    if repairs == 0 or @has_repair!
+      super val, repair_fn
+    else
+      val, true
 
   check_value: (value) =>
     for t in *@types
