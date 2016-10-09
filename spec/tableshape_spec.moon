@@ -753,3 +753,15 @@ describe "tableshape", ->
       }
 
 
+  describe "type switch", ->
+    it "switches based type type", ->
+      import type_switch from require "tableshape"
+
+      k = switch type_switch(5)
+        when types.string
+          "no"
+        when types.number
+          "yes"
+
+      assert.same k, "yes"
+

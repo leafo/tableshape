@@ -3,6 +3,14 @@ local BaseType
 do
   local _class_0
   local _base_0 = {
+    __eq = function(self, other)
+      if BaseType:is_base_type(other) then
+        print("other is base type")
+        return other(self)
+      else
+        return self(other[1])
+      end
+    end,
     check_value = function(self)
       return error("override me")
     end,
@@ -81,6 +89,7 @@ do
   end
   self.__inherited = function(self, cls)
     cls.__base.__call = cls.__call
+    cls.__base.__eq = self.__eq
     local mt = getmetatable(cls)
     local create = mt.__call
     mt.__call = function(cls, ...)
@@ -339,6 +348,19 @@ do
       return OneOf(self.items, self:clone_opts({
         repair = repair_fn
       }))
+    end,
+    repair = function(self, value, fn)
+      local _list_0 = self.items
+      for _index_0 = 1, #_list_0 do
+        local item = _list_0[_index_0]
+        if BaseType:is_base_type(item) and item:has_repair() then
+          local res, fixed = item:repair(value, fn)
+          if fixed then
+            return res, fixed
+          end
+        end
+      end
+      return _class_0.__parent.__base.repair(self, fn)
     end,
     describe = function(self)
       local item_names
@@ -1224,10 +1246,19 @@ local is_type
 is_type = function(val)
   return BaseType:is_base_type(val)
 end
+local type_switch
+type_switch = function(val)
+  return setmetatable({
+    val
+  }, {
+    __eq = BaseType.__eq
+  })
+end
 return {
   check_shape = check_shape,
   types = types,
   is_type = is_type,
+  type_switch = type_switch,
   BaseType = BaseType,
   VERSION = "1.2.1"
 }

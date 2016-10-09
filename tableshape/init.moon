@@ -11,6 +11,7 @@ class BaseType
 
   @__inherited: (cls) =>
     cls.__base.__call = cls.__call
+    cls.__base.__eq = @__eq
 
     mt = getmetatable cls
     create = mt.__call
@@ -20,6 +21,13 @@ class BaseType
         ret\is_optional!
       else
         ret
+
+  __eq: (other) =>
+    if BaseType\is_base_type other
+      print "other is base type"
+      other @
+    else
+      @ other[1]
 
   new: =>
     if @opts
@@ -538,4 +546,7 @@ check_shape = (value, shape) ->
 is_type = (val) ->
   BaseType\is_base_type val
 
-{ :check_shape, :types, :is_type, :BaseType, VERSION: "1.2.1" }
+type_switch = (val) ->
+  setmetatable { val }, { __eq: BaseType.__eq }
+
+{ :check_shape, :types, :is_type, :type_switch, :BaseType, VERSION: "1.2.1" }
