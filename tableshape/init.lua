@@ -340,6 +340,25 @@ do
         repair = repair_fn
       }))
     end,
+    describe = function(self)
+      local item_names
+      do
+        local _accum_0 = { }
+        local _len_0 = 1
+        local _list_0 = self.items
+        for _index_0 = 1, #_list_0 do
+          local i = _list_0[_index_0]
+          if type(i) == "table" and i.describe then
+            _accum_0[_len_0] = i:describe()
+          else
+            _accum_0[_len_0] = "`" .. tostring(i) .. "`"
+          end
+          _len_0 = _len_0 + 1
+        end
+        item_names = _accum_0
+      end
+      return "one of: " .. tostring(table.concat(item_names, ", "))
+    end,
     check_value = function(self, value)
       local _list_0 = self.items
       for _index_0 = 1, #_list_0 do
@@ -353,24 +372,7 @@ do
           end
         end
       end
-      local err_strs
-      do
-        local _accum_0 = { }
-        local _len_0 = 1
-        local _list_1 = self.items
-        for _index_0 = 1, #_list_1 do
-          local i = _list_1[_index_0]
-          if type(i) == "table" and i.describe then
-            _accum_0[_len_0] = i:describe()
-          else
-            _accum_0[_len_0] = "`" .. tostring(i) .. "`"
-          end
-          _len_0 = _len_0 + 1
-        end
-        err_strs = _accum_0
-      end
-      local err_str = table.concat(err_strs, ", ")
-      return nil, "value `" .. tostring(value) .. "` does not match one of: " .. tostring(err_str)
+      return nil, "value `" .. tostring(value) .. "` does not match " .. tostring(self:describe())
     end
   }
   _base_0.__index = _base_0

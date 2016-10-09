@@ -141,6 +141,15 @@ class OneOf extends BaseType
   on_repair: (repair_fn) =>
     OneOf @items, @clone_opts repair: repair_fn
 
+  describe: =>
+    item_names = for i in *@items
+      if type(i) == "table" and i.describe
+        i\describe!
+      else
+        "`#{i}`"
+
+    "one of: #{table.concat item_names, ", "}"
+
   check_value: (value) =>
     for item in *@items
       return true if item == value
@@ -148,14 +157,7 @@ class OneOf extends BaseType
       if BaseType\is_base_type(item) and item.check_value
         return true if item\check_value value
 
-    err_strs = for i in *@items
-      if type(i) == "table" and i.describe
-        i\describe!
-      else
-        "`#{i}`"
-
-    err_str = table.concat err_strs, ", "
-    nil, "value `#{value}` does not match one of: #{err_str}"
+    nil, "value `#{value}` does not match #{@describe!}"
 
 class AllOf extends BaseType
   new: (@types, @opts) =>
