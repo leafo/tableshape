@@ -43,7 +43,16 @@ class BaseType
   has_repair: =>
     @opts and @opts.repair
 
-  repair: (val, fix_fn) =>
+  -- returns bool, value on repair
+  -- nil, err on repair failure
+  repair: (...) =>
+    fixed, val = @try_repair ...
+    if fixed == nil
+      fixed, val
+    else
+      val, fixed
+
+  try_repair: (val, fix_fn) =>
     fixed = false
 
     pass, err = @check_value val
@@ -57,7 +66,7 @@ class BaseType
       unless @check_value val
         return nil, err
 
-    val, fixed
+    fixed, val
 
   is_optional: =>
     OptionalType @
