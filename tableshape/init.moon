@@ -161,24 +161,24 @@ class OneOf extends BaseType
     super!
     assert type(@items) == "table", "expected table for items in one_of"
 
-  on_repair: (repair_fn) =>
-    OneOf @items, @clone_opts repair: repair_fn
+  on_repair: =>
+    error "compound types can not have their own repair function"
 
-  -- go through all items, repairing if possible
-  repair: (value, fn) =>
+  -- one of the items must successfully repair the value
+  try_repair: (value) =>
+    local fixed, new_value
+
     for item in *@items
       if value == item
-        return value, false
+        return false, value
 
       continue unless BaseType\is_base_type(item) and item\has_repair!
 
-      res, fixed = item\repair value
-      if fixed and item\check_value res
-        -- short circuit on a successful repair
-        return res, fixed
+      fixed, repaired = item\repair value
+      if fixed != nil
+        break
 
-    -- try own repair function
-    super value, fn
+    fixed, new_value
 
   check_value_error: (value) =>
     "value `#{value}` does not match #{@describe!}"
@@ -249,7 +249,7 @@ class ArrayOf extends BaseType
   on_repair: (repair_fn) =>
     ArrayOf @expected, @clone_opts repair: repair_fn
 
-  repair: (tbl, fix_fn) =>
+  try_repair: (tbl, fix_fn) =>
     unless type(tbl) == "table"
       fix_fn or= @opts and @opts.repair
       assert fix_fn, "missing repair function for: #{@@type_err_message}"
