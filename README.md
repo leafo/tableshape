@@ -476,6 +476,16 @@ callback associated with it for when `repair` is used.
 
 ## Changelog
 
+**Oct 09 2016** - 2.0.0
+
+* Add `__eq` metamethod and `type_switch`
+* Change how repair works when handling errors
+* Add `types.custom`
+* Add `types.equivalent`
+* Add `types.all_of`
+* Add `types.literal`
+* Optional type refactored into separate type class (jvprat) 
+
 **Feb 10 2016** - 1.2.1
 
 * Fix bug where literal fields with no dot operator could not be checked

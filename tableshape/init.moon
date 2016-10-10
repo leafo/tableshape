@@ -32,8 +32,12 @@ class BaseType
   new: =>
     if @opts
       @describe = @opts.describe
+      @check_value_error = @opts.check_value_error
 
   check_value: =>
+    error "override me"
+
+  check_value_error: (value) =>
     error "override me"
 
   has_repair: =>
@@ -49,7 +53,9 @@ class BaseType
       assert fix_fn, "missing repair function for: #{err}"
 
       fixed = true
-      val = fix_fn val, err
+      val, err = fix_fn val, err
+      unless @check_value val
+        return nil, err
 
     val, fixed
 
@@ -165,6 +171,9 @@ class OneOf extends BaseType
     -- try own repair function
     super value, fn
 
+  check_value_error: (value) =>
+    "value `#{value}` does not match #{@describe!}"
+
   describe: =>
     item_names = for i in *@items
       if type(i) == "table" and i.describe
@@ -181,7 +190,7 @@ class OneOf extends BaseType
       if BaseType\is_base_type(item) and item.check_value
         return true if item\check_value value
 
-    nil, "value `#{value}` does not match #{@describe!}"
+    nil, @check_value_error value
 
 class AllOf extends BaseType
   new: (@types, @opts) =>

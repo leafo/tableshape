@@ -14,6 +14,9 @@ do
     check_value = function(self)
       return error("override me")
     end,
+    check_value_error = function(self, value)
+      return error("override me")
+    end,
     has_repair = function(self)
       return self.opts and self.opts.repair
     end,
@@ -24,7 +27,10 @@ do
         fix_fn = fix_fn or (self.opts and self.opts.repair)
         assert(fix_fn, "missing repair function for: " .. tostring(err))
         fixed = true
-        val = fix_fn(val, err)
+        val, err = fix_fn(val, err)
+        if not (self:check_value(val)) then
+          return nil, err
+        end
       end
       return val, fixed
     end,
@@ -60,6 +66,7 @@ do
     __init = function(self)
       if self.opts then
         self.describe = self.opts.describe
+        self.check_value_error = self.opts.check_value_error
       end
     end,
     __base = _base_0,
@@ -374,6 +381,9 @@ do
       end
       return _class_0.__parent.__base.repair(self, value, fn)
     end,
+    check_value_error = function(self, value)
+      return "value `" .. tostring(value) .. "` does not match " .. tostring(self:describe())
+    end,
     describe = function(self)
       local item_names
       do
@@ -406,7 +416,7 @@ do
           end
         end
       end
-      return nil, "value `" .. tostring(value) .. "` does not match " .. tostring(self:describe())
+      return nil, self:check_value_error(value)
     end
   }
   _base_0.__index = _base_0
