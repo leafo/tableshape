@@ -206,12 +206,14 @@ class OneOf extends BaseType
 
     "one of: #{table.concat item_names, ", "}"
 
-  check_value: (value) =>
+  check_value: (value, state) =>
     for item in *@items
       return true if item == value
 
       if BaseType\is_base_type(item) and item.check_value
-        return true if item\check_value value
+        new_state = item\check_value value
+        if new_state
+          return merge_tag_state state, new_state
 
     nil, "value `#{value}` does not match #{@describe!}"
 

@@ -862,6 +862,28 @@ describe "tableshape", ->
 
       assert.same nil, (t "no")
 
+    describe "one_of", ->
+      it "takes matching tag", ->
+        s = types.one_of {
+          types.string\tag "str"
+          types.number\tag "num"
+          types.function\tag "func"
+        }
+
+        assert.same {
+          str: "hello"
+        }, s "hello"
+
+        assert.same {
+          num: 5
+        }, s 5
+
+        fn = -> print "hi"
+        assert.same {
+          func: fn
+        }, s fn
+
+
     describe "shape", ->
       it "basic shape", ->
         s = types.shape {
@@ -887,3 +909,20 @@ describe "tableshape", ->
         }, tags
 
 
+      it "shape doesn't return partial tags", ->
+        t = types.shape {
+          types.string\tag "hello"
+          types.string\tag "world"
+        }
+
+        s = {}
+        t { "one", "two" }, s
+
+        assert.same {
+          hello: "one"
+          world: "two"
+        }, s
+
+        s = {}
+        t { "one", 5 }, s
+        assert.same {}, s
