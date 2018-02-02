@@ -88,12 +88,13 @@ class BaseType
 class TaggedType extends BaseType
   new: (@base_type, @opts) =>
 
-  check_value: (value, tag_state) =>
-    if @base_type\check_value value
+  check_value: (value, state) =>
+    state = @base_type\check_value value, state
+    if state
       assert @opts.tag, "tagged type missing tag name"
-      tag_state or= {}
-      tag_state[@opts.tag] = value
-      tag_state
+      state = {} unless type(state) == "table"
+      state[@opts.tag] = value
+      state
 
   describe: =>
     if @base_type.describe
@@ -139,11 +140,13 @@ class Type extends BaseType
   on_repair: (repair_fn) =>
     Type @t, @clone_opts repair: repair_fn
 
-  check_value: (value) =>
+  check_value: (value, state) =>
     got = type(value)
+
     if @t != got
       return nil, "got type `#{got}`, expected `#{@t}`"
-    true
+
+    state or true
 
   describe: =>
     "type `#{@t}`"
@@ -423,7 +426,7 @@ class Shape extends BaseType
     return true if value == expected_value
 
     if BaseType\is_base_type(expected_value) and expected_value.check_value
-      state, err = expected_value\check_value value, tag_state
+      state, err = expected_value\check_value value, state
 
       unless state
         return nil, "field `#{key}`: #{err}", err
