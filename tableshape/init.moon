@@ -248,13 +248,15 @@ class AllOf extends BaseType
     else
       val, true
 
-  check_value: (value) =>
+  check_value: (value, state) =>
+    new_state = nil
+
     for t in *@types
-      pass, err = t\check_value value
-      unless pass
+      new_state, err = t\check_value value, new_state
+      unless new_state
         return nil, err
 
-    true
+    merge_tag_state state, new_state
 
 class ArrayOf extends BaseType
   @type_err_message: "expecting table"

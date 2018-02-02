@@ -883,6 +883,45 @@ describe "tableshape", ->
           func: fn
         }, s fn
 
+        assert.same nil, (s {})
+
+    describe "all of", ->
+      it "matches multi", ->
+        s = types.all_of {
+          types.table\tag "table"
+          types.shape {
+            a: types.number\tag "x"
+          }, open: true
+          types.shape {
+            b: types.number\tag "y"
+          }, open: true
+        }
+
+        assert.same {
+          table: {
+            a: 43
+            b: 2
+            what: "ok"
+          }
+          x: 43
+          y: 2
+        }, s {
+          a: 43
+          b: 2
+          what: "ok"
+        }
+
+        tags = {}
+        assert.nil (s {}, tags)
+        assert.same {}, tags
+
+        tags = {}
+        assert.nil (s { a: 443}, tags)
+        assert.same {}, tags
+
+        tags = {}
+        assert.nil (s { a: 443, b: "no"}, tags)
+        assert.same {}, tags
 
     describe "shape", ->
       it "basic shape", ->
