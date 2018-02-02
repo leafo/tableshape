@@ -1,4 +1,13 @@
-local OptionalType
+local OptionalType, TaggedType
+
+merge_tag_state = (existing, new_tags) ->
+  if type(new_tags) == "table" and type(existing) == "table"
+    for k,v in pairs new_tags
+      existing[k] = v
+
+    return existing
+
+  new_tags or existing or true
 
 class BaseType
   @is_base_type: (val) =>
@@ -56,6 +65,11 @@ class BaseType
   is_optional: =>
     OptionalType @
 
+  tag: (name) =>
+    TaggedType @, {
+      tag: name
+    }
+
   clone_opts: (merge) =>
     opts = if @opts
       {k,v for k,v in pairs @opts}
@@ -71,6 +85,21 @@ class BaseType
   __call: (...) =>
     @check_value ...
 
+class TaggedType extends BaseType
+  new: (@base_type, @opts) =>
+
+  check_value: (value, tag_state) =>
+    if @base_type\check_value value
+      assert @opts.tag, "tagged type missing tag name"
+      tag_state or= {}
+      tag_state[@opts.tag] = value
+      tag_state
+
+  describe: =>
+    if @base_type.describe
+      base_description = @base_type\describe!
+      "#{base_description} tagged `#{@opts.tag}`"
+
 class OptionalType extends BaseType
   new: (@base_type, @opts) =>
     super!
@@ -79,9 +108,9 @@ class OptionalType extends BaseType
       @opts or= {}
       @opts.repair = @base_type.opts.repair
 
-  check_value: (value) =>
-    return true if value == nil
-    @base_type\check_value value
+  check_value: (value, tag_state) =>
+    return tag_state or true if value == nil
+    @base_type\check_value value, tag_state
 
   is_optional: => @
 
@@ -99,7 +128,7 @@ class OptionalType extends BaseType
       "optional #{base_description}"
 
 class AnyType extends BaseType
-  check_value: => true
+  check_value: (v, tag_state) => tag_state or true
   is_optional: => AnyType
 
 -- basic type check
@@ -390,28 +419,30 @@ class Shape extends BaseType
 
     copy or tbl, fixed
 
-  check_field: (key, value, expected_value, tbl) =>
+  check_field: (key, value, expected_value, tbl, state) =>
     return true if value == expected_value
 
     if BaseType\is_base_type(expected_value) and expected_value.check_value
-      res, err = expected_value\check_value value
+      state, err = expected_value\check_value value, tag_state
 
-      unless res
+      unless state
         return nil, "field `#{key}`: #{err}", err
     else
       err = "expected `#{expected_value}`, got `#{value}`"
       return nil, "field `#{key}` #{err}", err
 
-    true
+    state or true
 
-  field_errors: (value, short_circuit=false) =>
+  check_fields: (value, short_circuit=false) =>
     unless type(value) == "table"
       if short_circuit
-        return @@type_err_message
+        return nil, @@type_err_message
       else
-        return { @@type_err_message }
+        return nil, { @@type_err_message }
 
     errors = unless short_circuit then {}
+
+    state = nil
 
     remaining_keys = unless @opts and @opts.open
       {key, true for key in pairs value}
@@ -422,10 +453,11 @@ class Shape extends BaseType
       if remaining_keys
         remaining_keys[shape_key] = nil
 
-      pass, err, standalone_err = @check_field shape_key, item_value, shape_val, value
-      unless pass
+      state, err, standalone_err = @check_field shape_key, item_value, shape_val, value, state
+
+      unless state
         if short_circuit
-          return err
+          return nil, err
         else
           errors[shape_key] = standalone_err or err
           table.insert errors, err
@@ -434,17 +466,22 @@ class Shape extends BaseType
       if extra_key = next remaining_keys
         msg = "has extra field: `#{extra_key}`"
         if short_circuit
-          return msg
+          return nil, msg
         else
-          return { msg }
+          return nil, { msg }
 
-    errors
+    if errors
+      return nil, errors
 
-  check_value: (value) =>
-    if err = @field_errors value, true
-      nil, err
+    state or true
+
+  check_value: (value, state) =>
+    new_state, err = @check_fields value, true
+
+    if new_state
+      merge_tag_state state, new_state
     else
-      true
+      nil, err
 
 class Pattern extends BaseType
   new: (@pattern, @opts) =>

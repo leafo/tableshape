@@ -845,3 +845,45 @@ describe "tableshape", ->
 
       assert.same k, "yes"
 
+  describe "tags #ddd", ->
+    it "literal", ->
+      t = types.literal("hi")\tag "what"
+      assert.same {
+        what: "hi"
+      }, t("hi")
+
+      assert.same nil, (t("no"))
+
+    it "number", ->
+      t = types.number\tag "val"
+      assert.same {
+        val: 15
+      }, t 15
+
+      assert.same nil, (t "no")
+
+    describe "shape", ->
+      it "basic shape", ->
+        s = types.shape {
+          types.number\tag "x"
+          types.number\tag "y"
+          types.number
+          t: types.string
+          color: types.string\tag "color"
+        }
+
+        tags = assert s {
+          1
+          2
+          3
+          t: "board"
+          color: "blue"
+        }
+
+        assert.same {
+          x: 1
+          y: 2
+          color: "blue"
+        }, tags
+
+
