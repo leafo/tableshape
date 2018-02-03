@@ -129,6 +129,8 @@ class BaseType
 
 -- done with the division operator
 class TransformNode extends BaseType
+  @transformer: true
+
   new: (@node, @t_fn) =>
 
   _transform: (value, state) =>
@@ -140,6 +142,8 @@ class TransformNode extends BaseType
       @.t_fn(val), state_or_err
 
 class SequenceNode extends BaseType
+  @transformer: true
+
   new: (...) =>
     @sequence = {...}
 
@@ -152,6 +156,8 @@ class SequenceNode extends BaseType
     value, state
 
 class FirstOfNode extends BaseType
+  @transformer: true
+
   new: (...) =>
     @options = {...}
 
