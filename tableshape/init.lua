@@ -1,9 +1,18 @@
 local OptionalType, TaggedType
+local TagValueArray = { }
 local merge_tag_state
 merge_tag_state = function(existing, new_tags)
   if type(new_tags) == "table" and type(existing) == "table" then
     for k, v in pairs(new_tags) do
-      existing[k] = v
+      local ev = existing[k]
+      if ev and getmetatable(ev) == TagValueArray and getmetatable(v) == TagValueArray then
+        for _index_0 = 1, #v do
+          local array_val = v[_index_0]
+          table.insert(ev, array_val)
+        end
+      else
+        existing[k] = v
+      end
     end
     return existing
   end
@@ -15,7 +24,6 @@ do
   local _base_0 = {
     __eq = function(self, other)
       if BaseType:is_base_type(other) then
-        print("other is base type")
         return other(self)
       else
         return self(other[1])
@@ -125,18 +133,28 @@ do
     check_value = function(self, value, state)
       state = self.base_type:check_value(value, state)
       if state then
-        assert(self.opts.tag, "tagged type missing tag name")
         if not (type(state) == "table") then
           state = { }
         end
-        state[self.opts.tag] = value
+        if self.array then
+          local existing = state[self.tag]
+          if type(existing) == "table" then
+            table.insert(existing, value)
+          else
+            state[self.tag] = setmetatable({
+              value
+            }, TagValueArray)
+          end
+        else
+          state[self.tag] = value
+        end
         return state
       end
     end,
     describe = function(self)
       if self.base_type.describe then
         local base_description = self.base_type:describe()
-        return tostring(base_description) .. " tagged `" .. tostring(self.opts.tag) .. "`"
+        return tostring(base_description) .. " tagged `" .. tostring(self.tag) .. "`"
       end
     end
   }
@@ -144,7 +162,12 @@ do
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
     __init = function(self, base_type, opts)
-      self.base_type, self.opts = base_type, opts
+      self.base_type = base_type
+      self.tag = assert(opts.tag, "tagged type missing tag")
+      if self.tag:match("%[%]$") then
+        self.tag = self.tag:sub(1, -3)
+        self.array = true
+      end
     end,
     __base = _base_0,
     __name = "TaggedType",
@@ -468,7 +491,7 @@ do
       for _index_0 = 1, #_list_0 do
         local item = _list_0[_index_0]
         if item == value then
-          return true
+          return state or true
         end
         if BaseType:is_base_type(item) and item.check_value then
           local new_state = item:check_value(value)
@@ -682,7 +705,7 @@ do
     end,
     check_field = function(self, key, value, tbl, state)
       if value == self.expected then
-        return true
+        return state or true
       end
       if BaseType:is_base_type(self.expected) and self.expected.check_value then
         local err
@@ -921,7 +944,7 @@ do
     end,
     check_field = function(self, key, value, expected_value, tbl, state)
       if value == expected_value then
-        return true
+        return state or true
       end
       if BaseType:is_base_type(expected_value) and expected_value.check_value then
         local err
