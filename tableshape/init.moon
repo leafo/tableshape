@@ -290,7 +290,7 @@ class ArrayOf extends BaseType
             table.insert copy, item
     else
       for idx, item in ipairs tbl
-        pass, err = @check_field shape_key, item_value, shape_val, tbl
+        pass, err = @check_field idx, item, tbl
         if pass
           if copy
             table.insert copy, item
@@ -572,7 +572,7 @@ class Equivalent extends BaseType
   new: (@val, @opts) =>
     super!
 
-  on_repair: =>
+  on_repair: (repair_fn) =>
     Equivalent @val, @clone_opts repair: repair_fn
 
   check_value: (val, state) =>
