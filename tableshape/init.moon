@@ -1,13 +1,22 @@
 local OptionalType, TaggedType
 
+-- metatable to identify arrays for merging
+TagValueArray = {}
+
 merge_tag_state = (existing, new_tags) ->
   if type(new_tags) == "table" and type(existing) == "table"
     for k,v in pairs new_tags
-      existing[k] = v
+      ev = existing[k]
+      if ev and getmetatable(ev) == TagValueArray and getmetatable(v) == TagValueArray
+        for array_val in *v
+          table.insert ev, array_val
+      else
+        existing[k] = v
 
     return existing
 
   new_tags or existing or true
+
 
 class BaseType
   @is_base_type: (val) =>
@@ -33,7 +42,6 @@ class BaseType
 
   __eq: (other) =>
     if BaseType\is_base_type other
-      print "other is base type"
       other @
     else
       @ other[1]
@@ -86,20 +94,34 @@ class BaseType
     @check_value ...
 
 class TaggedType extends BaseType
-  new: (@base_type, @opts) =>
+  new: (@base_type, opts) =>
+    @tag = assert opts.tag, "tagged type missing tag"
+    if @tag\match "%[%]$"
+      @tag = @tag\sub 1, -3
+      @array = true
 
   check_value: (value, state) =>
     state = @base_type\check_value value, state
+
     if state
-      assert @opts.tag, "tagged type missing tag name"
-      state = {} unless type(state) == "table"
-      state[@opts.tag] = value
+      unless type(state) == "table"
+        state = {}
+
+      if @array
+        existing = state[@tag]
+        if type(existing) == "table"
+          table.insert existing, value
+        else
+          state[@tag] = setmetatable {value}, TagValueArray
+      else
+        state[@tag] = value
+
       state
 
   describe: =>
     if @base_type.describe
       base_description = @base_type\describe!
-      "#{base_description} tagged `#{@opts.tag}`"
+      "#{base_description} tagged `#{@tag}`"
 
 class OptionalType extends BaseType
   new: (@base_type, @opts) =>
@@ -208,7 +230,7 @@ class OneOf extends BaseType
 
   check_value: (value, state) =>
     for item in *@items
-      return true if item == value
+      return state or true if item == value
 
       if BaseType\is_base_type(item) and item.check_value
         new_state = item\check_value value
@@ -305,7 +327,7 @@ class ArrayOf extends BaseType
     copy or tbl, fixed
 
   check_field: (key, value, tbl, state) =>
-    return true if value == @expected
+    return state or true if value == @expected
 
     if BaseType\is_base_type(@expected) and @expected.check_value
       state, err = @expected\check_value value, state
@@ -430,7 +452,7 @@ class Shape extends BaseType
     copy or tbl, fixed
 
   check_field: (key, value, expected_value, tbl, state) =>
-    return true if value == expected_value
+    return state or true if value == expected_value
 
     if BaseType\is_base_type(expected_value) and expected_value.check_value
       state, err = expected_value\check_value value, state

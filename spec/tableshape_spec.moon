@@ -938,6 +938,23 @@ describe "tableshape", ->
           thing: "world"
         }, out
 
+      it "matches many items from array", ->
+        t = types.array_of types.shape {
+          s: types.string\tag "thing[]"
+        }
+
+        out = t {
+          { s: "hello" }
+          { s: "world" }
+        }
+
+        assert.same {
+          thing: {
+            "hello"
+            "world"
+          }
+        }, out
+
     describe "map_of", ->
       it "matches regular map", ->
         t = types.map_of "hello", types.string\tag "world"
