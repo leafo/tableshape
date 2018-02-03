@@ -337,32 +337,33 @@ class MapOf extends BaseType
   on_repair: (repair_fn) =>
     MapOf @expected_key, @expected_value, @clone_opts repair: repair_fn
 
-  check_value: (value) =>
+  check_value: (value, state) =>
     return nil, "expected table for map_of" unless type(value) == "table"
+
+    local new_state
 
     for k,v in pairs value
       -- check key
       if @expected_key.check_value
-        res, err = @expected_key\check_value k
-        unless res
+        new_state, err = @expected_key\check_value k, new_state
+        unless new_state
           return nil, "field `#{k}` in table does not match: #{err}"
 
       else
         unless @expected_key == k
           return nil, "field `#{k}` does not match `#{@expected_key}`"
 
-
       -- check value
       if @expected_value.check_value
-        res, err = @expected_value\check_value v
-        unless res
+        new_state, err = @expected_value\check_value v, new_state
+        unless new_state
           return nil, "field `#{k}` value in table does not match: #{err}"
 
       else
         unless @expected_value == v
           return nil, "field `#{k}` value does not match `#{@expected_value}`"
 
-    true
+    merge_tag_state state, new_state
 
 class Shape extends BaseType
   @type_err_message: "expecting table"

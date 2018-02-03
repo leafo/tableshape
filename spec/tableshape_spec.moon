@@ -938,6 +938,17 @@ describe "tableshape", ->
           thing: "world"
         }, out
 
+    describe "map_of", ->
+      it "matches regular map", ->
+        t = types.map_of "hello", types.string\tag "world"
+
+        assert.same {
+          world: "something"
+        }, t {
+          hello: "something"
+        }
+
+
     describe "shape", ->
       it "basic shape", ->
         s = types.shape {
