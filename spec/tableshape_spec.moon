@@ -1039,4 +1039,30 @@ describe "tableshape", ->
         "got type `boolean`, expected `string`"
       }, { n\transform true }
 
+    it "first of node", ->
+      n = types.literal(55) + types.string + types.array
+
+      assert.same {
+        nil
+        "got `65`, expected `55`; got type `number`, expected `string`; expecting table"
+      }, { n\transform 65 }
+
+      assert.same {
+        "does this work?"
+      }, {
+        n\transform "does this work?"
+      }
+
+      assert.same {
+        55
+      }, {
+        n\transform 55
+      }
+
+      assert.same {
+        {1,2,3}
+      }, {
+        n\transform {1,2,3}
+      }
+
 

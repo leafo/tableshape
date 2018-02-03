@@ -19,7 +19,7 @@ merge_tag_state = (existing, new_tags) ->
   new_tags or existing or true
 
 
-local TransformNode, SequenceNode
+local TransformNode, SequenceNode, FirstOfNode
 
 class BaseType
   @is_base_type: (val) =>
@@ -35,6 +35,7 @@ class BaseType
     cls.__base.__eq = @__eq
     cls.__base.__div = @__div
     cls.__base.__mul = @__mul
+    cls.__base.__add = @__add
 
     mt = getmetatable cls
     create = mt.__call
@@ -56,6 +57,14 @@ class BaseType
 
   __mul: (right) =>
     SequenceNode @, right
+
+  __add: (right) =>
+    if @__class == FirstOfNode
+      options = { unpack @options }
+      table.insert options, right
+      FirstOfNode unpack options
+    else
+      FirstOfNode @, right
 
   new: =>
     if @opts
@@ -141,6 +150,28 @@ class SequenceNode extends BaseType
         break
 
     value, state
+
+class FirstOfNode extends BaseType
+  new: (...) =>
+    @options = {...}
+
+  _transform: (value, state) =>
+    local errors
+
+    unless @options[1]
+      return FailedTransform, "no options for node"
+
+    for node in *@options
+      new_val, new_state_or_err = node\_transform value, state
+      if new_val == FailedTransform
+        if errors
+          table.insert errors, new_state_or_err
+        else
+          errors = {new_state_or_err}
+      else
+        return new_val, new_state_or_err
+
+    FailedTransform, table.concat errors or {"no options"}, "; "
 
 class TaggedType extends BaseType
   new: (@base_type, opts) =>
