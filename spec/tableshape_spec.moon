@@ -260,10 +260,10 @@ describe "tableshape", ->
   describe "shape", ->
     it "gets field errors, short_circuit", ->
       check = types.shape { color: "red" }
-      assert.same "field `color` expected `red`, got `nil`", check\field_errors {}, true
-      assert.same "expecting table", check\field_errors "blue", true
-      assert.same "has extra field: `height`", check\field_errors { color: "red", height: 10 }, true
-      assert.same nil, check\field_errors { color: "red" }, true
+      assert.same "field `color` expected `red`, got `nil`", select 2, check\check_fields {}, true
+      assert.same "expecting table", select 2, check\check_fields "blue", true
+      assert.same "has extra field: `height`", select 2, check\check_fields { color: "red", height: 10 }, true
+      assert.same true, check\check_fields { color: "red" }, true
 
     it "gets field errors", ->
       check = types.shape { color: "red" }
@@ -271,11 +271,11 @@ describe "tableshape", ->
       assert.same {
         "field `color` expected `red`, got `nil`"
         color: "expected `red`, got `nil`"
-      }, check\field_errors {}, false
+      }, select 2, check\check_fields {}, false
 
-      assert.same {"expecting table"}, check\field_errors "blue"
-      assert.same {"has extra field: `height`"}, check\field_errors { color: "red", height: 10 }
-      assert.same {}, check\field_errors { color: "red" }
+      assert.same {"expecting table"}, select 2, check\check_fields "blue"
+      assert.same {"has extra field: `height`"}, select 2, check\check_fields { color: "red", height: 10 }
+      assert.same {}, select 2, check\check_fields { color: "red" }
 
     it "checks value", ->
       check = types.shape { color: "red" }
@@ -845,7 +845,7 @@ describe "tableshape", ->
 
       assert.same k, "yes"
 
-  describe "tags #ddd", ->
+  describe "tags", ->
     it "literal", ->
       t = types.literal("hi")\tag "what"
       assert.same {
