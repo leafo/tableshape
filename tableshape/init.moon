@@ -304,27 +304,29 @@ class ArrayOf extends BaseType
 
     copy or tbl, fixed
 
-  check_field: (key, value, tbl) =>
+  check_field: (key, value, tbl, state) =>
     return true if value == @expected
 
     if BaseType\is_base_type(@expected) and @expected.check_value
-      res, err = @expected\check_value value
-      unless res
+      state, err = @expected\check_value value, state
+      unless state
         return nil, "item #{key} in array does not match: #{err}"
     else
       return nil, "item #{key} in array does not match `#{@expected}`"
 
-    true
+    state or true
 
-  check_value: (value) =>
+  check_value: (value, state) =>
     return nil, "expected table for array_of" unless type(value) == "table"
 
+    local new_state
+
     for idx, item in ipairs value
-      pass, err = @check_field idx, item, value
-      unless pass
+      new_state, err = @check_field idx, item, value, new_state
+      unless new_state
         return nil, err
 
-    true
+    merge_tag_state state
 
 class MapOf extends BaseType
   -- TODO: this needs its own repair implementation
