@@ -110,7 +110,7 @@ class OptionalType extends BaseType
       @opts.repair = @base_type.opts.repair
 
   check_value: (value, state) =>
-    return tag_state or true if value == nil
+    return state or true if value == nil
     @base_type\check_value value, state
 
   is_optional: => @
