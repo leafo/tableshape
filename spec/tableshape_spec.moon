@@ -1044,7 +1044,7 @@ describe "tableshape", ->
 
       assert.same {
         nil
-        "got `65`, expected `55`; got type `number`, expected `string`; expecting table"
+        "expecting one of: (got `65`, expected `55`; got type `number`, expected `string`; expecting table)"
       }, { n\transform 65 }
 
       assert.same {
@@ -1065,4 +1065,90 @@ describe "tableshape", ->
         n\transform {1,2,3}
       }
 
+    describe "shape", ->
+      it "single field", ->
+        n = types.shape {
+          color: types.one_of { "blue", "green", "red"}
+        }
 
+        assert.same {
+          nil
+          "field `color`: value `purple` does not match one of: `blue`, `green`, `red`"
+        },{
+          n\transform { color: "purple" }
+        }
+
+        assert.same {
+          { color: "green" }
+        },{
+          n\transform { color: "green" }
+        }
+
+        assert.same {
+          nil
+          "extra fields: `height`"
+        },{
+          n\transform { color: "green", height: "10" }
+        }
+
+        assert.same {
+          nil
+          "extra fields: `1`, `2`, `cool`"
+        },{
+          n\transform { color: "green", cool: "10", "a", "b" }
+        }
+
+      it "single field nil", ->
+        n = types.shape {
+          friend: types.nil
+        }
+
+        assert.same {
+          {}
+        },{
+          n\transform {}
+        }
+
+        assert.same {
+          nil
+          "field `friend`: got type `string`, expected `nil`"
+        },{
+          n\transform { friend: "what up" }
+        }
+
+      it "single field with transform", ->
+        n = types.shape {
+          value: types.one_of({ "blue", "green", "red"}) + types.string / "unknown" + types.number / (n) -> n + 5
+        }
+
+        assert.same {
+          nil
+          "field `value`: expecting one of: (value `nil` does not match one of: `blue`, `green`, `red`; got type `nil`, expected `string`; got type `nil`, expected `number`)"
+        }, {
+          n\transform { }
+        }
+
+
+        assert.same {
+          { value: "red" }
+        }, {
+          n\transform {
+            value: "red"
+          }
+        }
+
+        assert.same {
+          { value: "unknown" }
+        }, {
+          n\transform {
+            value: "purple"
+          }
+        }
+
+        assert.same {
+          { value: 15 }
+        }, {
+          n\transform {
+            value: 10
+          }
+        }

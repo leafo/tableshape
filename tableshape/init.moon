@@ -139,7 +139,13 @@ class TransformNode extends BaseType
     if val == FailedTransform
       val, state_or_err
     else
-      @.t_fn(val), state_or_err
+      out = switch type @.t_fn
+        when "function"
+          @.t_fn(val)
+        else
+          @.t_fn
+
+      out, state_or_err
 
 class SequenceNode extends BaseType
   @transformer: true
@@ -177,7 +183,7 @@ class FirstOfNode extends BaseType
       else
         return new_val, new_state_or_err
 
-    FailedTransform, table.concat errors or {"no options"}, "; "
+    FailedTransform, "expecting one of: (#{table.concat errors or {"no options"}, "; "})"
 
 class TaggedType extends BaseType
   new: (@base_type, opts) =>
@@ -486,6 +492,50 @@ class Shape extends BaseType
   -- don't allow extra fields
   is_open: =>
     Shape @shape, @clone_opts open: true
+
+  _transform: (value, state) =>
+    remaining_keys = {key, true for key in pairs value}
+
+    local errors
+    out = {}
+    local new_state
+
+    for shape_key, shape_val in pairs @shape
+      item_value = value[shape_key]
+
+      if remaining_keys
+        remaining_keys[shape_key] = nil
+
+      new_val, tuple_state = shape_val\_transform item_value
+
+      if new_val == FailedTransform
+        unless errors
+          errors = {}
+        table.insert errors, "field `#{shape_key}`: #{tuple_state}"
+      else
+        new_state = merge_tag_state new_state, tuple_state
+        out[shape_key] = new_val
+
+    if remaining_keys and next remaining_keys
+      if @opts and @opts.open
+        -- add the remaining keys to out
+        for k in pairs remaining_keys
+          out[k] = value[k]
+
+      else
+        names = for key in pairs remaining_keys
+          "`#{key}`"
+
+        unless errors
+          errors = {}
+
+        table.insert errors,
+          "extra fields: #{table.concat names, ", "}"
+
+    if errors and next errors
+      return FailedTransform, table.concat errors, "; "
+
+    out, new_state
 
   repair: (tbl, fix_fn) =>
     unless type(tbl) == "table"
