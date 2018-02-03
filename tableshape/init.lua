@@ -1,4 +1,14 @@
-local OptionalType
+local OptionalType, TaggedType
+local merge_tag_state
+merge_tag_state = function(existing, new_tags)
+  if type(new_tags) == "table" and type(existing) == "table" then
+    for k, v in pairs(new_tags) do
+      existing[k] = v
+    end
+    return existing
+  end
+  return new_tags or existing or true
+end
 local BaseType
 do
   local _class_0
@@ -30,6 +40,11 @@ do
     end,
     is_optional = function(self)
       return OptionalType(self)
+    end,
+    tag = function(self, name)
+      return TaggedType(self, {
+        tag = name
+      })
     end,
     clone_opts = function(self, merge)
       local opts
@@ -107,11 +122,66 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, value)
-      if value == nil then
-        return true
+    check_value = function(self, value, state)
+      state = self.base_type:check_value(value, state)
+      if state then
+        assert(self.opts.tag, "tagged type missing tag name")
+        if not (type(state) == "table") then
+          state = { }
+        end
+        state[self.opts.tag] = value
+        return state
       end
-      return self.base_type:check_value(value)
+    end,
+    describe = function(self)
+      if self.base_type.describe then
+        local base_description = self.base_type:describe()
+        return tostring(base_description) .. " tagged `" .. tostring(self.opts.tag) .. "`"
+      end
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, base_type, opts)
+      self.base_type, self.opts = base_type, opts
+    end,
+    __base = _base_0,
+    __name = "TaggedType",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  TaggedType = _class_0
+end
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    check_value = function(self, value, state)
+      if value == nil then
+        return state or true
+      end
+      return self.base_type:check_value(value, state)
     end,
     is_optional = function(self)
       return self
@@ -183,8 +253,8 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self)
-      return true
+    check_value = function(self, v, state)
+      return state or true
     end,
     is_optional = function(self)
       return AnyType
@@ -233,12 +303,12 @@ do
         repair = repair_fn
       }))
     end,
-    check_value = function(self, value)
+    check_value = function(self, value, state)
       local got = type(value)
       if self.t ~= got then
         return nil, "got type `" .. tostring(got) .. "`, expected `" .. tostring(self.t) .. "`"
       end
-      return true
+      return state or true
     end,
     describe = function(self)
       return "type `" .. tostring(self.t) .. "`"
@@ -288,7 +358,7 @@ do
         repair = repair_fn
       }))
     end,
-    check_value = function(self, value)
+    check_value = function(self, value, state)
       if not (type(value) == "table") then
         return nil, "expecting table"
       end
@@ -302,7 +372,7 @@ do
         end
         k = k + 1
       end
-      return true
+      return state or true
     end
   }
   _base_0.__index = _base_0
@@ -393,7 +463,7 @@ do
       end
       return "one of: " .. tostring(table.concat(item_names, ", "))
     end,
-    check_value = function(self, value)
+    check_value = function(self, value, state)
       local _list_0 = self.items
       for _index_0 = 1, #_list_0 do
         local item = _list_0[_index_0]
@@ -401,8 +471,9 @@ do
           return true
         end
         if BaseType:is_base_type(item) and item.check_value then
-          if item:check_value(value) then
-            return true
+          local new_state = item:check_value(value)
+          if new_state then
+            return merge_tag_state(state, new_state)
           end
         end
       end
@@ -484,16 +555,18 @@ do
         return val, true
       end
     end,
-    check_value = function(self, value)
+    check_value = function(self, value, state)
+      local new_state = nil
       local _list_0 = self.types
       for _index_0 = 1, #_list_0 do
         local t = _list_0[_index_0]
-        local pass, err = t:check_value(value)
-        if not (pass) then
+        local err
+        new_state, err = t:check_value(value, new_state)
+        if not (new_state) then
           return nil, err
         end
       end
-      return true
+      return merge_tag_state(state, new_state)
     end
   }
   _base_0.__index = _base_0
@@ -581,7 +654,7 @@ do
         end
       else
         for idx, item in ipairs(tbl) do
-          local pass, err = self:check_field(shape_key, item_value, shape_val, tbl)
+          local pass, err = self:check_field(idx, item, tbl)
           if pass then
             if copy then
               table.insert(copy, item)
@@ -607,31 +680,34 @@ do
       end
       return copy or tbl, fixed
     end,
-    check_field = function(self, key, value, tbl)
+    check_field = function(self, key, value, tbl, state)
       if value == self.expected then
         return true
       end
       if BaseType:is_base_type(self.expected) and self.expected.check_value then
-        local res, err = self.expected:check_value(value)
-        if not (res) then
+        local err
+        state, err = self.expected:check_value(value, state)
+        if not (state) then
           return nil, "item " .. tostring(key) .. " in array does not match: " .. tostring(err)
         end
       else
         return nil, "item " .. tostring(key) .. " in array does not match `" .. tostring(self.expected) .. "`"
       end
-      return true
+      return state or true
     end,
-    check_value = function(self, value)
+    check_value = function(self, value, state)
       if not (type(value) == "table") then
         return nil, "expected table for array_of"
       end
+      local new_state
       for idx, item in ipairs(value) do
-        local pass, err = self:check_field(idx, item, value)
-        if not (pass) then
+        local err
+        new_state, err = self:check_field(idx, item, value, new_state)
+        if not (new_state) then
           return nil, err
         end
       end
-      return true
+      return merge_tag_state(state, new_state)
     end
   }
   _base_0.__index = _base_0
@@ -680,14 +756,16 @@ do
         repair = repair_fn
       }))
     end,
-    check_value = function(self, value)
+    check_value = function(self, value, state)
       if not (type(value) == "table") then
         return nil, "expected table for map_of"
       end
+      local new_state
       for k, v in pairs(value) do
         if self.expected_key.check_value then
-          local res, err = self.expected_key:check_value(k)
-          if not (res) then
+          local err
+          new_state, err = self.expected_key:check_value(k, new_state)
+          if not (new_state) then
             return nil, "field `" .. tostring(k) .. "` in table does not match: " .. tostring(err)
           end
         else
@@ -696,8 +774,9 @@ do
           end
         end
         if self.expected_value.check_value then
-          local res, err = self.expected_value:check_value(v)
-          if not (res) then
+          local err
+          new_state, err = self.expected_value:check_value(v, new_state)
+          if not (new_state) then
             return nil, "field `" .. tostring(k) .. "` value in table does not match: " .. tostring(err)
           end
         else
@@ -706,7 +785,7 @@ do
           end
         end
       end
-      return true
+      return merge_tag_state(state, new_state)
     end
   }
   _base_0.__index = _base_0
@@ -840,30 +919,31 @@ do
       end
       return copy or tbl, fixed
     end,
-    check_field = function(self, key, value, expected_value, tbl)
+    check_field = function(self, key, value, expected_value, tbl, state)
       if value == expected_value then
         return true
       end
       if BaseType:is_base_type(expected_value) and expected_value.check_value then
-        local res, err = expected_value:check_value(value)
-        if not (res) then
+        local err
+        state, err = expected_value:check_value(value, state)
+        if not (state) then
           return nil, "field `" .. tostring(key) .. "`: " .. tostring(err), err
         end
       else
         local err = "expected `" .. tostring(expected_value) .. "`, got `" .. tostring(value) .. "`"
         return nil, "field `" .. tostring(key) .. "` " .. tostring(err), err
       end
-      return true
+      return state or true
     end,
-    field_errors = function(self, value, short_circuit)
+    check_fields = function(self, value, short_circuit)
       if short_circuit == nil then
         short_circuit = false
       end
       if not (type(value) == "table") then
         if short_circuit then
-          return self.__class.type_err_message
+          return nil, self.__class.type_err_message
         else
-          return {
+          return nil, {
             self.__class.type_err_message
           }
         end
@@ -872,6 +952,7 @@ do
       if not (short_circuit) then
         errors = { }
       end
+      local state = nil
       local remaining_keys
       if not (self.opts and self.opts.open) then
         do
@@ -887,10 +968,11 @@ do
         if remaining_keys then
           remaining_keys[shape_key] = nil
         end
-        local pass, err, standalone_err = self:check_field(shape_key, item_value, shape_val, value)
-        if not (pass) then
+        local err, standalone_err
+        state, err, standalone_err = self:check_field(shape_key, item_value, shape_val, value, state)
+        if not (state) then
           if short_circuit then
-            return err
+            return nil, err
           else
             errors[shape_key] = standalone_err or err
             table.insert(errors, err)
@@ -903,25 +985,26 @@ do
           if extra_key then
             local msg = "has extra field: `" .. tostring(extra_key) .. "`"
             if short_circuit then
-              return msg
+              return nil, msg
             else
-              return {
+              return nil, {
                 msg
               }
             end
           end
         end
       end
-      return errors
+      if errors then
+        return nil, errors
+      end
+      return state or true
     end,
-    check_value = function(self, value)
-      do
-        local err = self:field_errors(value, true)
-        if err then
-          return nil, err
-        else
-          return true
-        end
+    check_value = function(self, value, state)
+      local new_state, err = self:check_fields(value, true)
+      if new_state then
+        return merge_tag_state(state, new_state)
+      else
+        return nil, err
       end
     end
   }
@@ -975,7 +1058,7 @@ do
     describe = function(self)
       return "pattern `" .. tostring(self.pattern) .. "`"
     end,
-    check_value = function(self, value)
+    check_value = function(self, value, state)
       do
         local initial = self.opts and self.opts.initial_type
         if initial then
@@ -991,7 +1074,7 @@ do
         return nil, "expected string for value"
       end
       if value:match(self.pattern) then
-        return true
+        return state or true
       else
         return nil, "doesn't match pattern `" .. tostring(self.pattern) .. "`"
       end
@@ -1044,11 +1127,11 @@ do
         repair = repair_fn
       }))
     end,
-    check_value = function(self, val)
+    check_value = function(self, val, state)
       if self.value ~= val then
         return nil, "got `" .. tostring(val) .. "`, expected `" .. tostring(self.value) .. "`"
       end
-      return true
+      return state or true
     end
   }
   _base_0.__index = _base_0
@@ -1098,12 +1181,12 @@ do
         repair = repair_fn
       }))
     end,
-    check_value = function(self, val)
+    check_value = function(self, val, state)
       local pass, err = self.fn(val, self)
       if not (pass) then
         return nil, err or tostring(val) .. " is invalid"
       end
-      return true
+      return state or true
     end
   }
   _base_0.__index = _base_0
@@ -1146,14 +1229,14 @@ do
   local values_equivalent
   local _parent_0 = BaseType
   local _base_0 = {
-    on_repair = function(self)
+    on_repair = function(self, repair_fn)
       return Equivalent(self.val, self:clone_opts({
         repair = repair_fn
       }))
     end,
-    check_value = function(self, val)
+    check_value = function(self, val, state)
       if values_equivalent(self.val, val) then
-        return true
+        return state or true
       else
         return nil, tostring(val) .. " is not equivalent to " .. tostring(self.val)
       end
