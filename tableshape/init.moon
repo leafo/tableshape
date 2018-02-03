@@ -109,9 +109,9 @@ class OptionalType extends BaseType
       @opts or= {}
       @opts.repair = @base_type.opts.repair
 
-  check_value: (value, tag_state) =>
+  check_value: (value, state) =>
     return tag_state or true if value == nil
-    @base_type\check_value value, tag_state
+    @base_type\check_value value, state
 
   is_optional: => @
 
@@ -129,7 +129,7 @@ class OptionalType extends BaseType
       "optional #{base_description}"
 
 class AnyType extends BaseType
-  check_value: (v, tag_state) => tag_state or true
+  check_value: (v, state) => state or true
   is_optional: => AnyType
 
 -- basic type check
@@ -158,7 +158,7 @@ class ArrayType extends BaseType
   on_repair: (repair_fn) =>
     ArrayType @clone_opts repair: repair_fn
 
-  check_value: (value) =>
+  check_value: (value, state) =>
     return nil, "expecting table" unless type(value) == "table"
 
     k = 1
@@ -171,7 +171,7 @@ class ArrayType extends BaseType
 
       k += 1
 
-    true
+    state or true
 
 class OneOf extends BaseType
   new: (@items, @opts) =>
@@ -503,7 +503,7 @@ class Pattern extends BaseType
   describe: =>
     "pattern `#{@pattern}`"
 
-  check_value: (value) =>
+  check_value: (value, state) =>
     if initial = @opts and @opts.initial_type
       return nil, "expected `#{initial}`" unless type(value) == initial
 
@@ -512,7 +512,7 @@ class Pattern extends BaseType
     return nil, "expected string for value" unless type(value) == "string"
 
     if value\match @pattern
-      true
+      state or true
     else
       nil, "doesn't match pattern `#{@pattern}`"
 
@@ -526,11 +526,11 @@ class Literal extends BaseType
   on_repair: (repair_fn) =>
     Literal @value, @clone_opts repair: repair_fn
 
-  check_value: (val) =>
+  check_value: (val, state) =>
     if @value != val
       return nil, "got `#{val}`, expected `#{@value}`"
 
-    true
+    state or true
 
 class Custom extends BaseType
   new: (@fn, @opts) =>
@@ -542,13 +542,13 @@ class Custom extends BaseType
   on_repair: (repair_fn) =>
     Custom @fn, @clone_opts repair: repair_fn
 
-  check_value: (val) =>
+  check_value: (val, state) =>
     pass, err = @.fn val, @
 
     unless pass
       return nil, err or "#{val} is invalid"
 
-    true
+    state or true
 
 class Equivalent extends BaseType
   values_equivalent = (a,b) ->
@@ -575,9 +575,9 @@ class Equivalent extends BaseType
   on_repair: =>
     Equivalent @val, @clone_opts repair: repair_fn
 
-  check_value: (val) =>
+  check_value: (val, state) =>
     if values_equivalent @val, val
-      true
+      state or true
     else
       nil, "#{val} is not equivalent to #{@val}"
 
