@@ -1008,3 +1008,35 @@ describe "tableshape", ->
         s = {}
         t { "one", 5 }, s
         assert.same {}, s
+
+
+  describe "transform #ddd", ->
+    it "transform node", ->
+      n = types.string / (str) -> "--#{str}--"
+      assert.same {
+        "--hello--"
+      }, {n\transform "hello"}
+
+      assert.same {
+        nil
+        "got type `number`, expected `string`"
+      }, {n\transform 5}
+
+    it "sequnce node", ->
+      n = types.string * types.literal "hello"
+
+      assert.same {
+        "hello"
+      }, { n\transform "hello" }
+
+      assert.same {
+        nil
+        "got `world`, expected `hello`"
+      }, { n\transform "world" }
+
+      assert.same {
+        nil
+        "got type `boolean`, expected `string`"
+      }, { n\transform true }
+
+

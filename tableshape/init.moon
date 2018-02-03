@@ -2,6 +2,7 @@ local OptionalType, TaggedType
 
 -- metatable to identify arrays for merging
 TagValueArray = {}
+FailedTransform = {}
 
 merge_tag_state = (existing, new_tags) ->
   if type(new_tags) == "table" and type(existing) == "table"
@@ -18,6 +19,8 @@ merge_tag_state = (existing, new_tags) ->
   new_tags or existing or true
 
 
+local TransformNode, SequenceNode
+
 class BaseType
   @is_base_type: (val) =>
     return false unless type(val) == "table"
@@ -30,6 +33,8 @@ class BaseType
   @__inherited: (cls) =>
     cls.__base.__call = cls.__call
     cls.__base.__eq = @__eq
+    cls.__base.__div = @__div
+    cls.__base.__mul = @__mul
 
     mt = getmetatable cls
     create = mt.__call
@@ -46,6 +51,12 @@ class BaseType
     else
       @ other[1]
 
+  __div: (fn) =>
+    TransformNode @, fn
+
+  __mul: (right) =>
+    SequenceNode @, right
+
   new: =>
     if @opts
       @describe = @opts.describe
@@ -55,6 +66,20 @@ class BaseType
 
   has_repair: =>
     @opts and @opts.repair
+
+  transform: (...) =>
+    val, state_or_err = @_transform ...
+    if val == FailedTransform
+      return nil, state_or_err
+
+    val
+
+  _transform: (val, state) =>
+    state, err = @check_value val, state
+    if state
+      val, state
+    else
+      FailedTransform, err
 
   repair: (val, fix_fn) =>
     fixed = false
@@ -92,6 +117,30 @@ class BaseType
 
   __call: (...) =>
     @check_value ...
+
+-- done with the division operator
+class TransformNode extends BaseType
+  new: (@node, @t_fn) =>
+
+  _transform: (value, state) =>
+    val, state_or_err = @.node\_transform value, state
+
+    if val == FailedTransform
+      val, state_or_err
+    else
+      @.t_fn(val), state_or_err
+
+class SequenceNode extends BaseType
+  new: (...) =>
+    @sequence = {...}
+
+  _transform: (value, state) =>
+    for node in *@sequence
+      value, state = node\_transform value, state
+      if value == FailedTransform
+        break
+
+    value, state
 
 class TaggedType extends BaseType
   new: (@base_type, opts) =>
