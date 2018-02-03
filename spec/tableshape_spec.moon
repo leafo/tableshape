@@ -923,6 +923,21 @@ describe "tableshape", ->
         assert.nil (s { a: 443, b: "no"}, tags)
         assert.same {}, tags
 
+    describe "array_of", ->
+      it "matches array", ->
+        t = types.array_of types.shape {
+          s: types.string\tag "thing"
+        }
+
+        out = t {
+          { s: "hello" }
+          { s: "world" }
+        }
+
+        assert.same {
+          thing: "world"
+        }, out
+
     describe "shape", ->
       it "basic shape", ->
         s = types.shape {

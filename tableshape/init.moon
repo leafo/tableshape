@@ -326,7 +326,7 @@ class ArrayOf extends BaseType
       unless new_state
         return nil, err
 
-    merge_tag_state state
+    merge_tag_state state, new_state
 
 class MapOf extends BaseType
   -- TODO: this needs its own repair implementation
