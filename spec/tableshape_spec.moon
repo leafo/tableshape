@@ -1152,3 +1152,84 @@ describe "tableshape", ->
             value: 10
           }
         }
+
+      it "single field open table", ->
+        n = types.shape {
+          age: (types.table + types.number / (v) -> {seconds: v}) * types.shape {
+            seconds: types.number
+          }
+        }, open: true
+
+        assert.same {
+          {
+            age: {
+              seconds: 10
+            }
+          }
+        }, {
+          n\transform {
+            age: 10
+          }
+        }
+
+        assert.same {
+          {
+            age: {
+              seconds: 12
+            }
+          }
+        }, {
+          n\transform {
+            age: 12
+          }
+        }
+
+        assert.same {
+          nil
+          "field `age`: expecting one of: (got type `string`, expected `table`; got type `string`, expected `number`)"
+        }, {
+          n\transform {
+            age: "hello"
+          }
+        }
+
+        assert.same {
+          nil
+          "field `age`: expecting one of: (got type `string`, expected `table`; got type `string`, expected `number`)"
+        }, {
+          n\transform {
+            age: "hello"
+            another: "one"
+          }
+        }
+
+        assert.same {
+          {
+            age: {
+              seconds: 10
+            }
+            one: "two"
+          }
+        }, {
+          n\transform {
+            age: 10
+            one: "two"
+          }
+        }
+
+        assert.same {
+          {
+            color: "red"
+            age: { seconds: 12 }
+            another: {
+              1,2,4
+            }
+          }
+        }, {
+          n\transform {
+            color: "red"
+            age: 12
+            another: {1,2,4}
+          }
+        }
+
