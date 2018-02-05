@@ -434,3 +434,23 @@ describe "tableshape.types", ->
         }
       })
 
+
+describe "tableshape.operators", ->
+  it "sequence", ->
+    t = types.pattern("^hello") * types.pattern("world$")
+    assert.same {nil, "doesn't match pattern `^hello`"}, {t("good work")}
+    assert.same {nil, "doesn't match pattern `world$`"}, {t("hello zone")}
+    assert.same {true}, {t("hello world")}
+
+  it "first of", ->
+    t = types.pattern("^hello") + types.pattern("world$")
+    assert.same {nil, "no matching option (doesn't match pattern `^hello`; doesn't match pattern `world$`)" }, {t("good work")}
+    assert.same {true}, {t("hello zone")}
+    assert.same {true}, {t("zone world")}
+    assert.same {true}, {t("hello world")}
+
+  it "transform", ->
+    -- is a noop when there is no transform
+    t = types.string / "hello"
+    assert.same {true}, {t("hello")}
+    assert.same {nil, "got type `boolean`, expected `string`"}, {t(false)}

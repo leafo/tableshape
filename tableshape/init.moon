@@ -136,6 +136,9 @@ class TransformNode extends BaseType
 
   new: (@node, @t_fn) =>
 
+  check_value: (value, state) =>
+    @node\check_value value, state
+
   _transform: (value, state) =>
     val, state_or_err = @.node\_transform value, state
 
@@ -156,6 +159,17 @@ class SequenceNode extends BaseType
   new: (...) =>
     @sequence = {...}
 
+  check_value: (value, state) =>
+    local new_state
+
+    for node in *@sequence
+      pass, new_state = node\check_value value, new_state
+
+      unless pass
+        return nil, new_state
+
+    merge_tag_state state, new_state
+
   _transform: (value, state) =>
     for node in *@sequence
       value, state = node\_transform value, state
@@ -169,6 +183,23 @@ class FirstOfNode extends BaseType
 
   new: (...) =>
     @options = {...}
+
+  check_value: (value, state) =>
+    local errors
+
+    for node in *@options
+      pass, new_state_or_err = node\check_value value, new_state
+
+      if pass
+        return merge_tag_state state, new_state_or_err
+      else
+        if errors
+          table.insert errors, new_state_or_err
+        else
+          errors = {new_state_or_err}
+
+
+    nil, "no matching option (#{table.concat errors or {"no options"}, "; "})"
 
   _transform: (value, state) =>
     local errors
@@ -186,7 +217,7 @@ class FirstOfNode extends BaseType
       else
         return new_val, new_state_or_err
 
-    FailedTransform, "expecting one of: (#{table.concat errors or {"no options"}, "; "})"
+    FailedTransform, "no matching option (#{table.concat errors or {"no options"}, "; "})"
 
 class TaggedType extends BaseType
   new: (@base_type, opts) =>
