@@ -401,6 +401,7 @@ class ArrayOf extends BaseType
   @type_err_message: "expecting table"
 
   new: (@expected, @opts) =>
+    @keep_nils = @opts and @opts.keep_nils
     super!
 
   on_repair: (repair_fn) =>
@@ -443,7 +444,6 @@ class ArrayOf extends BaseType
 
     copy or tbl, fixed
 
-
   _transform: (value, state) =>
     pass, err = types.table value
     unless pass
@@ -465,6 +465,9 @@ class ArrayOf extends BaseType
 
         if val == FailedTransform
           return FailedTransform, "array item #{idx}: #{new_state}"
+
+        if val == nil and not @keep_nils
+          continue
 
         val
 

@@ -288,6 +288,31 @@ describe "tableshape.transform", ->
         {}
       }, { n\transform {} }
 
+    it "strips nil values", ->
+      filter = types.array_of types.string + types.any / nil
+
+      assert.same {
+        { "one", "hello" }
+      }, {
+        filter\transform {
+          "one", 5, (->), "hello", true
+        }
+      }
+
+    it "keeps nil values", ->
+      filter = types.array_of types.string + types.any / nil, {
+        keep_nils: true
+      }
+
+      assert.same {
+        { "one", nil, nil, "hello", nil }
+      }, {
+        filter\transform {
+          "one", 5, (->), "hello", true
+        }
+      }
+
+
   describe "map_of", ->
     it "non table", ->
       n = types.map_of types.string, types.string
