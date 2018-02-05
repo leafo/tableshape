@@ -1,4 +1,4 @@
-local OptionalType, TaggedType
+local OptionalType, TaggedType, types
 
 -- metatable to identify arrays for merging
 TagValueArray = {}
@@ -494,6 +494,10 @@ class Shape extends BaseType
     Shape @shape, @clone_opts open: true
 
   _transform: (value, state) =>
+    pass, err = types.table value
+    unless pass
+      return FailedTransform, err
+
     remaining_keys = {key, true for key in pairs value}
 
     local errors

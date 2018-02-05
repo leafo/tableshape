@@ -65,7 +65,7 @@ describe "tableshape", ->
   }
 
   for {type_name, :valid, :invalid, :check_errors} in *basic_types
-    it "tests #{type_name}", ->
+    it "type #{type_name}", ->
       t = types[type_name]
 
       assert.same {true}, {check valid, t}
@@ -374,7 +374,7 @@ describe "tableshape", ->
       )
 
 
-  it "tests pattern", ->
+  it "pattern", ->
     t = types.pattern "^hello"
 
     assert.same nil, (t 123)
@@ -388,7 +388,7 @@ describe "tableshape", ->
     assert.same nil, (t "2.5")
 
 
-  it "tests map_of", ->
+  it "map_of", ->
     stringmap = types.map_of types.string, types.string
     assert.same {true}, {stringmap {}}
 
@@ -415,7 +415,7 @@ describe "tableshape", ->
     assert.same nil, (static { helloz: "world" })
     assert.same nil, (static { hello: "worldz" })
 
-  it "tests array_of", ->
+  it "array_of", ->
     numbers = types.array_of types.number
 
     assert.same {true}, {numbers {}}
@@ -1066,6 +1066,18 @@ describe "tableshape", ->
       }
 
     describe "shape", ->
+      it "handles non table", ->
+        n = types.shape {
+          color: types.literal "red"
+        }
+
+        assert.same {
+          nil
+          "got type `boolean`, expected `table`"
+        }, {
+          n\transform true
+        }
+
       it "single field", ->
         n = types.shape {
           color: types.one_of { "blue", "green", "red"}
