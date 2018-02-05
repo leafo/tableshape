@@ -244,7 +244,9 @@ class OptionalType extends BaseType
 
 class AnyType extends BaseType
   check_value: (v, state) => state or true
-  is_optional: => AnyType
+
+  -- any type is already optional (accepts nil)
+  is_optional: => @
 
 -- basic type check
 class Type extends BaseType
@@ -477,6 +479,38 @@ class MapOf extends BaseType
 
   on_repair: (repair_fn) =>
     MapOf @expected_key, @expected_value, @clone_opts repair: repair_fn
+
+  _transform: (value, state) =>
+    pass, err = types.table value
+    unless pass
+      return FailedTransform, err
+
+    local new_state
+
+    key_literal = not BaseType\is_base_type @expected_key
+    value_literal = not BaseType\is_base_type @expected_value
+
+    out = {}
+    for k,v in pairs value
+      if key_literal
+        if k != @expected_key
+          return FailedTransform, "map key got `#{k}`, expected `#{@expected_key}`"
+      else
+        k, new_state = @expected_key\_transform k, new_state
+        if k == FailedTransform
+          return FailedTransform, "map key #{new_state}"
+
+      if value_literal
+        if v != @expected_value
+          return FailedTransform, "map value got `#{v}`, expected `#{@expected_value}`"
+      else
+        v, new_state = @expected_value\_transform v, new_state
+        if v == FailedTransform
+          return FailedTransform, "map value #{new_state}"
+
+      out[k] = v
+
+    out, merge_tag_state state, new_state
 
   check_value: (value, state) =>
     return nil, "expected table for map_of" unless type(value) == "table"
@@ -771,7 +805,7 @@ class Equivalent extends BaseType
       nil, "#{val} is not equivalent to #{@val}"
 
 types = setmetatable {
-  any: AnyType
+  any: AnyType!
   string: Type "string"
   number: Type "number"
   function: Type "function"

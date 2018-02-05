@@ -1298,5 +1298,90 @@ describe "tableshape", ->
           {}
         }, { n\transform {} }
 
+    describe "map_of", ->
+      it "non table", ->
+        n = types.map_of types.string, types.string
+
+        assert.same {
+          nil
+          "got type `boolean`, expected `table`"
+        }, {
+          n\transform true
+        }
+
+
+      it "empty table", ->
+        n = types.map_of types.string, types.string
+        assert.same {
+          {}
+        }, {
+          n\transform {}
+        }
+
+      it "transforms keys & values", ->
+        n = types.map_of(
+          types.string + types.number / tostring
+          types.number + types.string / tonumber
+        )
+
+        assert.same {
+          {
+            "1": 10
+            "2": 20
+          }
+        }, {
+          n\transform {
+            "10"
+            "20"
+          }
+        }
+
+        assert.same {
+          nil
+          "map value expecting one of: (got type `boolean`, expected `number`; got type `boolean`, expected `string`)"
+        }, {
+          n\transform {
+            hello: true
+          }
+        }
+
+        assert.same {
+          nil
+          "map key expecting one of: (got type `boolean`, expected `string`; got type `boolean`, expected `number`)"
+        }, {
+          n\transform {
+            [true]: 10
+          }
+        }
+
+      it "transforms key & value literals", ->
+        n = types.map_of 5, "hello"
+
+        assert.same {
+          { [5]: "hello" }
+        }, {
+          n\transform {
+            [5]: "hello"
+          }
+        }
+
+        assert.same {
+          nil
+          "map value got `helloz`, expected `hello`"
+        }, {
+          n\transform {
+            [5]: "helloz"
+          }
+        }
+
+        assert.same {
+          nil
+          "map key got `5`, expected `5`"
+        }, {
+          n\transform {
+            "5": "hello"
+          }
+        }
+
 
 
