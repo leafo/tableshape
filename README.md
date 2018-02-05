@@ -4,10 +4,19 @@
 [![Build Status](https://travis-ci.org/leafo/tableshape.svg?branch=master)](https://travis-ci.org/leafo/tableshape)
 
 A Lua library for verifying the shape (schema, structure, etc.) of a table, and
-repairing it if necessary. The type checking syntax is inspired by the [PropTypes
+transforming it if necessary. The type checking syntax is inspired by the [PropTypes
 module of React](https://facebook.github.io/react/docs/reusable-components.html#prop-validation).
 
-### Usage
+Complex types value transformations can be expressed using an operator
+overloading syntax similar to [LPeg](http://www.inf.puc-rio.br/~roberto/lpeg/).
+
+### Install
+
+```bash
+$ luarocks install tableshape
+```
+
+### Quick usage
 
 ```lua
 local types = require("tableshape").types
@@ -48,25 +57,31 @@ assert(player_shape:check_value(player))
 -- error: field `position`: field `x`: got type `string`, expected `number`
 ```
 
-#### Repairing
+#### Transforming
 
-A malformed table can be repaired by providing the repair callbacks where appropriate:
+A malformed table can be repaired be repaired to the expected type by using the
+transform operator and method. The input value is cloned and modified before being returned.
 
 
 ```lua
 local types = require("tableshape").types
 
--- a type checker that will repair invalid number
-local number = types.number:on_repair(function(val)
-  return tonumber(val) or 0
-end)
+-- a type checker that will coerce the value into a number or return 0
+local number = types.number + types.string / tonumber + types.any / 0
 
+number:transform(5) --> 5
+number:transform("500") --> 500
+number:transform("hi") --> 0
+number:transform({}) --> 0
 
--- a compound type checker that can repair multiple fields
+```
+
+```lua
+-- a compound type checker that can fill in missing values
 local player_shape = types.shape({
-  name = types.string:on_repair(function()
-    return "unknown"
-  end),
+  name = types.string + types.any / "unknown"
+
+  -- here we reference our transforming type from above
   position = types.shape({
     x = number,
     y = number
@@ -80,9 +95,8 @@ local bad_player = {
   }
 }
 
-local fixed_player, did_repair = player_shape:repair(bad_player)
+local fixed_player = player_shape:transform(bad_player)
 
--- did_repair --> true
 -- fixed_player --> {
 --   name = "unknown",
 --   position = {
@@ -90,12 +104,6 @@ local fixed_player, did_repair = player_shape:repair(bad_player)
 --     y = 0
 --   }
 -- }
-```
-
-### Install
-
-```bash
-$ luarocks install tableshape
 ```
 
 ## Tutorial
@@ -217,7 +225,41 @@ assert(no_spaces:check_value("hello!"))
 assert(no_spaces:check_value("oh no!"))
 ```
 
+### Operator overloading
+
+Type checker objects have the operators `*`, `+`, and `/` overloaded to provide
+ways to compose types checkers.
+
+* `*` — The **and** operator, both operands must match.
+* `+` — The **first of** operator, the operands are checked against the value from left to right
+* `/` — The **transform** operator, when using the `transform` method, the value will be convered by what's to the right of the operator
+
+#### The And operator
+
+Use the and operator to make sure a value matches multiple types. Types are
+checked from left to right, and type checking will abort on the first failed check.
+
+
+```lua
+s = types.pattern("^hello") * types.pattern("world$")
+
+s("hello 777 world") --> true
+s("good work") --> nil, "doesn't match pattern `^hello`"
+s("hello, umm worldz") --> nil, "doesn't match pattern `world$`"
+```
+
+### Tags
+
+Tags can be used to extract specified values from a type as it's checked:
+
+```lua
+types.shape {
+}
+```
+
 ### Repairing
+
+> **Reparing is deprecated, use the transform functionality instead**
 
 Every type checking object can optionally have a repair callback associated
 with it. When using the `repair` method on a type checker, the repair callback
@@ -302,7 +344,7 @@ The available repair types for a `types.shape` are `"extra_field"`,
 local types = require("tableshape").types
 ```
 
-### Compound constructors
+### Type constructors
 
 Type constructors build a type checker configured by the parameters you pass.
 Here are all the available ones, full documentation is below.
@@ -386,8 +428,7 @@ assert(t("hello world") == true)
 assert(t("jello world") == false)
 ```
 
-#### `types.custom(value)`
-
+#### `types.custom(fn)`
 
 Returns a type checker that calls the function provided to verify the value.
 The function will receive the value being tested as the first argument, and the
@@ -410,9 +451,9 @@ local is_even = types.custom(function(val)
 end)
 ```
 
-### Types
+### Built in types
 
-Basic types:
+Built in types can be used directly without being constructed.
 
 * `types.string` - checks for `type(val) == "string"`
 * `types.number` - checks for `type(val) == "number"`
@@ -424,7 +465,7 @@ Basic types:
 * `types.array` - checks for table of numerically increasing indexes
 * `types.integer` - checks for a number with no decimal component
 
-Additionally there's the following helper type:
+Additionally there's the special *any* type:
 
 * `types.any` - succeeds no matter what the type
 
@@ -443,7 +484,25 @@ The error message will identify where the mismatch happened as best it can.
 Can also be invoked by calling the type checker object, the `__call` metamethod
 is overidden to call this method.
 
+#### `type:transform(value)`
+
+Will make a deep copy of the value, checking the type and performing any
+transformations if necessary. You can use the *transform operator* (`/`) to specify
+how values are transformed.
+
+```lua
+local t = types.number + types.string / tonumber
+
+t:transform(10) --> 10
+t:transform("15") --> 15
+```
+
+If any tags are used, a tabled of tagged values is returned as the second
+argument.
+
 #### `type:repair(value)`
+
+> **Reparing is deprecated, use the transform functionality instead**
 
 Attempts to repair the value recursively by using the repair callbacks
 assocated with the type checker.
