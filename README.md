@@ -234,27 +234,140 @@ ways to compose types checkers.
 * `+` — The **first of** operator, the operands are checked against the value from left to right
 * `/` — The **transform** operator, when using the `transform` method, the value will be convered by what's to the right of the operator
 
-#### The And operator
+#### The 'And' operator
 
-Use the and operator to make sure a value matches multiple types. Types are
+The **and** operator checks if a value matches multiple types. Types are
 checked from left to right, and type checking will abort on the first failed check.
+
+```lua
+local s = types.pattern("^hello") * types.pattern("world$")
+
+s("hello 777 world")   --> true
+s("good work")         --> nil, "doesn't match pattern `^hello`"
+s("hello, umm worldz") --> nil, "doesn't match pattern `world$`"
+```
+
+### The 'First Of' operator
+
+The **first of** operator checks if a value matches one of many types. Types
+are checked from left to right, and type checking will succeed on the first
+matched type.
+
+Once a type has been matched no additional types are checked. If you use a
+greedy type first, (like `types.any`) then it will check any additional ones.
+This is important to realize if your subsequent types have any side effects
+like transformations or tags.
 
 
 ```lua
-s = types.pattern("^hello") * types.pattern("world$")
+local s = types.number + types.string
 
-s("hello 777 world") --> true
-s("good work") --> nil, "doesn't match pattern `^hello`"
-s("hello, umm worldz") --> nil, "doesn't match pattern `world$`"
+s(44)                  --> true
+s("hello, umm worldz") --> nil, "no matching option (got type `boolean`, expected `number`; got type `boolean`, expected `string`)"
+```
+
+### The 'Transform' operator
+
+In type matching mode, the transform operator has no effect. When using the
+`transform` method, however, the value will be modified by a callback or to be
+a fixed value.
+
+The following syntax is used: `type / transform_callback --> transformable type`
+
+```lua
+local t = types.string + types.any / "unknown"
+```
+
+The proceeding type can be read as: "Match a string typed value, or for any
+other type, transform it into the string 'unknown'".
+
+```lua
+t:transform("hello") --> "hello"
+t:transform(5)       --> "unknown"
+```
+
+Because this type checker uses `types.any`, it will pass for whatever value is
+handed to it. A transforming type check can fail as well.
+
+```lua
+local n = types.number + types.string / tonumber
+
+n:transform("5") --> 5
+n:t({})          --> nil, "no matching option (got type `table`, expected `number`; got type `table`, expected `string`)"
+```
+
+The transform callback can either be a function, or a literal value. If a
+function is used, then the function is called with the current value being
+transformed, and the result of the transformation should be returned. If a
+literal value is used, then the transformations always turns the value into the
+specified value.
+
+A transform function is not a predicate, and can't cause the type checking to
+fail. Returning `nil` is valid and will change the value to `nil`. If you wish
+to fail based on a function you can use the `custom` type or chain another type
+checker after the transformation:
+
+
+```lua
+-- this will fail unless `tonumber` returns a number
+local t = (types.string / tonumber) * types.number
+t:transform("nothing") --> nil, "got type `nil`, expected `number`"
+```
+
+A common pattern for repairing objects involves testing for the types you know
+how to fix followed by ` + types.any`, followed by a type check of the final
+type you want:
+
+Here we attempt to repair a value to the expected format for a x,y coordinate:
+
+
+```lua
+local types = require("tableshape").types
+
+local str_to_coord = types.string / function(str)
+  local x,y = str:match("(%d+)[^%d]+(%d+)")
+  if nox x then return end
+  return {
+    x = tonumber(x),
+    y = tonumber(y)
+  }
+end
+
+local array_to_coord = types.shape{types.number, types.number} / function(a)
+  return {
+    x = a[1],
+    y = a[2]
+  }
+end
+
+local cord = (str_to_coord + array_to_coord + types.any) * types.shape {
+  x = types.number,
+  y = types.number
+}
+
+cord:transform("100,200")        --> { x = 100, y = 200}
+cord:transform({5, 23})          --> { x = 5, y = 23}
+cord:transform({ x = 9, y = 10}) --> { x = 9, y = 10}
 ```
 
 ### Tags
 
-Tags can be used to extract specified values from a type as it's checked:
+Tags can be used to extract specified values from a type as it's checked.
+
+If tags are used, then a table of tags is returned as the second return value
+from a successful type match.
 
 ```lua
-types.shape {
+loca t = types.shape {
+  a = types.number:tag("x"),
+  b = types.number:tag("y"),
+} + types.shape {
+  types.number:tag("x"),
+  types.number:tag("y"),
 }
+
+t({1,2})          --> true, { x =  1, y = 2}
+t({a = 3, b = 9}) --> true, { x = 3, y = 9}
 ```
 
 ### Repairing
