@@ -225,16 +225,16 @@ assert(no_spaces:check_value("hello!"))
 assert(no_spaces:check_value("oh no!"))
 ```
 
-### Operator overloading
+### Type operators
 
 Type checker objects have the operators `*`, `+`, and `/` overloaded to provide
-ways to compose types checkers.
+ways to compose into types into more complex ones.
 
 * `*` — The **and** operator, both operands must match.
 * `+` — The **first of** operator, the operands are checked against the value from left to right
 * `/` — The **transform** operator, when using the `transform` method, the value will be convered by what's to the right of the operator
 
-#### The 'And' operator
+#### The 'and' operator
 
 The **and** operator checks if a value matches multiple types. Types are
 checked from left to right, and type checking will abort on the first failed check.
@@ -247,7 +247,7 @@ s("good work")         --> nil, "doesn't match pattern `^hello`"
 s("hello, umm worldz") --> nil, "doesn't match pattern `world$`"
 ```
 
-### The 'First Of' operator
+#### The 'first of' operator
 
 The **first of** operator checks if a value matches one of many types. Types
 are checked from left to right, and type checking will succeed on the first
@@ -266,7 +266,7 @@ s(44)                  --> true
 s("hello, umm worldz") --> nil, "no matching option (got type `boolean`, expected `number`; got type `boolean`, expected `string`)"
 ```
 
-### The 'Transform' operator
+### The 'transform' operator
 
 In type matching mode, the transform operator has no effect. When using the
 `transform` method, however, the value will be modified by a callback or to be
@@ -491,7 +491,7 @@ The first argument of the repair callback is a type string which indicates what
 * `field_invalid` - Receives `field_key`, `field_value`, `error_message`, `expected_type`. The return value is used to replace the field in the table. Return `nil` to remove the field.
 * `extra_field` - Receives `field_key`, `field_value`. The return value is used to replace the field in the table. Return `nil` to remove the field.
 
-#### `types.array_of(item_type)`
+#### `types.array_of(item_type, options={})`
 
 Returns a type checker that tests if the value is an array where each item
 matches the provided type.
@@ -501,6 +501,10 @@ local t = types.array_of(types.shape{
   id = types.number
 })
 ```
+
+The following options are supported:
+
+* `keep_nils` &mdash; By default, if a value is transformed into a nil then it won't be kept in the output array. If you need to keep these holes then set this option to `true`
 
 #### `types.map_of(key_type, value_type)`
 
