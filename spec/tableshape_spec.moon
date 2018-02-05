@@ -1245,3 +1245,58 @@ describe "tableshape", ->
           }
         }
 
+    describe "array_of", ->
+      it "handles non table", ->
+        n = types.array_of types.literal "world"
+
+        assert.same {
+          nil
+          "got type `boolean`, expected `table`"
+        }, {
+          n\transform true
+        }
+
+      it "transforms array items", ->
+        n = types.array_of types.string + types.number / (n) -> "number: #{n}"
+
+        assert.same {
+          {
+            "number: 1"
+            "one"
+            "number: 3"
+          }
+        }, {
+          n\transform { 1,"one",3 }
+        }
+
+        assert.same {
+          nil
+          "array item 2: expecting one of: (got type `boolean`, expected `string`; got type `boolean`, expected `number`)"
+        }, {
+          n\transform {1, true}
+        }
+
+      it "transforms array with literals", ->
+        n = types.array_of 5
+
+        assert.same {
+          { 5,5 }
+        },{
+          n\transform { 5, 5 }
+        }
+
+        assert.same {
+          nil
+          "array item 2: got `6`, expected `5`"
+        },{
+          n\transform { 5, 6 }
+        }
+
+      it "transforms empty array", ->
+        n = types.array_of types.string
+        assert.same {
+          {}
+        }, { n\transform {} }
+
+
+

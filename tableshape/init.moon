@@ -418,6 +418,33 @@ class ArrayOf extends BaseType
 
     copy or tbl, fixed
 
+
+  _transform: (value, state) =>
+    pass, err = types.table value
+    unless pass
+      return FailedTransform, err
+
+    is_literal = not BaseType\is_base_type @expected
+
+    local new_state
+    out = {}
+
+    out = for idx, item in ipairs value
+      if is_literal
+        if @expected != item
+          return FailedTransform, "array item #{idx}: got `#{item}`, expected `#{@expected}`"
+        else
+          item
+      else
+        val, new_state = @expected\_transform item, new_state
+
+        if val == FailedTransform
+          return FailedTransform, "array item #{idx}: #{new_state}"
+
+        val
+
+    out, merge_tag_state state, new_state
+
   check_field: (key, value, tbl, state) =>
     return state or true if value == @expected
 
