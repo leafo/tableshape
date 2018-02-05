@@ -81,7 +81,10 @@ class BaseType
     if val == FailedTransform
       return nil, state_or_err
 
-    val
+    if type(state_or_err) == "table"
+      val, state_or_err
+    else
+      val
 
   _transform: (val, state) =>
     state, err = @check_value val, state
@@ -191,6 +194,26 @@ class TaggedType extends BaseType
     if @tag\match "%[%]$"
       @tag = @tag\sub 1, -3
       @array = true
+
+  _transform: (value, state) =>
+    value, state = @base_type\_transform value, state
+
+    if value == FailedTransform
+      return FailedTransform, state
+
+    unless type(state) == "table"
+      state = {}
+
+    if @array
+      existing = state[@tag]
+      if type(existing) == "table"
+        table.insert existing, value
+      else
+        state[@tag] = setmetatable {value}, TagValueArray
+    else
+      state[@tag] = value
+
+    value, state
 
   check_value: (value, state) =>
     state = @base_type\check_value value, state

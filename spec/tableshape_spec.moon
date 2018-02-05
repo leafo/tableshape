@@ -11,7 +11,7 @@ describe "tableshape.is_type", ->
 
     assert.truthy is_type types.string
     assert.truthy is_type types.shape {}
-    assert.truthy is_type types.array_of { types.string}
+    assert.truthy is_type types.array_of { types.string }
 
 describe "tableshape.type_switch", ->
   it "switches on type", ->

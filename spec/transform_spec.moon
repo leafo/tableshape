@@ -373,5 +373,26 @@ describe "tableshape.transform", ->
         }
       }
 
+  describe "tags", ->
+    it "assigns tags when transforming", ->
+      n = types.shape {
+        (types.number / tostring + types.string)\tag "hello"
+        (types.number / tostring + types.string)\tag "world"
+      }
 
+      assert.same {
+        {
+          "5"
+          "world"
+        }
+        {
+          hello: "5"
+          world: "world"
+        }
+      }, {
+        n\transform {
+          5
+          "world"
+        }
+      }
 
