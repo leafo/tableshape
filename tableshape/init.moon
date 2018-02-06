@@ -73,9 +73,6 @@ class BaseType
   check_value: =>
     error "override me"
 
-  has_repair: =>
-    @opts and @opts.repair
-
   transform: (...) =>
     val, state_or_err = @_transform ...
     if val == FailedTransform
@@ -86,6 +83,9 @@ class BaseType
     else
       val
 
+  -- alias for transform
+  repair: (...) => @transform ...
+
   _transform: (val, state) =>
     state, err = @check_value val, state
     if state
@@ -93,19 +93,8 @@ class BaseType
     else
       FailedTransform, err
 
-  repair: (val, fix_fn) =>
-    fixed = false
-
-    pass, err = @check_value val
-
-    unless pass
-      fix_fn or= @opts and @opts.repair
-      assert fix_fn, "missing repair function for: #{err}"
-
-      fixed = true
-      val = fix_fn val, err
-
-    val, fixed
+  on_repair: (fn) =>
+    @ + types.any / fn * @
 
   is_optional: =>
     OptionalType @
@@ -188,7 +177,7 @@ class FirstOfNode extends BaseType
     local errors
 
     for node in *@options
-      pass, new_state_or_err = node\check_value value, new_state
+      pass, new_state_or_err = node\check_value value
 
       if pass
         return merge_tag_state state, new_state_or_err
@@ -272,24 +261,13 @@ class TaggedType extends BaseType
 class OptionalType extends BaseType
   new: (@base_type, @opts) =>
     super!
-    assert BaseType\is_base_type(base_type) and base_type.check_value, "expected a type checker"
-    if (@base_type.opts or {}).repair and not (@opts or {}).repair
-      @opts or= {}
-      @opts.repair = @base_type.opts.repair
+    assert BaseType\is_base_type(base_type), "expected a type checker"
 
   check_value: (value, state) =>
     return state or true if value == nil
     @base_type\check_value value, state
 
   is_optional: => @
-
-  on_repair: (repair_fn) =>
-    OptionalType @base_type, @clone_opts repair: repair_fn
-
-  repair: (value, fix_fn) =>
-    fix_fn or= @opts and @opts.repair
-    fix_fn or= @base_type\repair
-    super value, fix_fn
 
   describe: =>
     if @base_type.describe
@@ -307,9 +285,6 @@ class Type extends BaseType
   new: (@t, @opts) =>
     super!
 
-  on_repair: (repair_fn) =>
-    Type @t, @clone_opts repair: repair_fn
-
   check_value: (value, state) =>
     got = type(value)
 
@@ -324,9 +299,6 @@ class Type extends BaseType
 class ArrayType extends BaseType
   new: (@opts) =>
     super!
-
-  on_repair: (repair_fn) =>
-    ArrayType @clone_opts repair: repair_fn
 
   check_value: (value, state) =>
     return nil, "expecting table" unless type(value) == "table"
@@ -347,25 +319,6 @@ class OneOf extends BaseType
   new: (@items, @opts) =>
     super!
     assert type(@items) == "table", "expected table for items in one_of"
-
-  on_repair: (repair_fn) =>
-    OneOf @items, @clone_opts repair: repair_fn
-
-  -- go through all items, repairing if possible
-  repair: (value, fn) =>
-    for item in *@items
-      if value == item
-        return value, false
-
-      continue unless BaseType\is_base_type(item) and item\has_repair!
-
-      res, fixed = item\repair value
-      if fixed and item\check_value res
-        -- short circuit on a successful repair
-        return res, fixed
-
-    -- try own repair function
-    super value, fn
 
   describe: =>
     item_names = for i in *@items
@@ -395,29 +348,6 @@ class AllOf extends BaseType
     for checker in *@types
       assert BaseType\is_base_type(checker), "all_of expects all type checkers"
 
-  on_repair: (repair_fn) =>
-    AllOf @types, @clone_opts repair: repair_fn
-
-  -- repair with every checker
-  repair: (val, repair_fn) =>
-    has_own_repair = @has_repair! or repair_fn
-
-    repairs = 0
-
-    for t in *@types
-      continue unless t\has_repair!
-      repairs += 1
-      val, fixed = t\repair val
-
-      if fixed and not t\check_value val
-        -- short circuit if repair fails
-        return val, fixed
-
-    if repairs == 0 or @has_repair!
-      super val, repair_fn
-    else
-      val, true
-
   check_value: (value, state) =>
     new_state = nil
 
@@ -434,46 +364,6 @@ class ArrayOf extends BaseType
   new: (@expected, @opts) =>
     @keep_nils = @opts and @opts.keep_nils
     super!
-
-  on_repair: (repair_fn) =>
-    ArrayOf @expected, @clone_opts repair: repair_fn
-
-  repair: (tbl, fix_fn) =>
-    unless type(tbl) == "table"
-      fix_fn or= @opts and @opts.repair
-      assert fix_fn, "missing repair function for: #{@@type_err_message}"
-      return fix_fn("table_invalid", @@type_err_message, tbl), true
-
-    fixed = false
-    local copy
-
-    if BaseType\is_base_type(@expected) and @expected.repair
-      -- use the repair function built into type checker
-      for idx, item in ipairs tbl
-        item_value, item_fixed = @expected\repair item
-        if item_fixed
-          fixed = true
-          copy or= [v for v in *tbl[1,(idx - 1)]]
-          if item_value != nil
-            table.insert copy, item_value
-        else
-          if copy
-            table.insert copy, item
-    else
-      for idx, item in ipairs tbl
-        pass, err = @check_field idx, item, tbl
-        if pass
-          if copy
-            table.insert copy, item
-        else
-          fix_fn or= @opts and @opts.repair
-          assert fix_fn, "missing repair function for: #{err}"
-
-          fixed = true
-          copy or= [v for v in *tbl[1,(idx - 1)]]
-          table.insert copy, fix_fn "field_invalid", idx, item
-
-    copy or tbl, fixed
 
   _transform: (value, state) =>
     pass, err = types.table value
@@ -507,7 +397,7 @@ class ArrayOf extends BaseType
   check_field: (key, value, tbl, state) =>
     return state or true if value == @expected
 
-    if BaseType\is_base_type(@expected) and @expected.check_value
+    if BaseType\is_base_type @expected
       state, err = @expected\check_value value, state
       unless state
         return nil, "item #{key} in array does not match: #{err}"
@@ -529,13 +419,8 @@ class ArrayOf extends BaseType
     merge_tag_state state, new_state
 
 class MapOf extends BaseType
-  -- TODO: this needs its own repair implementation
-
   new: (@expected_key, @expected_value, @opts) =>
     super!
-
-  on_repair: (repair_fn) =>
-    MapOf @expected_key, @expected_value, @clone_opts repair: repair_fn
 
   _transform: (value, state) =>
     pass, err = types.table value
@@ -604,9 +489,6 @@ class Shape extends BaseType
     super!
     assert type(@shape) == "table", "expected table for shape"
 
-  on_repair: (repair_fn) =>
-    Shape @shape, @clone_opts repair: repair_fn
-
   -- don't allow extra fields
   is_open: =>
     Shape @shape, @clone_opts open: true
@@ -658,56 +540,6 @@ class Shape extends BaseType
       return FailedTransform, table.concat errors, "; "
 
     out, new_state
-
-  repair: (tbl, fix_fn) =>
-    unless type(tbl) == "table"
-      fix_fn or= @opts and @opts.repair
-      assert fix_fn, "missing repair function for: #{@@type_err_message}"
-      return fix_fn("table_invalid", @@type_err_message, tbl), true
-
-    fixed = false
-
-    remaining_keys = unless @opts and @opts.open
-      {key, true for key in pairs tbl}
-
-    local copy
-
-    for shape_key, shape_val in pairs @shape
-      item_value = tbl[shape_key]
-
-      if remaining_keys
-        remaining_keys[shape_key] = nil
-
-      -- does the value know how to repair itself?
-      if BaseType\is_base_type(shape_val) and shape_val.repair
-        field_value, field_fixed = shape_val\repair item_value
-        if field_fixed
-          copy or= {k,v for k,v in pairs tbl}
-          fixed = true
-          copy[shape_key] = field_value
-      else
-        -- check the field, repair with table's repair function
-        pass, err = @check_field shape_key, item_value, shape_val, tbl
-        unless pass
-          fix_fn or= @opts and @opts.repair
-          assert fix_fn, "missing repair function for: #{err}"
-          fixed = true
-          copy or= {k,v for k,v in pairs tbl}
-          copy[shape_key] = fix_fn "field_invalid", shape_key, item_value, err, shape_val
-
-    if remaining_keys and next remaining_keys
-      fix_fn or= @opts and @opts.repair
-      copy or= {k,v for k,v in pairs tbl}
-
-      unless fix_fn
-        keys = [tostring key for key in pairs remaining_keys]
-        error "missing repair function for: extra fields (#{table.concat keys, ", "})"
-
-      for k in pairs remaining_keys
-        fixed = true
-        copy[k] = fix_fn "extra_field", k, copy[k]
-
-    copy or tbl, fixed
 
   check_field: (key, value, expected_value, tbl, state) =>
     return state or true if value == expected_value
@@ -777,9 +609,6 @@ class Pattern extends BaseType
   new: (@pattern, @opts) =>
     super!
 
-  on_repair: (repair_fn) =>
-    Pattern @pattern, @clone_opts repair: repair_fn
-
   describe: =>
     "pattern `#{@pattern}`"
 
@@ -803,9 +632,6 @@ class Literal extends BaseType
   describe: =>
     "literal `#{@value}`"
 
-  on_repair: (repair_fn) =>
-    Literal @value, @clone_opts repair: repair_fn
-
   check_value: (val, state) =>
     if @value != val
       return nil, "got `#{val}`, expected `#{@value}`"
@@ -818,9 +644,6 @@ class Custom extends BaseType
 
   describe: =>
     @opts.describe or "custom checker #{@fn}"
-
-  on_repair: (repair_fn) =>
-    Custom @fn, @clone_opts repair: repair_fn
 
   check_value: (val, state) =>
     pass, err = @.fn val, @
@@ -851,9 +674,6 @@ class Equivalent extends BaseType
 
   new: (@val, @opts) =>
     super!
-
-  on_repair: (repair_fn) =>
-    Equivalent @val, @clone_opts repair: repair_fn
 
   check_value: (val, state) =>
     if values_equivalent @val, val
