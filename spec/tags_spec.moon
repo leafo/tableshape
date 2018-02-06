@@ -98,6 +98,13 @@ describe "tableshape.tags", ->
       }
 
     it "matches many items from array", ->
+      t1 = types.array_of types.number\tag "hi[]"
+
+      assert_tags t1, { 1,2,3,4 }, {
+        hi: {1,2,3,4}
+      }
+
+
       t = types.array_of types.shape {
         s: types.string\tag "thing[]"
       }

@@ -539,7 +539,7 @@ class Shape extends BaseType
     if errors and next errors
       return FailedTransform, table.concat errors, "; "
 
-    out, new_state
+    out, merge_tag_state state, new_state
 
   check_field: (key, value, expected_value, tbl, state) =>
     return state or true if value == expected_value
