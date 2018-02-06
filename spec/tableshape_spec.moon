@@ -292,51 +292,56 @@ describe "tableshape.types", ->
     assert.same nil, (static { helloz: "world" })
     assert.same nil, (static { hello: "worldz" })
 
-  it "array_of", ->
-    numbers = types.array_of types.number
+  describe "array_of", ->
+    it "of number type", ->
+      numbers = types.array_of types.number
 
-    assert.same {true}, {numbers {}}
-    assert.same {true}, {numbers {1}}
-    assert.same {true}, {numbers {1.5}}
-    assert.same {true}, {numbers {1.5,2,3,4}}
+      assert.same {true}, {numbers {}}
+      assert.same {true}, {numbers {1}}
+      assert.same {true}, {numbers {1.5}}
+      assert.same {true}, {numbers {1.5,2,3,4}}
 
-    assert.same {true}, {numbers\is_optional! nil}
-    assert.same nil, (numbers nil)
+      assert.same {true}, {numbers\is_optional! nil}
+      assert.same nil, (numbers nil)
 
-    hellos = types.array_of "hello"
+    it "of literal string", ->
+      hellos = types.array_of "hello"
 
-    assert.same {true}, {hellos {}}
-    assert.same {true}, {hellos {"hello"}}
-    assert.same {true}, {hellos {"hello", "hello"}}
+      assert.same {true}, {hellos {}}
+      assert.same {true}, {hellos {"hello"}}
+      assert.same {true}, {hellos {"hello", "hello"}}
 
-    assert.same nil, (hellos {"hello", "world"})
+      assert.same nil, (hellos {"hello", "world"})
 
-    shapes = types.array_of types.shape {
-      color: types.one_of {"orange", "blue"}
-    }
+    it "of literal number", ->
+      twothreefours = types.array_of 234
 
-    assert.same {true}, {
-      shapes {
-        {color: "orange"}
-        {color: "blue"}
-        {color: "orange"}
+      assert.same {true}, {twothreefours {}}
+      assert.same {true}, {twothreefours {234}}
+      assert.same {true}, {twothreefours {234, 234}}
+      assert.same nil, (twothreefours {"uh"})
+
+    it "of shape", ->
+      shapes = types.array_of types.shape {
+        color: types.one_of {"orange", "blue"}
       }
-    }
 
-    assert.same nil, (
-      shapes {
-        {color: "orange"}
-        {color: "blue"}
-        {color: "purple"}
+      assert.same {true}, {
+        shapes {
+          {color: "orange"}
+          {color: "blue"}
+          {color: "orange"}
+        }
       }
-    )
 
-    twothreefours = types.array_of 234
+      assert.same nil, (
+        shapes {
+          {color: "orange"}
+          {color: "blue"}
+          {color: "purple"}
+        }
+      )
 
-    assert.same {true}, {twothreefours {}}
-    assert.same {true}, {twothreefours {234}}
-    assert.same {true}, {twothreefours {234, 234}}
-    assert.same nil, (twothreefours {"uh"})
 
   describe "literal", ->
     it "checks value", ->
