@@ -34,7 +34,7 @@ describe "tableshape.transform", ->
 
     assert.same {
       nil
-      "expecting one of: (got `65`, expected `55`; got type `number`, expected `string`; expecting table)"
+      "no matching option (got `65`, expected `55`; got type `number`, expected `string`; expecting table)"
     }, { n\transform 65 }
 
     assert.same {
@@ -125,7 +125,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "field `value`: expecting one of: (value `nil` does not match one of: `blue`, `green`, `red`; got type `nil`, expected `string`; got type `nil`, expected `number`)"
+        "field `value`: no matching option (value `nil` does not match one of: `blue`, `green`, `red`; got type `nil`, expected `string`; got type `nil`, expected `number`)"
       }, {
         n\transform { }
       }
@@ -188,7 +188,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "field `age`: expecting one of: (got type `string`, expected `table`; got type `string`, expected `number`)"
+        "field `age`: no matching option (got type `string`, expected `table`; got type `string`, expected `number`)"
       }, {
         n\transform {
           age: "hello"
@@ -197,7 +197,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "field `age`: expecting one of: (got type `string`, expected `table`; got type `string`, expected `number`)"
+        "field `age`: no matching option (got type `string`, expected `table`; got type `string`, expected `number`)"
       }, {
         n\transform {
           age: "hello"
@@ -261,7 +261,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "array item 2: expecting one of: (got type `boolean`, expected `string`; got type `boolean`, expected `number`)"
+        "array item 2: no matching option (got type `boolean`, expected `string`; got type `boolean`, expected `number`)"
       }, {
         n\transform {1, true}
       }
@@ -353,7 +353,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "map value expecting one of: (got type `boolean`, expected `number`; got type `boolean`, expected `string`)"
+        "map value no matching option (got type `boolean`, expected `number`; got type `boolean`, expected `string`)"
       }, {
         n\transform {
           hello: true
@@ -362,7 +362,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "map key expecting one of: (got type `boolean`, expected `string`; got type `boolean`, expected `number`)"
+        "map key no matching option (got type `boolean`, expected `string`; got type `boolean`, expected `number`)"
       }, {
         n\transform {
           [true]: 10
