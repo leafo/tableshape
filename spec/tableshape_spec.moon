@@ -78,6 +78,38 @@ describe "tableshape.types", ->
 
         assert.same {true}, {check nil, t}
 
+  describe "length", ->
+    it "checks string length", ->
+      s = types.string\length 5,20
+
+      assert.same {
+        nil
+        "string length `4` is not in range [5, 20]"
+      }, {s "heck"}
+
+      assert.same {
+        true
+      }, {s "hello!"}
+
+      assert.same {
+        nil
+        "string length `120` is not in range [5, 20]"
+      }, {s "hello!"\rep 20}
+
+    it "checks string length with base type", ->
+      s = types.string\length types.literal 5
+
+      assert.same {
+        true
+      }, {s "hello"}
+
+      assert.same {
+        nil
+        "string length got `6`, expected `5`"
+      }, {s "hello!"}
+
+
+
   describe "one_of", ->
     it "check value", ->
       ab = types.one_of {"a", "b"}
@@ -347,7 +379,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "array length `0` is not between [1, 3]"
+        "array length `0` is not in range [1, 3]"
       }, {
         t {}
       }
@@ -367,7 +399,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "array length `4` is not between [1, 3]"
+        "array length `4` is not in range [1, 3]"
       }, {
         t {"one", "two", "nine", "10"}
       }
@@ -483,12 +515,12 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "`2` is not between [5, 10]"
+        "`2` is not in range [5, 10]"
       }, { r 2 }
 
       assert.same {
         nil
-        "`100` is not between [5, 10]"
+        "`100` is not in range [5, 10]"
       }, { r 100 }
 
     it "handles string range", ->
@@ -505,12 +537,12 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "`A` is not between [a, f]"
+        "`A` is not in range [a, f]"
       }, { r "A" }
 
       assert.same {
         nil
-        "`g` is not between [a, f]"
+        "`g` is not in range [a, f]"
       }, { r "g" }
 
 describe "tableshape.operators", ->

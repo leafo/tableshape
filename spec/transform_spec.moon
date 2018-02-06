@@ -14,7 +14,7 @@ describe "tableshape.transform", ->
 
     r = types.range(1,5) / (n) -> n * 10
     assert.same { 40 }, {r\transform 4}
-    assert.same { nil, "`20` is not between [1, 5]" }, {r\transform 20}
+    assert.same { nil, "`20` is not in range [1, 5]" }, {r\transform 20}
 
   it "sequnce node", ->
     n = types.string * types.literal "hello"

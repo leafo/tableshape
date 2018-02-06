@@ -575,10 +575,31 @@ do
       if self.t ~= got then
         return nil, "got type `" .. tostring(got) .. "`, expected `" .. tostring(self.t) .. "`"
       end
+      if self.length_type then
+        local new_state, len_fail = self.length_type:check_value(#value, new_state)
+        if not (new_state) then
+          return nil, tostring(self.t) .. " length " .. tostring(len_fail)
+        end
+      end
       return state or true
     end,
+    length = function(self, left, right)
+      local l
+      if BaseType:is_base_type(left) then
+        l = left
+      else
+        l = types.range(left, right)
+      end
+      return Type(self.t, self:clone_opts({
+        length = l
+      }))
+    end,
     describe = function(self)
-      return "type `" .. tostring(self.t) .. "`"
+      local t = "type `" .. tostring(self.t) .. "`"
+      if self.length_type then
+        t = t .. " length_type " .. tostring(self.length_type:describe())
+      end
+      return t
     end
   }
   _base_0.__index = _base_0
@@ -586,6 +607,9 @@ do
   _class_0 = setmetatable({
     __init = function(self, t, opts)
       self.t, self.opts = t, opts
+      if self.opts then
+        self.length_type = self.opts.length
+      end
       return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
@@ -874,6 +898,13 @@ do
         return nil, "expected table for array_of"
       end
       local new_state
+      if self.length_type then
+        local len_fail
+        new_state, len_fail = self.length_type:check_value(#value, new_state)
+        if not (new_state) then
+          return nil, "array length " .. tostring(len_fail)
+        end
+      end
       for idx, item in ipairs(value) do
         local err
         new_state, err = self:check_field(idx, item, value, new_state)
@@ -889,7 +920,10 @@ do
   _class_0 = setmetatable({
     __init = function(self, expected, opts)
       self.expected, self.opts = expected, opts
-      self.keep_nils = self.opts and self.opts.keep_nils
+      if self.opts then
+        self.keep_nils = self.opts.keep_nils
+        self.length_type = self.opts.length
+      end
       return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
@@ -1488,12 +1522,15 @@ do
         return nil, "range " .. tostring(err)
       end
       if value < self.left then
-        return nil, "`" .. tostring(value) .. "` is not between [" .. tostring(self.left) .. ", " .. tostring(self.right) .. "]"
+        return nil, "`" .. tostring(value) .. "` is not in " .. tostring(self:describe())
       end
       if value > self.right then
-        return nil, "`" .. tostring(value) .. "` is not between [" .. tostring(self.left) .. ", " .. tostring(self.right) .. "]"
+        return nil, "`" .. tostring(value) .. "` is not in " .. tostring(self:describe())
       end
       return state or true
+    end,
+    describe = function(self)
+      return "range [" .. tostring(self.left) .. ", " .. tostring(self.right) .. "]"
     end
   }
   _base_0.__index = _base_0

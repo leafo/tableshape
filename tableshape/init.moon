@@ -283,6 +283,9 @@ class AnyType extends BaseType
 -- basic type check
 class Type extends BaseType
   new: (@t, @opts) =>
+    if @opts
+      @length_type = @opts.length
+
     super!
 
   check_value: (value, state) =>
@@ -291,10 +294,27 @@ class Type extends BaseType
     if @t != got
       return nil, "got type `#{got}`, expected `#{@t}`"
 
+    if @length_type
+      new_state, len_fail = @length_type\check_value #value, new_state
+      unless new_state
+        return nil, "#{@t} length #{len_fail}"
+
     state or true
 
+  length: (left, right) =>
+    l = if BaseType\is_base_type left
+      left
+    else
+      types.range left, right
+
+    Type @t, @clone_opts length: l
+
   describe: =>
-    "type `#{@t}`"
+    t = "type `#{@t}`"
+    if @length_type
+      t ..= " length_type #{@length_type\describe!}"
+
+    t
 
 class ArrayType extends BaseType
   new: (@opts) =>
@@ -705,12 +725,15 @@ class Range extends BaseType
       return nil, "range #{err}"
 
     if value < @left
-      return nil, "`#{value}` is not between [#{@left}, #{@right}]"
+      return nil, "`#{value}` is not in #{@describe!}"
 
     if value > @right
-      return nil, "`#{value}` is not between [#{@left}, #{@right}]"
+      return nil, "`#{value}` is not in #{@describe!}"
 
     state or true
+
+  describe: =>
+    "range [#{@left}, #{@right}]"
 
 types = setmetatable {
   any: AnyType!
