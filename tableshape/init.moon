@@ -490,7 +490,7 @@ class Shape extends BaseType
     super!
     assert type(@shape) == "table", "expected table for shape"
 
-  -- don't allow extra fields
+  -- allow extra fields
   is_open: =>
     Shape @shape, @clone_opts open: true
 
@@ -682,6 +682,28 @@ class Equivalent extends BaseType
     else
       nil, "#{val} is not equivalent to #{@val}"
 
+
+
+class Range extends BaseType
+  new: (@left, @right, @opts) =>
+    super!
+    assert @left <= @right, "left range value should be less than right range value"
+    @value_type = assert types[type(@left)], "couldn't figure out type of range boundary"
+
+  check_value: (value, state) =>
+    pass, err = @.value_type\check_value value
+
+    unless pass
+      return nil, "range #{err}"
+
+    if value < @left
+      return nil, "`#{value}` is not between [#{@left}, #{@right}]"
+
+    if value > @right
+      return nil, "`#{value}` is not between [#{@left}, #{@right}]"
+
+    state or true
+
 types = setmetatable {
   any: AnyType!
   string: Type "string"
@@ -705,6 +727,7 @@ types = setmetatable {
   array_of: ArrayOf
   map_of: MapOf
   literal: Literal
+  range: Range
   equivalent: Equivalent
   custom: Custom
 }, __index: (fn_name) =>

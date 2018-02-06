@@ -445,6 +445,8 @@ Here are all the available ones, full documentation is below.
 * `types.map_of` - checks if value is table that matches key and value types
 * `types.literal` - checks if value matches the provided value with `==`
 * `types.custom` - lets you provide a function to check the type
+* `types.equivalent` - checks if values deeply compare to one another
+* `types.range` - checks if value is between two other values
 
 #### `types.shape(table_dec)`
 
@@ -567,6 +569,24 @@ t {
 } --> true
 
 ```
+
+#### types.range(left, right)
+
+Creates a type checker that will check if a value is beween `left` and `right`
+conclusive. The type of the value is checked before doing the comparison:
+passing a string to a numeric type checker will fail up front.
+
+```lua
+local nums = types.range 1, 20
+local letters = types.range "a", "f"
+
+
+nums:check_value(4)    --> true
+nums:check_value("c")  --> true
+nums:check_value("n")  --> true
+```
+
+This checker works well with the length checks for strings and arrays.
 
 ### Built in types
 

@@ -1477,6 +1477,61 @@ do
   end
   Equivalent = _class_0
 end
+local Range
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    check_value = function(self, value, state)
+      local pass, err = self.value_type:check_value(value)
+      if not (pass) then
+        return nil, "range " .. tostring(err)
+      end
+      if value < self.left then
+        return nil, "`" .. tostring(value) .. "` is not between [" .. tostring(self.left) .. ", " .. tostring(self.right) .. "]"
+      end
+      if value > self.right then
+        return nil, "`" .. tostring(value) .. "` is not between [" .. tostring(self.left) .. ", " .. tostring(self.right) .. "]"
+      end
+      return state or true
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, left, right, opts)
+      self.left, self.right, self.opts = left, right, opts
+      _class_0.__parent.__init(self)
+      assert(self.left <= self.right, "left range value should be less than right range value")
+      self.value_type = assert(types[type(self.left)], "couldn't figure out type of range boundary")
+    end,
+    __base = _base_0,
+    __name = "Range",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  Range = _class_0
+end
 types = setmetatable({
   any = AnyType(),
   string = Type("string"),
@@ -1499,6 +1554,7 @@ types = setmetatable({
   array_of = ArrayOf,
   map_of = MapOf,
   literal = Literal,
+  range = Range,
   equivalent = Equivalent,
   custom = Custom
 }, {

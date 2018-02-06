@@ -434,6 +434,50 @@ describe "tableshape.types", ->
         }
       })
 
+  describe "range", ->
+    it "handles numeric range", ->
+      r = types.range 5, 10
+
+      assert.same {
+        nil
+        "range got type `nil`, expected `number`"
+      }, { r nil }
+
+      assert.same { true }, { r 10 }
+      assert.same { true }, { r 5 }
+      assert.same { true }, { r 8 }
+
+      assert.same {
+        nil
+        "`2` is not between [5, 10]"
+      }, { r 2 }
+
+      assert.same {
+        nil
+        "`100` is not between [5, 10]"
+      }, { r 100 }
+
+    it "handles string range", ->
+      r = types.range "a", "f"
+
+      assert.same {
+        nil
+        "range got type `nil`, expected `string`"
+      }, { r nil }
+
+      assert.same { true }, { r "a" }
+      assert.same { true }, { r "f" }
+      assert.same { true }, { r "c" }
+
+      assert.same {
+        nil
+        "`A` is not between [a, f]"
+      }, { r "A" }
+
+      assert.same {
+        nil
+        "`g` is not between [a, f]"
+      }, { r "g" }
 
 describe "tableshape.operators", ->
   it "sequence", ->
