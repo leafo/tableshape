@@ -370,86 +370,50 @@ t({1,2})          --> true, { x =  1, y = 2}
 t({a = 3, b = 9}) --> true, { x = 3, y = 9}
 ```
 
-### Repairing
+### Transforming
 
-> **Reparing is deprecated, use the transform functionality instead**
-
-Every type checking object can optionally have a repair callback associated
-with it. When using the `repair` method on a type checker, the repair callback
-is used to fix the value.
+When calling a type object with the transform method you can modify transform
+the input with callbacks until it matches the types you specify. This is done
+with a combination of type operators, including the `transform` operator.
 
 For example, we can take pattern type checker for URLs that fixes the input:
 
 ```lua
-local url_shape = types.pattern("^https?://"):on_repair(function(val)
+local url_shape = types.pattern("^https?://") + types.string / function(val)
   return "http://" .. val
-end)
+end
 ```
 
-If a repair is not required, the same exact value is returned. If a repair is
-required, the callback is used to create a new repaired object that is
-returned.
-
-> If you pass a mutable object, like a table, then any repairs will be done on
-> a copy of the table. The original object will not be mutated. If a repair is
-> not necessary then the same object is returned.
+> If you pass a mutable object, like a table, then any transformations will be
+> done on a copies of the data. The original object will not be modified. A new
+> copy is always returned, even if no transformations take place.
 
 ```lua
-url_shape:repair("https://itch.io") --> https://itch.io
-url_shape:repair("leafo.net") --> http://leafo.net
+url_shape:transform("https://itch.io") --> https://itch.io
+url_shape:transform("leafo.net")       --> http://leafo.net
+url_shape:transform({})                --> nil, "no matching option (expected string for value; got type `table`)"
 ```
 
-The `repair` has a second return value: it's `true` if the value was repaired,
-false otherwise.
-
-Just like the type checkers can be nested and composed, the repair-aware type
-checkers can be too. Here we use our `url_shape` type checker combined with
-`array_of` to repair an array of URLs.
+We can compose transformable type checkers. Now that we know how to fix a URL,
+we can fix an array of URLS:
 
 
 ```lua
 local urls_array = types.array_of(url_shape)
 
-local fixed_urls = urls_array:repair({
+local fixed_urls = urls_array:transform({
   "https://itch.io",
   "leafo.net",
+  {}
   "www.streak.club",
 })
 ```
 
-If the individual components of a compound type checker do not have an
-appropriate repair callback, then the repair callback of the compound type
-checker is used. The first argument of this callback is the kind of error it
-encountered.
-
-For example we can remove extra fields from a table:
-
-```lua
-local types = require("tableshape").types
-
-local table_t = types.shape({
-  name = types.string,
-}):on_repair(function(msg, field, value)
-  if msg == "extra_field" then
-    return nil -- clear the field by returning nothing
-  else
-    error("todo: implement repair for: " .. msg)
-  end
-end)
-
-local res = table_t:repair({
-  name = "leaf",
-  color = "blue",
-})
-
--- returns:
--- {
---   name = "leaf"
--- }
-```
-
-The available repair types for a `types.shape` are `"extra_field"`,
-`"field_invalid"`, and `"table_invalid"`.
+The `transform` method of the `array_of` type will transform each value of the
+array. A special property of the `array_of` transform is to exclude any values
+that get turned into `nil` in the final output. You can use this to filter out
+any bad data without having holes in your array. (You can override this with
+the `keep_nils` option.
 
 ## Reference
 
@@ -483,14 +447,6 @@ local t = types.shape{
 }
 ```
 
-##### Repair callback
-
-The first argument of the repair callback is a type string which indicates what
-
-* `table_invalid` - Receives `error_message`, `original_value`. The type of the value is not a table, the return value of the callback replaces the value. No further checking is done.
-* `field_invalid` - Receives `field_key`, `field_value`, `error_message`, `expected_type`. The return value is used to replace the field in the table. Return `nil` to remove the field.
-* `extra_field` - Receives `field_key`, `field_value`. The return value is used to replace the field in the table. Return `nil` to remove the field.
-
 #### `types.array_of(item_type, options={})`
 
 Returns a type checker that tests if the value is an array where each item
@@ -521,7 +477,7 @@ Returns a type checker that tests if the value matches one of the provided
 types. A literal value can also be passed as a type.
 
 ```lua
-local t = types.array_of{"none", types.number}
+local t = types.one_of{"none", types.number}
 ```
 
 #### `types.pattern(lua_pattern)`
@@ -566,6 +522,25 @@ local is_even = types.custom(function(val)
     return nil, "expected number"
   end
 end)
+```
+
+#### types.equivalent(val)
+
+Returns a type checker that will do a deep compare between val and the input.
+
+```lua
+local t = types.equivalent {
+  color = {255,100,128},
+  name = "leaf"
+}
+
+-- although we're testing a different instance of the table, the structure is
+-- the same so it passes
+t {
+  name = "leaf"
+  color = {255,100,128},
+} --> true
+
 ```
 
 ### Built in types
@@ -619,26 +594,15 @@ argument.
 
 #### `type:repair(value)`
 
-> **Reparing is deprecated, use the transform functionality instead**
-
-Attempts to repair the value recursively by using the repair callbacks
-assocated with the type checker.
-
-Retruns two values, the repaired value, and a boolean that's true if the value
-neede to be repaired
-
-If a repair took place then a copy of the value is returned. The original value
-is never mutated. If a repair wasn't necessary then the original value argument
-is returned unchanged.
-
-If a repiar was required but the appropriate repair callback was not available
-then a Lua error is thrown.
+An alias for `type:transform(value)`
 
 #### `type:is_optional()`
 
 Returns a new type checker that matches the same type, or `nil`.
 
 #### `shape_type:is_open()`
+
+> This method is deprecated, use the `open = true` constructor option on shapes instead
 
 This method is only available on a type checker generated by `types.shape`.
 
@@ -647,10 +611,25 @@ specified.
 
 #### `type:on_repair(func)`
 
-Returns a new type checker that matches the same type, but also has a repair
-callback associated with it for when `repair` is used.
+An alias for the transform pattern:
+
+```lua
+type + types.any / func * type
+```
+
+In English, this will let a value that matches `type` pass through, otherwise
+for anything else call `func(value)` and let the return value pass through if
+it matches `type`, otherwise fail.
 
 ## Changelog
+
+**Next** - 2.0.0
+
+* Add overloaded operators to compose types
+* Add transformation interface
+* Add support for tagging
+* Add `state` parameter that's passed through type checks (internal use only right now)
+* Replace repair interface with simple transform
 
 **Feb 10 2016** - 1.2.1
 
