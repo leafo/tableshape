@@ -4,10 +4,10 @@
 [![Build Status](https://travis-ci.org/leafo/tableshape.svg?branch=master)](https://travis-ci.org/leafo/tableshape)
 
 A Lua library for verifying the shape (schema, structure, etc.) of a table, and
-transforming it if necessary. The type checking syntax is inspired by the [PropTypes
-module of React](https://facebook.github.io/react/docs/reusable-components.html#prop-validation).
-
-Complex types value transformations can be expressed using an operator
+transforming it if necessary. The type checking syntax is inspired by the
+[PropTypes module of
+React](https://facebook.github.io/react/docs/reusable-components.html#prop-validation).
+Complex types &amp; value transformations can be expressed using an operator
 overloading syntax similar to [LPeg](http://www.inf.puc-rio.br/~roberto/lpeg/).
 
 ### Install
@@ -59,33 +59,38 @@ assert(player_shape:check_value(player))
 
 #### Transforming
 
-A malformed table can be repaired be repaired to the expected type by using the
-transform operator and method. The input value is cloned and modified before being returned.
+A malformed table can be repaired to the expected shape by using the
+transformation operator and method. The input value is cloned and modified
+before being returned.
 
 
 ```lua
 local types = require("tableshape").types
 
--- a type checker that will coerce the value into a number or return 0
+-- a type checker that will coerce a value into a number from a string or return 0
 local number = types.number + types.string / tonumber + types.any / 0
 
 number:transform(5) --> 5
 number:transform("500") --> 500
 number:transform("hi") --> 0
 number:transform({}) --> 0
-
 ```
 
+Because type checkers are composable objects, we can build more complex types
+out of existing types we've written:
+
 ```lua
+
+-- here we reference our transforming number type from above
+local coordinate = types.shape {
+  x = number,
+  y = number
+}
+
 -- a compound type checker that can fill in missing values
 local player_shape = types.shape({
-  name = types.string + types.any / "unknown"
-
-  -- here we reference our transforming type from above
-  position = types.shape({
-    x = number,
-    y = number
-  })
+  name = types.string + types.any / "unknown",
+  position = coordinate
 })
 
 local bad_player = {
@@ -118,11 +123,12 @@ local types = require("tableshape").types
 You can use the types table to check the types of simple values, not just
 tables. The `check_value` method on any type object will test a value to see if
 it matches the shape or type. It returns `true` on a match, or `nil` and the
-error message if it fails.
+error message if it fails. Type objects also have the `__call` metamethod
+provided, so you can call the type checker like a function to check the value.
 
 ```lua
-assert(types.string:check_value("hello!")) -- success
-assert(types.string:check_value(777)) -- an error: got type `number`, expected `string`
+types.string:check_value("hello!") --> true
+types.string:check_value(777)      --> nil, "got type `number`, expected `string`"
 ```
 
 You can see the full list of the available types below in the reference.
@@ -144,8 +150,9 @@ assert(numbers_shape:check_value({1,"oops",3}))
 > **Note:** The type checking is strict, a string that looks like a number,
 > `"123"`, is not a number and will trigger an error!
 
-The structure of a hashtable can be tested with `types.shape`. It takes a hash
-table where the key is the field to check, and the value is the type checker:
+The structure of a generic table can be tested with `types.shape`. It takes a
+mapping table where the key is the field to check, and the value is the type
+checker:
 
 ```lua
 local object_shape = types.shape{
@@ -171,12 +178,13 @@ assert(object_shape:check_value({
 }))
 ```
 
-The `is_optional` method can be called on a type checker to make that type also
-accept `nil` as a value.
+The `is_optional` method can be called on any type checker to return a new type
+checker that can also accept `nil` as a value. (It is equivalent to `t + types.any`)
 
-If multiple fields fail the type check, only the first one is reported as the second return value.
+If multiple fields fail the type check in a shape, the error message will
+contain all the failing fields
 
-You can also use a literal value to match it directly:
+You can also use a literal value to match it directly: (This is equivalent to using `types.literal(v)`)
 
 ```lua
 local object_shape = types.shape{
@@ -190,11 +198,11 @@ assert(object_shape:check_value({
 ```
 
 The `one_of` type constructor lets you specify a list of types, and will
-succeed if one of them matches.
+succeed if one of them matches. (It works the same as the `+` operator)
 
 
 ```lua
-local func_or_bool = types.one_of{types.func, types.boolean}
+local func_or_bool = types.one_of { types.func, types.boolean }
 
 assert(func_or_bool:check_value(function() end))
 
@@ -225,19 +233,22 @@ assert(no_spaces:check_value("hello!"))
 assert(no_spaces:check_value("oh no!"))
 ```
 
+You can see all the other type checkers provided in the reference below.
+
 ### Type operators
 
 Type checker objects have the operators `*`, `+`, and `/` overloaded to provide
-ways to compose into types into more complex ones.
+a quick way to make composite types.
 
 * `*` — The **and** operator, both operands must match.
 * `+` — The **first of** operator, the operands are checked against the value from left to right
-* `/` — The **transform** operator, when using the `transform` method, the value will be convered by what's to the right of the operator
+* `/` — The **transform** operator, when using the `transform` method, the value will be converted by what's to the right of the operator
 
 #### The 'and' operator
 
 The **and** operator checks if a value matches multiple types. Types are
-checked from left to right, and type checking will abort on the first failed check.
+checked from left to right, and type checking will abort on the first failed
+check. It works the same as `types.all_of`.
 
 ```lua
 local s = types.pattern("^hello") * types.pattern("world$")
@@ -251,35 +262,36 @@ s("hello, umm worldz") --> nil, "doesn't match pattern `world$`"
 
 The **first of** operator checks if a value matches one of many types. Types
 are checked from left to right, and type checking will succeed on the first
-matched type.
+matched type. It works the same as `types.one_of`.
 
-Once a type has been matched no additional types are checked. If you use a
-greedy type first, (like `types.any`) then it will check any additional ones.
-This is important to realize if your subsequent types have any side effects
-like transformations or tags.
+Once a type has been matched, no additional types are checked. If you use a
+greedy type first, like `types.any`, then it will not check any additional
+ones. This is important to realize if your subsequent types have any side
+effects like transformations or tags.
 
 
 ```lua
 local s = types.number + types.string
 
-s(44)                  --> true
-s("hello, umm worldz") --> nil, "no matching option (got type `boolean`, expected `number`; got type `boolean`, expected `string`)"
+s(44)            --> true
+s("hello world") --> true
+s(true)          --> nil, "no matching option (got type `boolean`, expected `number`; got type `boolean`, expected `string`)"
 ```
 
 ### The 'transform' operator
 
 In type matching mode, the transform operator has no effect. When using the
-`transform` method, however, the value will be modified by a callback or to be
-a fixed value.
+`transform` method, however, the value will be modified by a callback or
+changed to a fixed value.
 
-The following syntax is used: `type / transform_callback --> transformable type`
+The following syntax is used: `type / transform_callback --> transformable_type`
 
 ```lua
 local t = types.string + types.any / "unknown"
 ```
 
-The proceeding type can be read as: "Match a string typed value, or for any
-other type, transform it into the string 'unknown'".
+The proceeding type can be read as: "Match any string, or for any other type,
+transform it into the string 'unknown'".
 
 ```lua
 t:transform("hello") --> "hello"
@@ -287,7 +299,7 @@ t:transform(5)       --> "unknown"
 ```
 
 Because this type checker uses `types.any`, it will pass for whatever value is
-handed to it. A transforming type check can fail as well.
+handed to it. A transforming type can fail also fail, here's an example:
 
 ```lua
 local n = types.number + types.string / tonumber
@@ -299,13 +311,13 @@ n:t({})          --> nil, "no matching option (got type `table`, expected `numbe
 The transform callback can either be a function, or a literal value. If a
 function is used, then the function is called with the current value being
 transformed, and the result of the transformation should be returned. If a
-literal value is used, then the transformations always turns the value into the
+literal value is used, then the transformation always turns the value into the
 specified value.
 
-A transform function is not a predicate, and can't cause the type checking to
-fail. Returning `nil` is valid and will change the value to `nil`. If you wish
-to fail based on a function you can use the `custom` type or chain another type
-checker after the transformation:
+A transform function is not a predicate, and can't directly cause the type
+checking to fail. Returning `nil` is valid and will change the value to `nil`.
+If you wish to fail based on a function you can use the `custom` type or chain
+another type checker after the transformation:
 
 
 ```lua
@@ -318,7 +330,7 @@ A common pattern for repairing objects involves testing for the types you know
 how to fix followed by ` + types.any`, followed by a type check of the final
 type you want:
 
-Here we attempt to repair a value to the expected format for a x,y coordinate:
+Here we attempt to repair a value to the expected format for an x,y coordinate:
 
 
 ```lua
@@ -366,7 +378,7 @@ loca t = types.shape {
   types.number:tag("y"),
 }
 
-t({1,2})          --> true, { x =  1, y = 2}
+t({1,2})          --> true, { x = 1, y = 2}
 t({a = 3, b = 9}) --> true, { x = 3, y = 9}
 ```
 
