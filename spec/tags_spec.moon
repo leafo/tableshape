@@ -23,6 +23,13 @@ describe "tableshape.tags", ->
 
     assert_tags t, "no", nil
 
+  it "string", ->
+    t = types.string\length(types.range(1,2)\tag "len")\tag "val"
+    assert_tags t, "hi", {
+      val: "hi"
+      len: 2
+    }
+
   describe "one_of", ->
     it "takes matching tag", ->
       s = types.one_of {

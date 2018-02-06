@@ -576,8 +576,9 @@ do
         return nil, "got type `" .. tostring(got) .. "`, expected `" .. tostring(self.t) .. "`"
       end
       if self.length_type then
-        local new_state, len_fail = self.length_type:check_value(#value, new_state)
-        if not (new_state) then
+        local len_fail
+        state, len_fail = self.length_type:check_value(#value, state)
+        if not (state) then
           return nil, tostring(self.t) .. " length " .. tostring(len_fail)
         end
       end

@@ -295,8 +295,8 @@ class Type extends BaseType
       return nil, "got type `#{got}`, expected `#{@t}`"
 
     if @length_type
-      new_state, len_fail = @length_type\check_value #value, new_state
-      unless new_state
+      state, len_fail = @length_type\check_value #value, state
+      unless state
         return nil, "#{@t} length #{len_fail}"
 
     state or true
