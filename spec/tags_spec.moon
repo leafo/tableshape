@@ -97,6 +97,28 @@ describe "tableshape.tags", ->
         thing: "world"
       }
 
+    it "matches array length", ->
+      t = types.array_of types.string, length: types.range(1,2)\tag "len"
+
+      assert_tags t, {
+        "one"
+        "two"
+      }, {
+        len: 2
+      }
+
+      assert_tags t, {
+        "one"
+      }, {
+        len: 1
+      }
+
+      assert_tags t, {
+        "one"
+        "one1"
+        "one2"
+      }, nil
+
     it "matches many items from array", ->
       t1 = types.array_of types.number\tag "hi[]"
 

@@ -393,9 +393,15 @@ class ArrayOf extends BaseType
     unless pass
       return FailedTransform, err
 
+    local new_state
+
+    if @length_type
+      new_state, len_fail = @length_type\check_value #value, new_state
+      unless new_state
+        return FailedTransform, "array length #{len_fail}"
+
     is_literal = not BaseType\is_base_type @expected
 
-    local new_state
     out = {}
 
     out = for idx, item in ipairs value

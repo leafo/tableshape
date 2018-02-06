@@ -316,6 +316,20 @@ describe "tableshape.transform", ->
         }
       }
 
+    it "tests length", ->
+      f = types.array_of types.string + types.any / nil, length: types.range 2,3
+      assert.same {
+        {"one", "two"}
+      }, {
+        f\transform {"one", true, "two"}
+      }
+
+      assert.same {
+        nil
+        "array length `4` is not in range [2, 3]"
+      }, {
+        f\transform {"one", true, "two", false}
+      }
 
   describe "map_of", ->
     it "non table", ->

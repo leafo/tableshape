@@ -840,8 +840,15 @@ do
       if not (pass) then
         return FailedTransform, err
       end
-      local is_literal = not BaseType:is_base_type(self.expected)
       local new_state
+      if self.length_type then
+        local len_fail
+        new_state, len_fail = self.length_type:check_value(#value, new_state)
+        if not (new_state) then
+          return FailedTransform, "array length " .. tostring(len_fail)
+        end
+      end
+      local is_literal = not BaseType:is_base_type(self.expected)
       local out = { }
       do
         local _accum_0 = { }
