@@ -1,21 +1,27 @@
 import types from require "tableshape"
 
+-- test tags output from both check_value and transform
+assert_tags = (t, arg, expected)->
+  assert.same expected, (t(arg))
+  out, tags = t\transform arg
+  assert.same expected, out and tags or nil
+
 describe "tableshape.tags", ->
   it "literal", ->
     t = types.literal("hi")\tag "what"
-    assert.same {
+    assert_tags t, "hi", {
       what: "hi"
-    }, t("hi")
+    }
 
-    assert.same nil, (t("no"))
+    assert_tags t, "no", nil
 
   it "number", ->
     t = types.number\tag "val"
-    assert.same {
+    assert_tags t, 15, {
       val: 15
-    }, t 15
+    }
 
-    assert.same nil, (t "no")
+    assert_tags t, "no", nil
 
   describe "one_of", ->
     it "takes matching tag", ->
@@ -25,21 +31,20 @@ describe "tableshape.tags", ->
         types.function\tag "func"
       }
 
-      assert.same {
+      assert_tags s, "hello", {
         str: "hello"
-      }, s "hello"
+      }
 
-      assert.same {
+      assert_tags s, 5, {
         num: 5
-      }, s 5
+      }
 
       fn = -> print "hi"
-      assert.same {
+      assert_tags s, fn, {
         func: fn
-      }, s fn
+      }
 
-      assert.same nil, (s {})
-
+      assert_tags s, {}, nil
 
   describe "all_of", ->
     it "matches multi", ->
@@ -53,7 +58,11 @@ describe "tableshape.tags", ->
         }, open: true
       }
 
-      assert.same {
+      assert_tags s, {
+        a: 43
+        b: 2
+        what: "ok"
+      }, {
         table: {
           a: 43
           b: 2
@@ -61,10 +70,6 @@ describe "tableshape.tags", ->
         }
         x: 43
         y: 2
-      }, s {
-        a: 43
-        b: 2
-        what: "ok"
       }
 
       tags = {}
@@ -85,40 +90,36 @@ describe "tableshape.tags", ->
         s: types.string\tag "thing"
       }
 
-      out = t {
+      assert_tags t, {
         { s: "hello" }
         { s: "world" }
-      }
-
-      assert.same {
+      }, {
         thing: "world"
-      }, out
+      }
 
     it "matches many items from array", ->
       t = types.array_of types.shape {
         s: types.string\tag "thing[]"
       }
 
-      out = t {
+      assert_tags t, {
         { s: "hello" }
         { s: "world" }
-      }
-
-      assert.same {
+      }, {
         thing: {
           "hello"
           "world"
         }
-      }, out
+      }
 
   describe "map_of", ->
     it "matches regular map", ->
       t = types.map_of "hello", types.string\tag "world"
 
-      assert.same {
-        world: "something"
-      }, t {
+      assert_tags t, {
         hello: "something"
+      }, {
+        world: "something"
       }
 
 
@@ -132,22 +133,19 @@ describe "tableshape.tags", ->
         color: types.string\tag "color"
       }
 
-      tags = assert s {
+      assert_tags s, {
         1
         2
         3
         t: "board"
         color: "blue"
-      }
-
-      assert.same {
+      }, {
         x: 1
         y: 2
         color: "blue"
-      }, tags
+      }
 
-
-    it "shape doesn't return partial tags", ->
+    it "doesn't write partial tags", ->
       t = types.shape {
         types.string\tag "hello"
         types.string\tag "world"
