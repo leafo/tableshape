@@ -398,6 +398,28 @@ describe "tableshape.transform", ->
         }
       }
 
+    it "removies fields by transforming to nil", ->
+      t = types.map_of types.string, types.number + types.any / nil
+
+      assert.same {
+        age: 10
+        id: 99.9
+      }, t\transform {
+        color: "blue"
+        age: 10
+        id: 99.9
+      }
+
+      t = types.map_of types.string + types.any / nil, types.any
+
+      assert.same {
+        color: "blue"
+      }, t\transform {
+        color: "blue"
+        [5]: 10
+        [true]: "okay"
+      }
+
   describe "tags", ->
     it "assigns tags when transforming", ->
       n = types.shape {

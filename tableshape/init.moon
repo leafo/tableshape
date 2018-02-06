@@ -450,6 +450,7 @@ class MapOf extends BaseType
         if v == FailedTransform
           return FailedTransform, "map value #{new_state}"
 
+      continue if k == nil
       out[k] = v
 
     out, merge_tag_state state, new_state

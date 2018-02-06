@@ -936,27 +936,38 @@ do
       local value_literal = not BaseType:is_base_type(self.expected_value)
       local out = { }
       for k, v in pairs(value) do
-        if key_literal then
-          if k ~= self.expected_key then
-            return FailedTransform, "map key got `" .. tostring(k) .. "`, expected `" .. tostring(self.expected_key) .. "`"
+        local _continue_0 = false
+        repeat
+          if key_literal then
+            if k ~= self.expected_key then
+              return FailedTransform, "map key got `" .. tostring(k) .. "`, expected `" .. tostring(self.expected_key) .. "`"
+            end
+          else
+            k, new_state = self.expected_key:_transform(k, new_state)
+            if k == FailedTransform then
+              return FailedTransform, "map key " .. tostring(new_state)
+            end
           end
-        else
-          k, new_state = self.expected_key:_transform(k, new_state)
-          if k == FailedTransform then
-            return FailedTransform, "map key " .. tostring(new_state)
+          if value_literal then
+            if v ~= self.expected_value then
+              return FailedTransform, "map value got `" .. tostring(v) .. "`, expected `" .. tostring(self.expected_value) .. "`"
+            end
+          else
+            v, new_state = self.expected_value:_transform(v, new_state)
+            if v == FailedTransform then
+              return FailedTransform, "map value " .. tostring(new_state)
+            end
           end
+          if k == nil then
+            _continue_0 = true
+            break
+          end
+          out[k] = v
+          _continue_0 = true
+        until true
+        if not _continue_0 then
+          break
         end
-        if value_literal then
-          if v ~= self.expected_value then
-            return FailedTransform, "map value got `" .. tostring(v) .. "`, expected `" .. tostring(self.expected_value) .. "`"
-          end
-        else
-          v, new_state = self.expected_value:_transform(v, new_state)
-          if v == FailedTransform then
-            return FailedTransform, "map value " .. tostring(new_state)
-          end
-        end
-        out[k] = v
       end
       return out, merge_tag_state(state, new_state)
     end,
