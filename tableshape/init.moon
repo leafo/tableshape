@@ -510,7 +510,7 @@ class Shape extends BaseType
       if remaining_keys
         remaining_keys[shape_key] = nil
 
-      new_val, tuple_state = shape_val\_transform item_value
+      new_val, tuple_state = shape_val\_transform item_value, new_state
 
       if new_val == FailedTransform
         unless errors
