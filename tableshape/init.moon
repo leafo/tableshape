@@ -4,6 +4,8 @@ local OptionalType, TaggedType, types
 TagValueArray = {}
 FailedTransform = {}
 
+unpack = unpack or table.unpack
+
 merge_tag_state = (existing, new_tags) ->
   if type(new_tags) == "table" and type(existing) == "table"
     for k,v in pairs new_tags
