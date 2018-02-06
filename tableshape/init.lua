@@ -1,5 +1,6 @@
-local OptionalType, TaggedType
+local OptionalType, TaggedType, types
 local TagValueArray = { }
+local FailedTransform = { }
 local merge_tag_state
 merge_tag_state = function(existing, new_tags)
   if type(new_tags) == "table" and type(existing) == "table" then
@@ -18,6 +19,7 @@ merge_tag_state = function(existing, new_tags)
   end
   return new_tags or existing or true
 end
+local TransformNode, SequenceNode, FirstOfNode
 local BaseType
 do
   local _class_0
@@ -29,22 +31,51 @@ do
         return self(other[1])
       end
     end,
+    __div = function(self, fn)
+      return TransformNode(self, fn)
+    end,
+    __mul = function(self, right)
+      return SequenceNode(self, right)
+    end,
+    __add = function(self, right)
+      if self.__class == FirstOfNode then
+        local options = {
+          unpack(self.options)
+        }
+        table.insert(options, right)
+        return FirstOfNode(unpack(options))
+      else
+        return FirstOfNode(self, right)
+      end
+    end,
     check_value = function(self)
       return error("override me")
     end,
-    has_repair = function(self)
-      return self.opts and self.opts.repair
-    end,
-    repair = function(self, val, fix_fn)
-      local fixed = false
-      local pass, err = self:check_value(val)
-      if not (pass) then
-        fix_fn = fix_fn or (self.opts and self.opts.repair)
-        assert(fix_fn, "missing repair function for: " .. tostring(err))
-        fixed = true
-        val = fix_fn(val, err)
+    transform = function(self, ...)
+      local val, state_or_err = self:_transform(...)
+      if val == FailedTransform then
+        return nil, state_or_err
       end
-      return val, fixed
+      if type(state_or_err) == "table" then
+        return val, state_or_err
+      else
+        return val
+      end
+    end,
+    repair = function(self, ...)
+      return self:transform(...)
+    end,
+    _transform = function(self, val, state)
+      local err
+      state, err = self:check_value(val, state)
+      if state then
+        return val, state
+      else
+        return FailedTransform, err
+      end
+    end,
+    on_repair = function(self, fn)
+      return self + types.any / fn * self
     end,
     is_optional = function(self)
       return OptionalType(self)
@@ -113,6 +144,9 @@ do
   self.__inherited = function(self, cls)
     cls.__base.__call = cls.__call
     cls.__base.__eq = self.__eq
+    cls.__base.__div = self.__div
+    cls.__base.__mul = self.__mul
+    cls.__base.__add = self.__add
     local mt = getmetatable(cls)
     local create = mt.__call
     mt.__call = function(cls, ...)
@@ -130,6 +164,241 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    check_value = function(self, value, state)
+      return self.node:check_value(value, state)
+    end,
+    _transform = function(self, value, state)
+      local val, state_or_err = self.node:_transform(value, state)
+      if val == FailedTransform then
+        return val, state_or_err
+      else
+        local out
+        local _exp_0 = type(self.t_fn)
+        if "function" == _exp_0 then
+          out = self.t_fn(val)
+        else
+          out = self.t_fn
+        end
+        return out, state_or_err
+      end
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, node, t_fn)
+      self.node, self.t_fn = node, t_fn
+    end,
+    __base = _base_0,
+    __name = "TransformNode",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  local self = _class_0
+  self.transformer = true
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  TransformNode = _class_0
+end
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    check_value = function(self, value, state)
+      local new_state
+      local _list_0 = self.sequence
+      for _index_0 = 1, #_list_0 do
+        local node = _list_0[_index_0]
+        local pass
+        pass, new_state = node:check_value(value, new_state)
+        if not (pass) then
+          return nil, new_state
+        end
+      end
+      return merge_tag_state(state, new_state)
+    end,
+    _transform = function(self, value, state)
+      local _list_0 = self.sequence
+      for _index_0 = 1, #_list_0 do
+        local node = _list_0[_index_0]
+        value, state = node:_transform(value, state)
+        if value == FailedTransform then
+          break
+        end
+      end
+      return value, state
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, ...)
+      self.sequence = {
+        ...
+      }
+    end,
+    __base = _base_0,
+    __name = "SequenceNode",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  local self = _class_0
+  self.transformer = true
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  SequenceNode = _class_0
+end
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    check_value = function(self, value, state)
+      local errors
+      local _list_0 = self.options
+      for _index_0 = 1, #_list_0 do
+        local node = _list_0[_index_0]
+        local pass, new_state_or_err = node:check_value(value)
+        if pass then
+          return merge_tag_state(state, new_state_or_err)
+        else
+          if errors then
+            table.insert(errors, new_state_or_err)
+          else
+            errors = {
+              new_state_or_err
+            }
+          end
+        end
+      end
+      return nil, "no matching option (" .. tostring(table.concat(errors or {
+        "no options"
+      }, "; ")) .. ")"
+    end,
+    _transform = function(self, value, state)
+      local errors
+      if not (self.options[1]) then
+        return FailedTransform, "no options for node"
+      end
+      local _list_0 = self.options
+      for _index_0 = 1, #_list_0 do
+        local node = _list_0[_index_0]
+        local new_val, new_state_or_err = node:_transform(value, state)
+        if new_val == FailedTransform then
+          if errors then
+            table.insert(errors, new_state_or_err)
+          else
+            errors = {
+              new_state_or_err
+            }
+          end
+        else
+          return new_val, new_state_or_err
+        end
+      end
+      return FailedTransform, "no matching option (" .. tostring(table.concat(errors or {
+        "no options"
+      }, "; ")) .. ")"
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, ...)
+      self.options = {
+        ...
+      }
+    end,
+    __base = _base_0,
+    __name = "FirstOfNode",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  local self = _class_0
+  self.transformer = true
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  FirstOfNode = _class_0
+end
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    _transform = function(self, value, state)
+      value, state = self.base_type:_transform(value, state)
+      if value == FailedTransform then
+        return FailedTransform, state
+      end
+      if not (type(state) == "table") then
+        state = { }
+      end
+      if self.array then
+        local existing = state[self.tag]
+        if type(existing) == "table" then
+          table.insert(existing, value)
+        else
+          state[self.tag] = setmetatable({
+            value
+          }, TagValueArray)
+        end
+      else
+        state[self.tag] = value
+      end
+      return value, state
+    end,
     check_value = function(self, value, state)
       state = self.base_type:check_value(value, state)
       if state then
@@ -209,22 +478,6 @@ do
     is_optional = function(self)
       return self
     end,
-    on_repair = function(self, repair_fn)
-      return OptionalType(self.base_type, self:clone_opts({
-        repair = repair_fn
-      }))
-    end,
-    repair = function(self, value, fix_fn)
-      fix_fn = fix_fn or (self.opts and self.opts.repair)
-      fix_fn = fix_fn or (function()
-        local _base_1 = self.base_type
-        local _fn_0 = _base_1.repair
-        return function(...)
-          return _fn_0(_base_1, ...)
-        end
-      end)()
-      return _class_0.__parent.__base.repair(self, value, fix_fn)
-    end,
     describe = function(self)
       if self.base_type.describe then
         local base_description = self.base_type:describe()
@@ -238,11 +491,7 @@ do
     __init = function(self, base_type, opts)
       self.base_type, self.opts = base_type, opts
       _class_0.__parent.__init(self)
-      assert(BaseType:is_base_type(base_type) and base_type.check_value, "expected a type checker")
-      if (self.base_type.opts or { }).repair and not (self.opts or { }).repair then
-        self.opts = self.opts or { }
-        self.opts.repair = self.base_type.opts.repair
-      end
+      return assert(BaseType:is_base_type(base_type), "expected a type checker")
     end,
     __base = _base_0,
     __name = "OptionalType",
@@ -280,7 +529,7 @@ do
       return state or true
     end,
     is_optional = function(self)
-      return AnyType
+      return self
     end
   }
   _base_0.__index = _base_0
@@ -321,11 +570,6 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    on_repair = function(self, repair_fn)
-      return Type(self.t, self:clone_opts({
-        repair = repair_fn
-      }))
-    end,
     check_value = function(self, value, state)
       local got = type(value)
       if self.t ~= got then
@@ -376,11 +620,6 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    on_repair = function(self, repair_fn)
-      return ArrayType(self:clone_opts({
-        repair = repair_fn
-      }))
-    end,
     check_value = function(self, value, state)
       if not (type(value) == "table") then
         return nil, "expecting table"
@@ -437,36 +676,6 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    on_repair = function(self, repair_fn)
-      return OneOf(self.items, self:clone_opts({
-        repair = repair_fn
-      }))
-    end,
-    repair = function(self, value, fn)
-      local _list_0 = self.items
-      for _index_0 = 1, #_list_0 do
-        local _continue_0 = false
-        repeat
-          local item = _list_0[_index_0]
-          if value == item then
-            return value, false
-          end
-          if not (BaseType:is_base_type(item) and item:has_repair()) then
-            _continue_0 = true
-            break
-          end
-          local res, fixed = item:repair(value)
-          if fixed and item:check_value(res) then
-            return res, fixed
-          end
-          _continue_0 = true
-        until true
-        if not _continue_0 then
-          break
-        end
-      end
-      return _class_0.__parent.__base.repair(self, value, fn)
-    end,
     describe = function(self)
       local item_names
       do
@@ -543,41 +752,6 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    on_repair = function(self, repair_fn)
-      return AllOf(self.types, self:clone_opts({
-        repair = repair_fn
-      }))
-    end,
-    repair = function(self, val, repair_fn)
-      local has_own_repair = self:has_repair() or repair_fn
-      local repairs = 0
-      local _list_0 = self.types
-      for _index_0 = 1, #_list_0 do
-        local _continue_0 = false
-        repeat
-          local t = _list_0[_index_0]
-          if not (t:has_repair()) then
-            _continue_0 = true
-            break
-          end
-          repairs = repairs + 1
-          local fixed
-          val, fixed = t:repair(val)
-          if fixed and not t:check_value(val) then
-            return val, fixed
-          end
-          _continue_0 = true
-        until true
-        if not _continue_0 then
-          break
-        end
-      end
-      if repairs == 0 or self:has_repair() then
-        return _class_0.__parent.__base.repair(self, val, repair_fn)
-      else
-        return val, true
-      end
-    end,
     check_value = function(self, value, state)
       local new_state = nil
       local _list_0 = self.types
@@ -637,77 +811,54 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    on_repair = function(self, repair_fn)
-      return ArrayOf(self.expected, self:clone_opts({
-        repair = repair_fn
-      }))
-    end,
-    repair = function(self, tbl, fix_fn)
-      if not (type(tbl) == "table") then
-        fix_fn = fix_fn or (self.opts and self.opts.repair)
-        assert(fix_fn, "missing repair function for: " .. tostring(self.__class.type_err_message))
-        return fix_fn("table_invalid", self.__class.type_err_message, tbl), true
+    _transform = function(self, value, state)
+      local pass, err = types.table(value)
+      if not (pass) then
+        return FailedTransform, err
       end
-      local fixed = false
-      local copy
-      if BaseType:is_base_type(self.expected) and self.expected.repair then
-        for idx, item in ipairs(tbl) do
-          local item_value, item_fixed = self.expected:repair(item)
-          if item_fixed then
-            fixed = true
-            copy = copy or (function()
-              local _accum_0 = { }
-              local _len_0 = 1
-              local _max_0 = (idx - 1)
-              for _index_0 = 1, _max_0 < 0 and #tbl + _max_0 or _max_0 do
-                local v = tbl[_index_0]
-                _accum_0[_len_0] = v
-                _len_0 = _len_0 + 1
+      local is_literal = not BaseType:is_base_type(self.expected)
+      local new_state
+      local out = { }
+      do
+        local _accum_0 = { }
+        local _len_0 = 1
+        for idx, item in ipairs(value) do
+          local _continue_0 = false
+          repeat
+            if is_literal then
+              if self.expected ~= item then
+                return FailedTransform, "array item " .. tostring(idx) .. ": got `" .. tostring(item) .. "`, expected `" .. tostring(self.expected) .. "`"
+              else
+                _accum_0[_len_0] = item
               end
-              return _accum_0
-            end)()
-            if item_value ~= nil then
-              table.insert(copy, item_value)
+            else
+              local val
+              val, new_state = self.expected:_transform(item, new_state)
+              if val == FailedTransform then
+                return FailedTransform, "array item " .. tostring(idx) .. ": " .. tostring(new_state)
+              end
+              if val == nil and not self.keep_nils then
+                _continue_0 = true
+                break
+              end
+              _accum_0[_len_0] = val
             end
-          else
-            if copy then
-              table.insert(copy, item)
-            end
+            _len_0 = _len_0 + 1
+            _continue_0 = true
+          until true
+          if not _continue_0 then
+            break
           end
         end
-      else
-        for idx, item in ipairs(tbl) do
-          local pass, err = self:check_field(idx, item, tbl)
-          if pass then
-            if copy then
-              table.insert(copy, item)
-            end
-          else
-            fix_fn = fix_fn or (self.opts and self.opts.repair)
-            assert(fix_fn, "missing repair function for: " .. tostring(err))
-            fixed = true
-            copy = copy or (function()
-              local _accum_0 = { }
-              local _len_0 = 1
-              local _max_0 = (idx - 1)
-              for _index_0 = 1, _max_0 < 0 and #tbl + _max_0 or _max_0 do
-                local v = tbl[_index_0]
-                _accum_0[_len_0] = v
-                _len_0 = _len_0 + 1
-              end
-              return _accum_0
-            end)()
-            table.insert(copy, fix_fn("field_invalid", idx, item))
-          end
-        end
+        out = _accum_0
       end
-      return copy or tbl, fixed
+      return out, merge_tag_state(state, new_state)
     end,
     check_field = function(self, key, value, tbl, state)
       if value == self.expected then
         return state or true
       end
-      if BaseType:is_base_type(self.expected) and self.expected.check_value then
+      if BaseType:is_base_type(self.expected) then
         local err
         state, err = self.expected:check_value(value, state)
         if not (state) then
@@ -738,6 +889,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, expected, opts)
       self.expected, self.opts = expected, opts
+      self.keep_nils = self.opts and self.opts.keep_nils
       return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
@@ -774,10 +926,39 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    on_repair = function(self, repair_fn)
-      return MapOf(self.expected_key, self.expected_value, self:clone_opts({
-        repair = repair_fn
-      }))
+    _transform = function(self, value, state)
+      local pass, err = types.table(value)
+      if not (pass) then
+        return FailedTransform, err
+      end
+      local new_state
+      local key_literal = not BaseType:is_base_type(self.expected_key)
+      local value_literal = not BaseType:is_base_type(self.expected_value)
+      local out = { }
+      for k, v in pairs(value) do
+        if key_literal then
+          if k ~= self.expected_key then
+            return FailedTransform, "map key got `" .. tostring(k) .. "`, expected `" .. tostring(self.expected_key) .. "`"
+          end
+        else
+          k, new_state = self.expected_key:_transform(k, new_state)
+          if k == FailedTransform then
+            return FailedTransform, "map key " .. tostring(new_state)
+          end
+        end
+        if value_literal then
+          if v ~= self.expected_value then
+            return FailedTransform, "map value got `" .. tostring(v) .. "`, expected `" .. tostring(self.expected_value) .. "`"
+          end
+        else
+          v, new_state = self.expected_value:_transform(v, new_state)
+          if v == FailedTransform then
+            return FailedTransform, "map value " .. tostring(new_state)
+          end
+        end
+        out[k] = v
+      end
+      return out, merge_tag_state(state, new_state)
     end,
     check_value = function(self, value, state)
       if not (type(value) == "table") then
@@ -850,97 +1031,69 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    on_repair = function(self, repair_fn)
-      return Shape(self.shape, self:clone_opts({
-        repair = repair_fn
-      }))
-    end,
     is_open = function(self)
       return Shape(self.shape, self:clone_opts({
         open = true
       }))
     end,
-    repair = function(self, tbl, fix_fn)
-      if not (type(tbl) == "table") then
-        fix_fn = fix_fn or (self.opts and self.opts.repair)
-        assert(fix_fn, "missing repair function for: " .. tostring(self.__class.type_err_message))
-        return fix_fn("table_invalid", self.__class.type_err_message, tbl), true
+    _transform = function(self, value, state)
+      local pass, err = types.table(value)
+      if not (pass) then
+        return FailedTransform, err
       end
-      local fixed = false
       local remaining_keys
-      if not (self.opts and self.opts.open) then
-        do
-          local _tbl_0 = { }
-          for key in pairs(tbl) do
-            _tbl_0[key] = true
-          end
-          remaining_keys = _tbl_0
+      do
+        local _tbl_0 = { }
+        for key in pairs(value) do
+          _tbl_0[key] = true
         end
+        remaining_keys = _tbl_0
       end
-      local copy
+      local errors
+      local out = { }
+      local new_state
       for shape_key, shape_val in pairs(self.shape) do
-        local item_value = tbl[shape_key]
+        local item_value = value[shape_key]
         if remaining_keys then
           remaining_keys[shape_key] = nil
         end
-        if BaseType:is_base_type(shape_val) and shape_val.repair then
-          local field_value, field_fixed = shape_val:repair(item_value)
-          if field_fixed then
-            copy = copy or (function()
-              local _tbl_0 = { }
-              for k, v in pairs(tbl) do
-                _tbl_0[k] = v
-              end
-              return _tbl_0
-            end)()
-            fixed = true
-            copy[shape_key] = field_value
+        local new_val, tuple_state = shape_val:_transform(item_value, new_state)
+        if new_val == FailedTransform then
+          if not (errors) then
+            errors = { }
           end
+          table.insert(errors, "field `" .. tostring(shape_key) .. "`: " .. tostring(tuple_state))
         else
-          local pass, err = self:check_field(shape_key, item_value, shape_val, tbl)
-          if not (pass) then
-            fix_fn = fix_fn or (self.opts and self.opts.repair)
-            assert(fix_fn, "missing repair function for: " .. tostring(err))
-            fixed = true
-            copy = copy or (function()
-              local _tbl_0 = { }
-              for k, v in pairs(tbl) do
-                _tbl_0[k] = v
-              end
-              return _tbl_0
-            end)()
-            copy[shape_key] = fix_fn("field_invalid", shape_key, item_value, err, shape_val)
-          end
+          new_state = merge_tag_state(new_state, tuple_state)
+          out[shape_key] = new_val
         end
       end
       if remaining_keys and next(remaining_keys) then
-        fix_fn = fix_fn or (self.opts and self.opts.repair)
-        copy = copy or (function()
-          local _tbl_0 = { }
-          for k, v in pairs(tbl) do
-            _tbl_0[k] = v
+        if self.opts and self.opts.open then
+          for k in pairs(remaining_keys) do
+            out[k] = value[k]
           end
-          return _tbl_0
-        end)()
-        if not (fix_fn) then
-          local keys
+        else
+          local names
           do
             local _accum_0 = { }
             local _len_0 = 1
             for key in pairs(remaining_keys) do
-              _accum_0[_len_0] = tostring(key)
+              _accum_0[_len_0] = "`" .. tostring(key) .. "`"
               _len_0 = _len_0 + 1
             end
-            keys = _accum_0
+            names = _accum_0
           end
-          error("missing repair function for: extra fields (" .. tostring(table.concat(keys, ", ")) .. ")")
-        end
-        for k in pairs(remaining_keys) do
-          fixed = true
-          copy[k] = fix_fn("extra_field", k, copy[k])
+          if not (errors) then
+            errors = { }
+          end
+          table.insert(errors, "extra fields: " .. tostring(table.concat(names, ", ")))
         end
       end
-      return copy or tbl, fixed
+      if errors and next(errors) then
+        return FailedTransform, table.concat(errors, "; ")
+      end
+      return out, merge_tag_state(state, new_state)
     end,
     check_field = function(self, key, value, expected_value, tbl, state)
       if value == expected_value then
@@ -1073,11 +1226,6 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    on_repair = function(self, repair_fn)
-      return Pattern(self.pattern, self:clone_opts({
-        repair = repair_fn
-      }))
-    end,
     describe = function(self)
       return "pattern `" .. tostring(self.pattern) .. "`"
     end,
@@ -1145,11 +1293,6 @@ do
     describe = function(self)
       return "literal `" .. tostring(self.value) .. "`"
     end,
-    on_repair = function(self, repair_fn)
-      return Literal(self.value, self:clone_opts({
-        repair = repair_fn
-      }))
-    end,
     check_value = function(self, val, state)
       if self.value ~= val then
         return nil, "got `" .. tostring(val) .. "`, expected `" .. tostring(self.value) .. "`"
@@ -1199,11 +1342,6 @@ do
     describe = function(self)
       return self.opts.describe or "custom checker " .. tostring(self.fn)
     end,
-    on_repair = function(self, repair_fn)
-      return Custom(self.fn, self:clone_opts({
-        repair = repair_fn
-      }))
-    end,
     check_value = function(self, val, state)
       local pass, err = self.fn(val, self)
       if not (pass) then
@@ -1252,11 +1390,6 @@ do
   local values_equivalent
   local _parent_0 = BaseType
   local _base_0 = {
-    on_repair = function(self, repair_fn)
-      return Equivalent(self.val, self:clone_opts({
-        repair = repair_fn
-      }))
-    end,
     check_value = function(self, val, state)
       if values_equivalent(self.val, val) then
         return state or true
@@ -1333,8 +1466,8 @@ do
   end
   Equivalent = _class_0
 end
-local types = setmetatable({
-  any = AnyType,
+types = setmetatable({
+  any = AnyType(),
   string = Type("string"),
   number = Type("number"),
   ["function"] = Type("function"),
