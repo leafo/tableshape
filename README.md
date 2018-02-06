@@ -483,6 +483,19 @@ the respective type checkers provided as arguments.
 local t = types.map_of(types.string, types.any)
 ```
 
+When transforming a `map_of`, you can remove fields from the table by
+transforming either the key or value to `nil`.
+
+```lua
+-- this will remove all fields with non-string keys
+local t = types.map_of(types.string + types.any / nil, types.any)
+
+t:transform({
+  1,2,3,
+  hello = "world"
+}) --> { hello = "world" }
+```
+
 #### `types.one_of({type1, type2, ...})`
 
 Returns a type checker that tests if the value matches one of the provided
