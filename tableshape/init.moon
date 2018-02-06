@@ -362,7 +362,10 @@ class ArrayOf extends BaseType
   @type_err_message: "expecting table"
 
   new: (@expected, @opts) =>
-    @keep_nils = @opts and @opts.keep_nils
+    if @opts
+      @keep_nils = @opts.keep_nils
+      @length_type = @opts.length
+
     super!
 
   _transform: (value, state) =>
@@ -410,6 +413,11 @@ class ArrayOf extends BaseType
     return nil, "expected table for array_of" unless type(value) == "table"
 
     local new_state
+
+    if @length_type
+      new_state, len_fail = @length_type\check_value #value, new_state
+      unless new_state
+        return nil, "array length #{len_fail}"
 
     for idx, item in ipairs value
       new_state, err = @check_field idx, item, value, new_state

@@ -342,6 +342,35 @@ describe "tableshape.types", ->
         }
       )
 
+    it "tests length", ->
+      t = types.array_of types.string, length: types.range(1,3)
+
+      assert.same {
+        nil
+        "array length `0` is not between [1, 3]"
+      }, {
+        t {}
+      }
+
+      assert.same {
+        nil
+        "expected table for array_of"
+      }, {
+        t "hi"
+      }
+
+      assert.same {
+        true
+      }, {
+        t {"one", "two"}
+      }
+
+      assert.same {
+        nil
+        "array length `4` is not between [1, 3]"
+      }, {
+        t {"one", "two", "nine", "10"}
+      }
 
   describe "literal", ->
     it "checks value", ->
