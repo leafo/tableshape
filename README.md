@@ -475,6 +475,7 @@ local t = types.array_of(types.shape{
 The following options are supported:
 
 * `keep_nils` &mdash; By default, if a value is transformed into a nil then it won't be kept in the output array. If you need to keep these holes then set this option to `true`
+* `length` &mdash; Provide a type checker to be used on the length of the array. The length is calculated with the `#` operator. It's typical to use `types.range` to test for a range
 
 #### `types.map_of(key_type, value_type)`
 
