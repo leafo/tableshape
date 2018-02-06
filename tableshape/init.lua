@@ -1,6 +1,7 @@
 local OptionalType, TaggedType, types
 local TagValueArray = { }
 local FailedTransform = { }
+local unpack = unpack or table.unpack
 local merge_tag_state
 merge_tag_state = function(existing, new_tags)
   if type(new_tags) == "table" and type(existing) == "table" then
