@@ -338,12 +338,13 @@ class ArrayType extends BaseType
     state or true
 
 class OneOf extends BaseType
-  new: (@items, @opts) =>
+  new: (@options, @opts) =>
     super!
-    assert type(@items) == "table", "expected table for items in one_of"
+    assert type(@options) == "table",
+      "expected table for options in one_of"
 
   describe: =>
-    item_names = for i in *@items
+    item_names = for i in *@options
       if type(i) == "table" and i.describe
         i\describe!
       else
@@ -351,11 +352,23 @@ class OneOf extends BaseType
 
     "one of: #{table.concat item_names, ", "}"
 
+  _transform: (value, state) =>
+    for item in *@options
+      return value, state if item == value
+
+      if BaseType\is_base_type item
+        new_value, new_state = item\_transform value, state
+        continue if new_value == FailedTransform
+
+        return new_value, new_state
+
+    FailedTransform, "value `#{value}` does not match #{@describe!}"
+
   check_value: (value, state) =>
-    for item in *@items
+    for item in *@options
       return state or true if item == value
 
-      if BaseType\is_base_type(item) and item.check_value
+      if BaseType\is_base_type(item)
         new_state = item\check_value value
         if new_state
           return merge_tag_state state, new_state
