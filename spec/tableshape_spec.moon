@@ -454,3 +454,41 @@ describe "tableshape.operators", ->
     t = types.string / "hello"
     assert.same {true}, {t("hello")}
     assert.same {nil, "got type `boolean`, expected `string`"}, {t(false)}
+
+
+describe "tableshape.repair", ->
+  local t
+  before_each ->
+    t = types.array_of(
+      types.literal("nullify") / nil + types.string\on_repair (v) -> "swap"
+    )\on_repair (v) ->
+      if v == false
+        nil
+      else
+        {"FAIL"}
+
+  it "repairs array_of", ->
+    assert.same {
+      { "swap", "you"}
+    }, {
+      t\repair {22, "you"}
+    }
+
+    assert.same {
+      {"FAIL"}
+    }, {
+      t\repair "friends"
+    }
+
+    assert.same {
+      nil
+      "no matching option (got type `boolean`, expected `table`; got type `nil`, expected `table`)"
+    }, {
+      t\repair false
+    }
+
+    assert.same {
+      { "one", "swap", "swap", "last" }
+    }, {
+      t\repair {"one", 2, "nullify", true, "last"}
+    }
