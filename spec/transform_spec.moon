@@ -292,6 +292,20 @@ describe "tableshape.transform", ->
         s\transform { hello: true, 1,2,3, [false]: "yes" }
       }
 
+      s = types.shape {
+        color: types.string
+      }, extra_fields: types.any / nil
+
+      assert.same {
+        {color: "red"}
+      }, {
+        s\transform {
+          color: "red"
+          1,2,3
+          another: "world"
+        }
+      }
+
 
   describe "array_of", ->
     it "handles non table", ->

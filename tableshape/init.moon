@@ -591,7 +591,7 @@ class Shape extends BaseType
             table.insert errors, "field `#{k}`: #{tuple_state}"
           else
             new_state = tuple_state
-            if nk = next tuple
+            if nk = tuple and next tuple
               out[nk] = tuple[nk]
       else
         names = for key in pairs remaining_keys

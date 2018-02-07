@@ -1165,7 +1165,7 @@ do
             else
               new_state = tuple_state
               do
-                local nk = next(tuple)
+                local nk = tuple and next(tuple)
                 if nk then
                   out[nk] = tuple[nk]
                 end
