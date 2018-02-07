@@ -448,7 +448,7 @@ Here are all the available ones, full documentation is below.
 * `types.equivalent` - checks if values deeply compare to one another
 * `types.range` - checks if value is between two other values
 
-#### `types.shape(table_dec)`
+#### `types.shape(table_dec, options={})`
 
 Returns a type checker tests for a table where every key in `table_dec` has a
 type matching the associated value. The associated value can also be a literal
@@ -459,6 +459,71 @@ local t = types.shape{
   id = types.number,
   name = types.string
 }
+```
+
+The following options are supported:
+
+* `open` &mdash; The shape will accept any additional fields without failing
+* `extra_fields` &mdash; A type checker for use with extra keys. For each extra field in the table, the value `{key = value}` is passed to the `extra_fields` type checker. During transformation, the table can be transformed to change either the key or value. Transformers that return `nil` will clear the field. See below for examples. The extra keys shape can also use tags.
+
+Examples with `extra_fields`:
+
+Basic type test for extra fields:
+
+```lua
+local t = types.shape({
+  name = types.string
+}, {
+  extra_fields = types.map_of(types.string, types.number)
+})
+
+t({
+  name = "lee",
+  height = "10cm",
+  friendly = false,
+}) --> nil, "field `height` value in table does not match: got type `string`, expected `number`"
+
+```
+
+Removing all extra fields:
+
+```lua
+local t = types.shape({
+  name = types.string
+}, {
+  extra_fields = types.any / nil
+
+})
+
+t:repair({
+  name = "amos",
+  color = "blue",
+  1,2,3
+}) --> { name = "amos"}
+```
+
+Modifying the extra keys:
+
+
+```lua
+types = require("tableshape").types
+
+local t = types.shape({
+  name = types.string
+}, {
+  extra_fields = types.map_of(
+    -- prefix all extra keys with _
+    types.string / function(str) return "_" .. str end,
+
+    -- leave values as is
+    types.any
+  )
+})
+
+t:repair({
+  name = "amos",
+  color = "blue"
+}) --> { name = "amos", _color = "blue" }
 ```
 
 #### `types.array_of(item_type, options={})`
