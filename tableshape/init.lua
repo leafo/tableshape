@@ -1143,7 +1143,7 @@ do
           end
           table.insert(errors, "field `" .. tostring(shape_key) .. "`: " .. tostring(tuple_state))
         else
-          new_state = merge_tag_state(new_state, tuple_state)
+          new_state = tuple_state
           out[shape_key] = new_val
         end
       end
@@ -1151,6 +1151,26 @@ do
         if self.opts and self.opts.open then
           for k in pairs(remaining_keys) do
             out[k] = value[k]
+          end
+        elseif self.extra_fields_type then
+          for k in pairs(remaining_keys) do
+            local tuple, tuple_state = self.extra_fields_type:_transform({
+              [k] = value[k]
+            }, new_state)
+            if tuple == FailedTransform then
+              if not (errors) then
+                errors = { }
+              end
+              table.insert(errors, "field `" .. tostring(k) .. "`: " .. tostring(tuple_state))
+            else
+              new_state = tuple_state
+              do
+                local nk = next(tuple)
+                if nk then
+                  out[nk] = tuple[nk]
+                end
+              end
+            end
           end
         else
           local names
@@ -1269,7 +1289,10 @@ do
     __init = function(self, shape, opts)
       self.shape, self.opts = shape, opts
       _class_0.__parent.__init(self)
-      return assert(type(self.shape) == "table", "expected table for shape")
+      assert(type(self.shape) == "table", "expected table for shape")
+      if self.opts then
+        self.extra_fields_type = self.opts.extra_fields
+      end
     end,
     __base = _base_0,
     __name = "Shape",

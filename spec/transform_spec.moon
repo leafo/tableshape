@@ -239,6 +239,60 @@ describe "tableshape.transform", ->
         }
       }
 
+    it "extra field", ->
+      s = types.shape { }, {
+        extra_fields: types.map_of(types.string, types.string)
+      }
+
+      assert.same {
+        { hello: "world" }
+      }, {
+        s\transform {
+          hello: "world"
+        }
+      }
+
+      assert.same {
+        nil
+        -- TODO: this error message not good
+        "field `hello`: map value got type `number`, expected `string`"
+      }, {
+        s\transform {
+          hello: 10
+        }
+      }
+
+      s = types.shape { }, {
+        extra_fields: types.map_of(types.string, types.string / tonumber)
+      }
+
+      assert.same {
+        { }
+      }, {
+        s\transform { hello: "world" }
+      }
+
+      assert.same {
+        { hello: 15 }
+      }, {
+        s\transform { hello: "15" }
+      }
+
+      s = types.shape { }, {
+        extra_fields: types.map_of(
+          (types.string / (s) -> "junk_#{s}") + types.any / nil
+          types.any
+        )
+      }
+
+
+      assert.same {
+        { junk_hello: true }
+      }, {
+        s\transform { hello: true, 1,2,3, [false]: "yes" }
+      }
+
+
   describe "array_of", ->
     it "handles non table", ->
       n = types.array_of types.literal "world"

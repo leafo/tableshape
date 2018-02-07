@@ -538,6 +538,8 @@ class Shape extends BaseType
   new: (@shape, @opts) =>
     super!
     assert type(@shape) == "table", "expected table for shape"
+    if @opts
+      @extra_fields_type = @opts.extra_fields
 
   -- allow extra fields
   is_open: =>
@@ -563,11 +565,10 @@ class Shape extends BaseType
       new_val, tuple_state = shape_val\_transform item_value, new_state
 
       if new_val == FailedTransform
-        unless errors
-          errors = {}
+        errors = {} unless errors
         table.insert errors, "field `#{shape_key}`: #{tuple_state}"
       else
-        new_state = merge_tag_state new_state, tuple_state
+        new_state = tuple_state
         out[shape_key] = new_val
 
     if remaining_keys and next remaining_keys
@@ -576,6 +577,16 @@ class Shape extends BaseType
         for k in pairs remaining_keys
           out[k] = value[k]
 
+      elseif @extra_fields_type
+        for k in pairs remaining_keys
+          tuple, tuple_state = @.extra_fields_type\_transform {[k]: value[k]}, new_state
+          if tuple == FailedTransform
+            errors = {} unless errors
+            table.insert errors, "field `#{k}`: #{tuple_state}"
+          else
+            new_state = tuple_state
+            if nk = next tuple
+              out[nk] = tuple[nk]
       else
         names = for key in pairs remaining_keys
           "`#{key}`"
