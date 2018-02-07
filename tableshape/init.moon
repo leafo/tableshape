@@ -540,6 +540,13 @@ class Shape extends BaseType
     assert type(@shape) == "table", "expected table for shape"
     if @opts
       @extra_fields_type = @opts.extra_fields
+      @open = @opts.open
+
+      if @open
+        assert not @extra_fields_type, "open can not be combined with extra_fields"
+
+      if @extra_fields_type
+        assert not @open, "extra_fields can not be combined with open"
 
   -- allow extra fields
   is_open: =>
@@ -572,11 +579,10 @@ class Shape extends BaseType
         out[shape_key] = new_val
 
     if remaining_keys and next remaining_keys
-      if @opts and @opts.open
-        -- add the remaining keys to out
+      if @open
+        -- copy the remaining keys to out
         for k in pairs remaining_keys
           out[k] = value[k]
-
       elseif @extra_fields_type
         for k in pairs remaining_keys
           tuple, tuple_state = @.extra_fields_type\_transform {[k]: value[k]}, new_state
@@ -627,7 +633,7 @@ class Shape extends BaseType
 
     state = nil
 
-    remaining_keys = unless @opts and @opts.open
+    remaining_keys = if not @open
       {key, true for key in pairs value}
 
     for shape_key, shape_val in pairs @shape
@@ -646,7 +652,17 @@ class Shape extends BaseType
           table.insert errors, err
 
     if remaining_keys
-      if extra_key = next remaining_keys
+      if @extra_fields_type
+        for k in pairs remaining_keys
+          tuple_state, tuple_err = @.extra_fields_type\check_value {[k]: value[k]}, state
+          if tuple_state
+            state = tuple_state
+          else
+            if short_circuit
+              return nil, tuple_err
+            else
+              return nil, { tuple_err }
+      elseif extra_key = next remaining_keys
         msg = "has extra field: `#{extra_key}`"
         if short_circuit
           return nil, msg

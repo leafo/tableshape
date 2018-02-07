@@ -282,6 +282,28 @@ describe "tableshape.types", ->
         }
       )
 
+    it "checks extra fields", ->
+      s = types.shape { }, {
+        extra_fields: types.map_of(types.string, types.string)
+      }
+
+      assert.same {
+        true
+      }, {
+        s {
+          hello: "world"
+        }
+      }
+
+      assert.same {
+        nil
+        "field `hello` value in table does not match: got type `number`, expected `string`"
+      }, {
+        s {
+          hello: 10
+        }
+      }
+
 
   it "pattern", ->
     t = types.pattern "^hello"

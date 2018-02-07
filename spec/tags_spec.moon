@@ -200,3 +200,18 @@ describe "tableshape.tags", ->
       assert.same {}, s
 
 
+    it "gets tagged extra fields", ->
+      s = types.shape {
+        color: types.string
+      }, {
+        extra_fields: types.map_of types.string\tag("extra_key[]"), types.string\tag("extra_val[]")
+      }
+
+      assert_tags s, {
+        color: "blue"
+        height: "10cm"
+      }, {
+        extra_key: {"height"}
+        extra_val: {"10cm"}
+      }
+

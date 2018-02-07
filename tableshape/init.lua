@@ -1148,7 +1148,7 @@ do
         end
       end
       if remaining_keys and next(remaining_keys) then
-        if self.opts and self.opts.open then
+        if self.open then
           for k in pairs(remaining_keys) do
             out[k] = value[k]
           end
@@ -1229,7 +1229,7 @@ do
       end
       local state = nil
       local remaining_keys
-      if not (self.opts and self.opts.open) then
+      if not self.open then
         do
           local _tbl_0 = { }
           for key in pairs(value) do
@@ -1255,16 +1255,35 @@ do
         end
       end
       if remaining_keys then
-        do
-          local extra_key = next(remaining_keys)
-          if extra_key then
-            local msg = "has extra field: `" .. tostring(extra_key) .. "`"
-            if short_circuit then
-              return nil, msg
+        if self.extra_fields_type then
+          for k in pairs(remaining_keys) do
+            local tuple_state, tuple_err = self.extra_fields_type:check_value({
+              [k] = value[k]
+            }, state)
+            if tuple_state then
+              state = tuple_state
             else
-              return nil, {
-                msg
-              }
+              if short_circuit then
+                return nil, tuple_err
+              else
+                return nil, {
+                  tuple_err
+                }
+              end
+            end
+          end
+        else
+          do
+            local extra_key = next(remaining_keys)
+            if extra_key then
+              local msg = "has extra field: `" .. tostring(extra_key) .. "`"
+              if short_circuit then
+                return nil, msg
+              else
+                return nil, {
+                  msg
+                }
+              end
             end
           end
         end
@@ -1292,6 +1311,13 @@ do
       assert(type(self.shape) == "table", "expected table for shape")
       if self.opts then
         self.extra_fields_type = self.opts.extra_fields
+        self.open = self.opts.open
+        if self.open then
+          assert(not self.extra_fields_type, "open can not be combined with extra_fields")
+        end
+        if self.extra_fields_type then
+          return assert(not self.open, "extra_fields can not be combined with open")
+        end
       end
     end,
     __base = _base_0,
