@@ -60,6 +60,22 @@ describe "tableshape.transform", ->
     }
 
   describe "shape", ->
+    it "handles literal", ->
+      n = types.shape {
+        color: "blue"
+      }
+
+      assert.same {
+        nil
+        "field `color`: `blue` does not equal `red`"
+      }, { n\transform { color: "red" } }
+
+      assert.same {
+        {
+          color: "blue"
+        }
+      }, { n\transform { color: "blue" } }
+
     it "handles non table", ->
       n = types.shape {
         color: types.literal "red"

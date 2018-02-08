@@ -1136,7 +1136,16 @@ do
         if remaining_keys then
           remaining_keys[shape_key] = nil
         end
-        local new_val, tuple_state = shape_val:_transform(item_value, new_state)
+        local new_val, tuple_state
+        if BaseType:is_base_type(shape_val) then
+          new_val, tuple_state = shape_val:_transform(item_value, new_state)
+        else
+          if shape_val == item_value then
+            new_val, tuple_state = item_value, new_state
+          else
+            new_val, tuple_state = FailedTransform, "`" .. tostring(shape_val) .. "` does not equal `" .. tostring(item_value) .. "`"
+          end
+        end
         if new_val == FailedTransform then
           if not (errors) then
             errors = { }
