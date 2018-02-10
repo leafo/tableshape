@@ -343,6 +343,11 @@ class OneOf extends BaseType
     assert type(@options) == "table",
       "expected table for options in one_of"
 
+    -- optimize types
+    fast_opts = types.array_of types.number + types.string
+    if fast_opts @options
+      @options_hash = {v, true for v in *@options}
+
   describe: =>
     item_names = for i in *@options
       if type(i) == "table" and i.describe
@@ -353,25 +358,33 @@ class OneOf extends BaseType
     "one of: #{table.concat item_names, ", "}"
 
   _transform: (value, state) =>
-    for item in *@options
-      return value, state if item == value
+    if @options_hash
+      if @options_hash[value]
+        return value, state
+    else
+      for item in *@options
+        return value, state if item == value
 
-      if BaseType\is_base_type item
-        new_value, new_state = item\_transform value, state
-        continue if new_value == FailedTransform
+        if BaseType\is_base_type item
+          new_value, new_state = item\_transform value, state
+          continue if new_value == FailedTransform
 
-        return new_value, new_state
+          return new_value, new_state
 
     FailedTransform, "value `#{value}` does not match #{@describe!}"
 
   check_value: (value, state) =>
-    for item in *@options
-      return state or true if item == value
+    if @options_hash
+      if @options_hash[value]
+        return state or true
+    else
+      for item in *@options
+        return state or true if item == value
 
-      if BaseType\is_base_type(item)
-        new_state = item\check_value value
-        if new_state
-          return merge_tag_state state, new_state
+        if BaseType\is_base_type(item)
+          new_state = item\check_value value
+          if new_state
+            return merge_tag_state state, new_state
 
     nil, "value `#{value}` does not match #{@describe!}"
 

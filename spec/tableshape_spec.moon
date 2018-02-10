@@ -126,6 +126,23 @@ describe "tableshape.types", ->
       assert.same true, (more 123)
       assert.same true, (more true)
 
+      ab = types.one_of {
+        types.literal("a")
+        types.literal("b")
+      }
+
+      assert.same nil, (ab "c")
+      assert.same true, (ab "a")
+      assert.same true, (ab "b")
+      assert.same nil, (ab nil)
+
+      more = types.one_of {true, 123}
+      assert.same nil, (more "c")
+      assert.same nil, (more false)
+      assert.same nil, (more 124)
+      assert.same true, (more 123)
+      assert.same true, (more true)
+
     it "check value optional", ->
       ab = types.one_of {"a", "b"}
       ab_opt = ab\is_optional!
@@ -155,6 +172,18 @@ describe "tableshape.types", ->
         nil
         "value `wow` does not match one of: `a`, `b`, (my thing)"
       }, {t "wow"}
+
+    it "creates an optimized type checker", ->
+      t = types.one_of {
+        "hello", "world", 5
+      }
+
+      assert.same {
+        [5]: true
+        "hello": true
+        "world": true
+      }, t.options_hash
+
 
   describe "all_of", ->
     it "checks value", ->
@@ -212,20 +241,20 @@ describe "tableshape.types", ->
         }
       }
 
-      pending ->
-        t = types.shape {
-          "blue"
-          "red"
-        }, check_all: true
+      pending "implement check_all for value test"
+      -- t = types.shape {
+      --   "blue"
+      --   "red"
+      -- }, check_all: true
 
-        assert.same {
-          nil
-          "field `1`: `blue` does not equal `orange`; field `2`: `red` does not equal `blue`; extra fields: `3`"
-        }, {
-          t {
-            "orange", "blue", "purple"
-          }
-        }
+      -- assert.same {
+      --   nil
+      --   "field `1`: `blue` does not equal `orange`; field `2`: `red` does not equal `blue`; extra fields: `3`"
+      -- }, {
+      --   t {
+      --     "orange", "blue", "purple"
+      --   }
+      -- }
 
 
     it "checks value", ->

@@ -722,41 +722,53 @@ do
       return "one of: " .. tostring(table.concat(item_names, ", "))
     end,
     _transform = function(self, value, state)
-      local _list_0 = self.options
-      for _index_0 = 1, #_list_0 do
-        local _continue_0 = false
-        repeat
-          local item = _list_0[_index_0]
-          if item == value then
-            return value, state
-          end
-          if BaseType:is_base_type(item) then
-            local new_value, new_state = item:_transform(value, state)
-            if new_value == FailedTransform then
-              _continue_0 = true
-              break
+      if self.options_hash then
+        if self.options_hash[value] then
+          return value, state
+        end
+      else
+        local _list_0 = self.options
+        for _index_0 = 1, #_list_0 do
+          local _continue_0 = false
+          repeat
+            local item = _list_0[_index_0]
+            if item == value then
+              return value, state
             end
-            return new_value, new_state
+            if BaseType:is_base_type(item) then
+              local new_value, new_state = item:_transform(value, state)
+              if new_value == FailedTransform then
+                _continue_0 = true
+                break
+              end
+              return new_value, new_state
+            end
+            _continue_0 = true
+          until true
+          if not _continue_0 then
+            break
           end
-          _continue_0 = true
-        until true
-        if not _continue_0 then
-          break
         end
       end
       return FailedTransform, "value `" .. tostring(value) .. "` does not match " .. tostring(self:describe())
     end,
     check_value = function(self, value, state)
-      local _list_0 = self.options
-      for _index_0 = 1, #_list_0 do
-        local item = _list_0[_index_0]
-        if item == value then
+      if self.options_hash then
+        if self.options_hash[value] then
           return state or true
         end
-        if BaseType:is_base_type(item) then
-          local new_state = item:check_value(value)
-          if new_state then
-            return merge_tag_state(state, new_state)
+      else
+        local _list_0 = self.options
+        for _index_0 = 1, #_list_0 do
+          local item = _list_0[_index_0]
+          if item == value then
+            return state or true
+          end
+          if BaseType:is_base_type(item) then
+            local new_state = item:check_value(value)
+            if new_state then
+              return merge_tag_state(state, new_state)
+            end
           end
         end
       end
@@ -769,7 +781,19 @@ do
     __init = function(self, options, opts)
       self.options, self.opts = options, opts
       _class_0.__parent.__init(self)
-      return assert(type(self.options) == "table", "expected table for options in one_of")
+      assert(type(self.options) == "table", "expected table for options in one_of")
+      local fast_opts = types.array_of(types.number + types.string)
+      if fast_opts(self.options) then
+        do
+          local _tbl_0 = { }
+          local _list_0 = self.options
+          for _index_0 = 1, #_list_0 do
+            local v = _list_0[_index_0]
+            _tbl_0[v] = true
+          end
+          self.options_hash = _tbl_0
+        end
+      end
     end,
     __base = _base_0,
     __name = "OneOf",
