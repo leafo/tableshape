@@ -278,6 +278,7 @@ class OptionalType extends BaseType
 
 class AnyType extends BaseType
   check_value: (v, state) => state or true
+  _transform: (v, state) => v, state
 
   -- any type is already optional (accepts nil)
   is_optional: => @

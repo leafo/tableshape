@@ -529,6 +529,9 @@ do
     check_value = function(self, v, state)
       return state or true
     end,
+    _transform = function(self, v, state)
+      return v, state
+    end,
     is_optional = function(self)
       return self
     end
