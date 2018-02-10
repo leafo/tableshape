@@ -1120,6 +1120,7 @@ do
       if not (pass) then
         return FailedTransform, err
       end
+      local check_all = self.check_all
       local remaining_keys
       do
         local _tbl_0 = { }
@@ -1147,10 +1148,18 @@ do
           end
         end
         if new_val == FailedTransform then
-          if not (errors) then
-            errors = { }
+          err = "field `" .. tostring(shape_key) .. "`: " .. tostring(tuple_state)
+          if check_all then
+            if errors then
+              table.insert(errors, err)
+            else
+              errors = {
+                err
+              }
+            end
+          else
+            return FailedTransform, err
           end
-          table.insert(errors, "field `" .. tostring(shape_key) .. "`: " .. tostring(tuple_state))
         else
           new_state = tuple_state
           out[shape_key] = new_val
@@ -1167,10 +1176,18 @@ do
               [k] = value[k]
             }, new_state)
             if tuple == FailedTransform then
-              if not (errors) then
-                errors = { }
+              err = "field `" .. tostring(k) .. "`: " .. tostring(tuple_state)
+              if check_all then
+                if errors then
+                  table.insert(errors, err)
+                else
+                  errors = {
+                    err
+                  }
+                end
+              else
+                return FailedTransform, err
               end
-              table.insert(errors, "field `" .. tostring(k) .. "`: " .. tostring(tuple_state))
             else
               new_state = tuple_state
               do
@@ -1192,10 +1209,18 @@ do
             end
             names = _accum_0
           end
-          if not (errors) then
-            errors = { }
+          err = "extra fields: " .. tostring(table.concat(names, ", "))
+          if check_all then
+            if errors then
+              table.insert(errors, err)
+            else
+              errors = {
+                err
+              }
+            end
+          else
+            return FailedTransform, err
           end
-          table.insert(errors, "extra fields: " .. tostring(table.concat(names, ", ")))
         end
       end
       if errors and next(errors) then
@@ -1321,6 +1346,7 @@ do
       if self.opts then
         self.extra_fields_type = self.opts.extra_fields
         self.open = self.opts.open
+        self.check_all = self.opts.check_all
         if self.open then
           assert(not self.extra_fields_type, "open can not be combined with extra_fields")
         end

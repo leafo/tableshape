@@ -186,6 +186,48 @@ describe "tableshape.types", ->
       assert.same {"has extra field: `height`"}, select 2, check\check_fields { color: "red", height: 10 }
       assert.same {}, select 2, check\check_fields { color: "red" }
 
+    it "gets errors for multiple fields", ->
+      -- TODO: these error messages are different than transform
+
+      t = types.shape {
+        "blue"
+        "red"
+      }
+
+      assert.same {
+        nil
+        "field `1` expected `blue`, got `orange`"
+      }, {
+        t {
+          "orange", "blue", "purple"
+        }
+      }
+
+      assert.same {
+        nil
+        "has extra field: `3`"
+      }, {
+        t {
+          "blue", "red", "purple", "yello"
+        }
+      }
+
+      pending ->
+        t = types.shape {
+          "blue"
+          "red"
+        }, check_all: true
+
+        assert.same {
+          nil
+          "field `1`: `blue` does not equal `orange`; field `2`: `red` does not equal `blue`; extra fields: `3`"
+        }, {
+          t {
+            "orange", "blue", "purple"
+          }
+        }
+
+
     it "checks value", ->
       check = types.shape { color: "red" }
       assert.same nil, (check color: "blue")

@@ -255,6 +255,45 @@ describe "tableshape.transform", ->
         }
       }
 
+    it "multiple failures & check_all", ->
+      t = types.shape {
+        "blue"
+        "red"
+      }
+
+      assert.same {
+        nil
+        "field `1`: `blue` does not equal `orange`"
+      }, {
+        t\transform {
+          "orange", "blue", "purple"
+        }
+      }
+
+      assert.same {
+        nil
+        "extra fields: `3`, `4`"
+      }, {
+        t\transform {
+          "blue", "red", "purple", "yello"
+        }
+      }
+
+      t = types.shape {
+        "blue"
+        "red"
+      }, check_all: true
+
+      assert.same {
+        nil
+        "field `1`: `blue` does not equal `orange`; field `2`: `red` does not equal `blue`; extra fields: `3`"
+      }, {
+        t\transform {
+          "orange", "blue", "purple"
+        }
+      }
+
+
     it "extra field", ->
       s = types.shape { }, {
         extra_fields: types.map_of(types.string, types.string)

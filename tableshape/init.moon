@@ -541,6 +541,7 @@ class Shape extends BaseType
     if @opts
       @extra_fields_type = @opts.extra_fields
       @open = @opts.open
+      @check_all = @opts.check_all
 
       if @open
         assert not @extra_fields_type, "open can not be combined with extra_fields"
@@ -557,6 +558,7 @@ class Shape extends BaseType
     unless pass
       return FailedTransform, err
 
+    check_all = @check_all
     remaining_keys = {key, true for key in pairs value}
 
     local errors
@@ -578,8 +580,14 @@ class Shape extends BaseType
           FailedTransform, "`#{shape_val}` does not equal `#{item_value}`"
 
       if new_val == FailedTransform
-        errors = {} unless errors
-        table.insert errors, "field `#{shape_key}`: #{tuple_state}"
+        err = "field `#{shape_key}`: #{tuple_state}"
+        if check_all
+          if errors
+            table.insert errors, err
+          else
+            errors = {err}
+        else
+          return FailedTransform, err
       else
         new_state = tuple_state
         out[shape_key] = new_val
@@ -593,8 +601,14 @@ class Shape extends BaseType
         for k in pairs remaining_keys
           tuple, tuple_state = @.extra_fields_type\_transform {[k]: value[k]}, new_state
           if tuple == FailedTransform
-            errors = {} unless errors
-            table.insert errors, "field `#{k}`: #{tuple_state}"
+            err = "field `#{k}`: #{tuple_state}"
+            if check_all
+              if errors
+                table.insert errors, err
+              else
+                errors = {err}
+            else
+              return FailedTransform, err
           else
             new_state = tuple_state
             if nk = tuple and next tuple
@@ -603,11 +617,15 @@ class Shape extends BaseType
         names = for key in pairs remaining_keys
           "`#{key}`"
 
-        unless errors
-          errors = {}
+        err = "extra fields: #{table.concat names, ", "}"
 
-        table.insert errors,
-          "extra fields: #{table.concat names, ", "}"
+        if check_all
+          if errors
+            table.insert errors, err
+          else
+            errors = {err}
+        else
+          return FailedTransform, err
 
     if errors and next errors
       return FailedTransform, table.concat errors, "; "
