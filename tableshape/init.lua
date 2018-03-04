@@ -20,7 +20,7 @@ merge_tag_state = function(existing, new_tags)
   end
   return new_tags or existing or true
 end
-local TransformNode, SequenceNode, FirstOfNode
+local TransformNode, SequenceNode, FirstOfNode, DescribeNode
 local BaseType
 do
   local _class_0
@@ -80,6 +80,9 @@ do
     end,
     is_optional = function(self)
       return OptionalType(self)
+    end,
+    on_describe = function(self, ...)
+      return DescribeNode(self, ...)
     end,
     tag = function(self, name)
       return TaggedType(self, {
@@ -373,6 +376,64 @@ do
     _parent_0.__inherited(_parent_0, _class_0)
   end
   FirstOfNode = _class_0
+end
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    check_value = function(self, ...)
+      local state, err = self.node:check_value(...)
+      if not (state) then
+        return nil, self:describe(...)
+      end
+      return state, err
+    end,
+    _transform = function(self, ...)
+      local value, state = self.node:_transform(...)
+      if value == FailedTransform then
+        return FailedTransform, self:describe(...)
+      end
+      return value, state
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, node, describe)
+      self.node, self.describe = node, describe
+      if type(self.describe) == "string" then
+        local text = self.describe
+        self.describe = function()
+          return text
+        end
+      end
+    end,
+    __base = _base_0,
+    __name = "DescribeNode",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  DescribeNode = _class_0
 end
 do
   local _class_0

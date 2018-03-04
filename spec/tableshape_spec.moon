@@ -695,3 +695,33 @@ describe "tableshape.repair", ->
     }, {
       t\repair {"one", 2, "nullify", true, "last"}
     }
+
+describe "tableshape.on_describe", ->
+  it "describes a compound type with function", ->
+    s = types.nil + types.literal("hello world")
+    s = s\on_describe -> "Need 'hello world'"
+
+    assert.same { true }, {s nil}
+    assert.same { true }, {s "hello world"}
+    assert.same { nil, "Need 'hello world'" }, {s "cool"}
+
+    s = types.nil / false + types.literal("hello world") / "cool"
+    s = s\on_describe -> "Need 'hello world'"
+
+    assert.same { false }, {s\transform nil}
+    assert.same { "cool" }, {s\transform "hello world"}
+    assert.same { nil, "Need 'hello world'" }, {s\transform "cool"}
+
+  it "describes a compound type with string literal", ->
+    s = (types.nil + types.literal("hello world"))\on_describe "thing"
+
+    assert.same { true }, {s nil}
+    assert.same { true }, {s "hello world"}
+    assert.same { nil, "thing" }, {s "cool"}
+
+    s = (types.nil / false + types.literal("hello world") / "cool")\on_describe "thing"
+
+    assert.same { false }, {s\transform nil}
+    assert.same { "cool" }, {s\transform "hello world"}
+    assert.same { nil, "thing" }, {s\transform "cool"}
+

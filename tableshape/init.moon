@@ -21,7 +21,7 @@ merge_tag_state = (existing, new_tags) ->
   new_tags or existing or true
 
 
-local TransformNode, SequenceNode, FirstOfNode
+local TransformNode, SequenceNode, FirstOfNode, DescribeNode
 
 class BaseType
   @is_base_type: (val) =>
@@ -100,6 +100,9 @@ class BaseType
 
   is_optional: =>
     OptionalType @
+
+  on_describe: (...) =>
+    DescribeNode @, ...
 
   tag: (name) =>
     TaggedType @, {
@@ -209,6 +212,27 @@ class FirstOfNode extends BaseType
         return new_val, new_state_or_err
 
     FailedTransform, "no matching option (#{table.concat errors or {"no options"}, "; "})"
+
+class DescribeNode extends BaseType
+  new: (@node, @describe) =>
+    if type(@describe) == "string"
+      text = @describe
+      @describe = -> text
+
+  check_value: (...) =>
+    state, err = @node\check_value ...
+    unless state
+      return nil, @describe ...
+
+    state, err
+
+  _transform: (...) =>
+    value, state = @node\_transform ...
+
+    if value == FailedTransform
+      return FailedTransform, @describe ...
+
+    value, state
 
 class TaggedType extends BaseType
   new: (@base_type, opts) =>
