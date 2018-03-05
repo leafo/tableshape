@@ -70,7 +70,7 @@ class BaseType
 
   new: =>
     if @opts
-      @describe = @opts.describe
+      @_describe = @opts.describe
 
   check_value: =>
     error "override me"
@@ -101,7 +101,7 @@ class BaseType
   is_optional: =>
     OptionalType @
 
-  on_describe: (...) =>
+  describe: (...) =>
     DescribeNode @, ...
 
   tag: (name) =>
@@ -214,15 +214,16 @@ class FirstOfNode extends BaseType
     FailedTransform, "no matching option (#{table.concat errors or {"no options"}, "; "})"
 
 class DescribeNode extends BaseType
-  new: (@node, @describe) =>
-    if type(@describe) == "string"
-      text = @describe
-      @describe = -> text
+  new: (@node, describe) =>
+    @_describe = if type(describe) == "string"
+      -> describe
+    else
+      describe
 
   check_value: (...) =>
     state, err = @node\check_value ...
     unless state
-      return nil, @describe ...
+      return nil, @_describe ...
 
     state, err
 
@@ -230,9 +231,12 @@ class DescribeNode extends BaseType
     value, state = @node\_transform ...
 
     if value == FailedTransform
-      return FailedTransform, @describe ...
+      return FailedTransform, @_describe ...
 
     value, state
+
+  describe: (...) =>
+    DescribeNode @node, ...
 
 class TaggedType extends BaseType
   new: (@base_type, opts) =>
@@ -279,9 +283,9 @@ class TaggedType extends BaseType
 
       state
 
-  describe: =>
-    if @base_type.describe
-      base_description = @base_type\describe!
+  _describe: =>
+    if @base_type._describe
+      base_description = @base_type\_describe!
       "#{base_description} tagged `#{@tag}`"
 
 class OptionalType extends BaseType
@@ -295,9 +299,9 @@ class OptionalType extends BaseType
 
   is_optional: => @
 
-  describe: =>
-    if @base_type.describe
-      base_description = @base_type\describe!
+  _describe: =>
+    if @base_type._describe
+      base_description = @base_type\_describe!
       "optional #{base_description}"
 
 class AnyType extends BaseType
@@ -336,10 +340,10 @@ class Type extends BaseType
 
     Type @t, @clone_opts length: l
 
-  describe: =>
+  _describe: =>
     t = "type `#{@t}`"
     if @length_type
-      t ..= " length_type #{@length_type\describe!}"
+      t ..= " length_type #{@length_type\_describe!}"
 
     t
 
@@ -373,10 +377,10 @@ class OneOf extends BaseType
     if fast_opts @options
       @options_hash = {v, true for v in *@options}
 
-  describe: =>
+  _describe: =>
     item_names = for i in *@options
-      if type(i) == "table" and i.describe
-        i\describe!
+      if type(i) == "table" and i._describe
+        i\_describe!
       else
         "`#{i}`"
 
@@ -396,7 +400,7 @@ class OneOf extends BaseType
 
           return new_value, new_state
 
-    FailedTransform, "value `#{value}` does not match #{@describe!}"
+    FailedTransform, "value `#{value}` does not match #{@_describe!}"
 
   check_value: (value, state) =>
     if @options_hash
@@ -411,7 +415,7 @@ class OneOf extends BaseType
           if new_state
             return merge_tag_state state, new_state
 
-    nil, "value `#{value}` does not match #{@describe!}"
+    nil, "value `#{value}` does not match #{@_describe!}"
 
 class AllOf extends BaseType
   new: (@types, @opts) =>
@@ -748,7 +752,7 @@ class Pattern extends BaseType
   new: (@pattern, @opts) =>
     super!
 
-  describe: =>
+  _describe: =>
     "pattern `#{@pattern}`"
 
   check_value: (value, state) =>
@@ -768,7 +772,7 @@ class Literal extends BaseType
   new: (@value, @opts) =>
     super!
 
-  describe: =>
+  _describe: =>
     "literal `#{@value}`"
 
   check_value: (val, state) =>
@@ -781,7 +785,7 @@ class Custom extends BaseType
   new: (@fn, @opts) =>
     super!
 
-  describe: =>
+  _describe: =>
     @opts.describe or "custom checker #{@fn}"
 
   check_value: (val, state) =>
@@ -835,14 +839,14 @@ class Range extends BaseType
       return nil, "range #{err}"
 
     if value < @left
-      return nil, "`#{value}` is not in #{@describe!}"
+      return nil, "`#{value}` is not in #{@_describe!}"
 
     if value > @right
-      return nil, "`#{value}` is not in #{@describe!}"
+      return nil, "`#{value}` is not in #{@_describe!}"
 
     state or true
 
-  describe: =>
+  _describe: =>
     "range [#{@left}, #{@right}]"
 
 types = setmetatable {

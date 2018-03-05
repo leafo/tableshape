@@ -81,7 +81,7 @@ do
     is_optional = function(self)
       return OptionalType(self)
     end,
-    on_describe = function(self, ...)
+    describe = function(self, ...)
       return DescribeNode(self, ...)
     end,
     tag = function(self, name)
@@ -117,7 +117,7 @@ do
   _class_0 = setmetatable({
     __init = function(self)
       if self.opts then
-        self.describe = self.opts.describe
+        self._describe = self.opts.describe
       end
     end,
     __base = _base_0,
@@ -384,28 +384,32 @@ do
     check_value = function(self, ...)
       local state, err = self.node:check_value(...)
       if not (state) then
-        return nil, self:describe(...)
+        return nil, self:_describe(...)
       end
       return state, err
     end,
     _transform = function(self, ...)
       local value, state = self.node:_transform(...)
       if value == FailedTransform then
-        return FailedTransform, self:describe(...)
+        return FailedTransform, self:_describe(...)
       end
       return value, state
+    end,
+    describe = function(self, ...)
+      return DescribeNode(self.node, ...)
     end
   }
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
     __init = function(self, node, describe)
-      self.node, self.describe = node, describe
-      if type(self.describe) == "string" then
-        local text = self.describe
-        self.describe = function()
-          return text
+      self.node = node
+      if type(describe) == "string" then
+        self._describe = function()
+          return describe
         end
+      else
+        self._describe = describe
       end
     end,
     __base = _base_0,
@@ -482,9 +486,9 @@ do
         return state
       end
     end,
-    describe = function(self)
-      if self.base_type.describe then
-        local base_description = self.base_type:describe()
+    _describe = function(self)
+      if self.base_type._describe then
+        local base_description = self.base_type:_describe()
         return tostring(base_description) .. " tagged `" .. tostring(self.tag) .. "`"
       end
     end
@@ -540,9 +544,9 @@ do
     is_optional = function(self)
       return self
     end,
-    describe = function(self)
-      if self.base_type.describe then
-        local base_description = self.base_type:describe()
+    _describe = function(self)
+      if self.base_type._describe then
+        local base_description = self.base_type:_describe()
         return "optional " .. tostring(base_description)
       end
     end
@@ -660,10 +664,10 @@ do
         length = l
       }))
     end,
-    describe = function(self)
+    _describe = function(self)
       local t = "type `" .. tostring(self.t) .. "`"
       if self.length_type then
-        t = t .. " length_type " .. tostring(self.length_type:describe())
+        t = t .. " length_type " .. tostring(self.length_type:_describe())
       end
       return t
     end
@@ -766,7 +770,7 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    describe = function(self)
+    _describe = function(self)
       local item_names
       do
         local _accum_0 = { }
@@ -774,8 +778,8 @@ do
         local _list_0 = self.options
         for _index_0 = 1, #_list_0 do
           local i = _list_0[_index_0]
-          if type(i) == "table" and i.describe then
-            _accum_0[_len_0] = i:describe()
+          if type(i) == "table" and i._describe then
+            _accum_0[_len_0] = i:_describe()
           else
             _accum_0[_len_0] = "`" .. tostring(i) .. "`"
           end
@@ -814,7 +818,7 @@ do
           end
         end
       end
-      return FailedTransform, "value `" .. tostring(value) .. "` does not match " .. tostring(self:describe())
+      return FailedTransform, "value `" .. tostring(value) .. "` does not match " .. tostring(self:_describe())
     end,
     check_value = function(self, value, state)
       if self.options_hash then
@@ -836,7 +840,7 @@ do
           end
         end
       end
-      return nil, "value `" .. tostring(value) .. "` does not match " .. tostring(self:describe())
+      return nil, "value `" .. tostring(value) .. "` does not match " .. tostring(self:_describe())
     end
   }
   _base_0.__index = _base_0
@@ -1477,7 +1481,7 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    describe = function(self)
+    _describe = function(self)
       return "pattern `" .. tostring(self.pattern) .. "`"
     end,
     check_value = function(self, value, state)
@@ -1541,7 +1545,7 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    describe = function(self)
+    _describe = function(self)
       return "literal `" .. tostring(self.value) .. "`"
     end,
     check_value = function(self, val, state)
@@ -1590,7 +1594,7 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    describe = function(self)
+    _describe = function(self)
       return self.opts.describe or "custom checker " .. tostring(self.fn)
     end,
     check_value = function(self, val, state)
@@ -1728,14 +1732,14 @@ do
         return nil, "range " .. tostring(err)
       end
       if value < self.left then
-        return nil, "`" .. tostring(value) .. "` is not in " .. tostring(self:describe())
+        return nil, "`" .. tostring(value) .. "` is not in " .. tostring(self:_describe())
       end
       if value > self.right then
-        return nil, "`" .. tostring(value) .. "` is not in " .. tostring(self:describe())
+        return nil, "`" .. tostring(value) .. "` is not in " .. tostring(self:_describe())
       end
       return state or true
     end,
-    describe = function(self)
+    _describe = function(self)
       return "range [" .. tostring(self.left) .. ", " .. tostring(self.right) .. "]"
     end
   }
