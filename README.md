@@ -711,6 +711,13 @@ An alias for `type:transform(value)`
 
 Returns a new type checker that matches the same type, or `nil`.
 
+#### `type:describe(description)`
+
+Returns a wrapped type checker that will use `description` to describe the type
+when an error message is returned. `description` can either be a string
+literal, or a function. When using a function, it must return the description
+of the type as a string.
+
 #### `shape_type:is_open()`
 
 > This method is deprecated, use the `open = true` constructor option on shapes instead
