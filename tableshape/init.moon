@@ -236,16 +236,31 @@ class FirstOfNode extends BaseType
 
 class DescribeNode extends BaseType
   new: (@node, describe) =>
+    local err_message
+    if type(describe) == "table"
+      {type: describe, error: err_message} = describe
+
     @_describe = if type(describe) == "string"
       -> describe
     else
       describe
 
+    @err_handler = if err_message
+      if type(err_message) == "string"
+        -> err_message
+      else
+        err_message
+
   _transform: (input, ...) =>
     value, state = @node\_transform input, ...
 
     if value == FailedTransform
-      return FailedTransform, "expected #{@_describe input, ...}"
+      err = if @err_handler
+        @.err_handler input, state
+      else
+        "expected #{@_describe!}"
+
+      return FailedTransform, err
 
     value, state
 

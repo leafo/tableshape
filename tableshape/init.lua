@@ -421,7 +421,13 @@ do
     _transform = function(self, input, ...)
       local value, state = self.node:_transform(input, ...)
       if value == FailedTransform then
-        return FailedTransform, "expected " .. tostring(self:_describe(input, ...))
+        local err
+        if self.err_handler then
+          err = self.err_handler(input, state)
+        else
+          err = "expected " .. tostring(self:_describe())
+        end
+        return FailedTransform, err
       end
       return value, state
     end,
@@ -434,12 +440,25 @@ do
   _class_0 = setmetatable({
     __init = function(self, node, describe)
       self.node = node
+      local err_message
+      if type(describe) == "table" then
+        describe, err_message = describe.type, describe.error
+      end
       if type(describe) == "string" then
         self._describe = function()
           return describe
         end
       else
         self._describe = describe
+      end
+      if err_message then
+        if type(err_message) == "string" then
+          self.err_handler = function()
+            return err_message
+          end
+        else
+          self.err_handler = err_message
+        end
       end
     end,
     __base = _base_0,

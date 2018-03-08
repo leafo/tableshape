@@ -702,3 +702,27 @@ describe "tableshape.describe", ->
     assert.same { "cool" }, {s\transform "hello world"}
     assert.same { nil, "expected thing" }, {s\transform "cool"}
 
+  it "changes error message to string", ->
+    t = (types.nil + types.string)\describe {
+      error: "you messed up"
+      type: "nil + string"
+    }
+
+    assert.same "nil + string", t\_describe!
+    assert.same {nil, "you messed up"}, { t 5 }
+
+  it "changes error message to function", ->
+    called = false
+    t = (types.nil + types.string)\describe {
+      error: (val, err) ->
+        assert.same 'expected type "nil", or type "string"', err
+        called = true
+        "okay"
+
+      type: -> "ns"
+    }
+
+    assert.same "ns", t\_describe!
+    assert.same {nil, "okay"}, { t 5 }
+    assert.true called
+
