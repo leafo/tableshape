@@ -9,12 +9,12 @@ describe "tableshape.transform", ->
 
     assert.same {
       nil
-      "got type `number`, expected `string`"
+      'expected type "string", got "number"'
     }, {n\transform 5}
 
     r = types.range(1,5) / (n) -> n * 10
     assert.same { 40 }, {r\transform 4}
-    assert.same { nil, "`20` is not in range [1, 5]" }, {r\transform 20}
+    assert.same { nil, 'not in range from 1 to 5' }, {r\transform 20}
 
   it "sequnce node", ->
     n = types.string * types.literal "hello"
@@ -25,12 +25,12 @@ describe "tableshape.transform", ->
 
     assert.same {
       nil
-      "got `world`, expected `hello`"
+      'expected "hello"'
     }, { n\transform "world" }
 
     assert.same {
       nil
-      "got type `boolean`, expected `string`"
+      'expected type "string", got "boolean"'
     }, { n\transform true }
 
   it "first of node", ->
@@ -38,7 +38,7 @@ describe "tableshape.transform", ->
 
     assert.same {
       nil
-      "no matching option (got `65`, expected `55`; got type `number`, expected `string`; expecting table)"
+      'expected 55, type "string", or an array'
     }, { n\transform 65 }
 
     assert.same {
@@ -67,7 +67,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "field `color`: `blue` does not equal `red`"
+        'field "color": expected "red"'
       }, { n\transform { color: "red" } }
 
       assert.same {
@@ -83,7 +83,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "got type `boolean`, expected `table`"
+        'expected type "table", got "boolean"'
       }, {
         n\transform true
       }
@@ -95,7 +95,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "field `color`: value `purple` does not match one of: `blue`, `green`, `red`"
+        'field "color": expected "blue", "green", or "red"'
       },{
         n\transform { color: "purple" }
       }
@@ -108,14 +108,14 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "extra fields: `height`"
+        'extra fields: "height"'
       },{
         n\transform { color: "green", height: "10" }
       }
 
       assert.same {
         nil
-        "extra fields: `1`, `2`, `cool`"
+        'extra fields: 1, 2, "cool"'
       },{
         n\transform { color: "green", cool: "10", "a", "b" }
       }
@@ -133,7 +133,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "field `friend`: got type `string`, expected `nil`"
+        'field "friend": expected type "nil", got "string"'
       },{
         n\transform { friend: "what up" }
       }
@@ -145,7 +145,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "field `value`: no matching option (value `nil` does not match one of: `blue`, `green`, `red`; got type `nil`, expected `string`; got type `nil`, expected `number`)"
+        'field "value": expected "blue", "green", or "red", type "string", or type "number"'
       }, {
         n\transform { }
       }
@@ -208,7 +208,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "field `age`: no matching option (got type `string`, expected `table`; got type `string`, expected `number`)"
+        'field "age": expected type "table", or type "number"'
       }, {
         n\transform {
           age: "hello"
@@ -217,7 +217,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "field `age`: no matching option (got type `string`, expected `table`; got type `string`, expected `number`)"
+        'field "age": expected type "table", or type "number"'
       }, {
         n\transform {
           age: "hello"
@@ -263,7 +263,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "field `1`: `blue` does not equal `orange`"
+        'field 1: expected "orange"'
       }, {
         t\transform {
           "orange", "blue", "purple"
@@ -272,7 +272,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "extra fields: `3`, `4`"
+        "extra fields: 3, 4"
       }, {
         t\transform {
           "blue", "red", "purple", "yello"
@@ -286,7 +286,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "field `1`: `blue` does not equal `orange`; field `2`: `red` does not equal `blue`; extra fields: `3`"
+        'field 1: expected "orange"; field 2: expected "blue"; extra fields: 3'
       }, {
         t\transform {
           "orange", "blue", "purple"
@@ -310,7 +310,7 @@ describe "tableshape.transform", ->
       assert.same {
         nil
         -- TODO: this error message not good
-        "field `hello`: map value got type `number`, expected `string`"
+        'field "hello": map value expected type "string", got "number"'
       }, {
         s\transform {
           hello: 10
@@ -368,7 +368,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "got type `boolean`, expected `table`"
+        'expected type "table", got "boolean"'
       }, {
         n\transform true
       }
@@ -388,7 +388,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "array item 2: no matching option (got type `boolean`, expected `string`; got type `boolean`, expected `number`)"
+        'array item 2: expected type "string", or type "number"'
       }, {
         n\transform {1, true}
       }
@@ -404,7 +404,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "array item 2: got `6`, expected `5`"
+        'array item 2: expected 5'
       },{
         n\transform { 5, 6 }
       }
@@ -449,7 +449,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "array length `4` is not in range [2, 3]"
+        'array length not in range from 2 to 3, got 4'
       }, {
         f\transform {"one", true, "two", false}
       }
@@ -460,7 +460,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "got type `boolean`, expected `table`"
+        'expected type "table", got "boolean"'
       }, {
         n\transform true
       }
@@ -494,7 +494,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "map value no matching option (got type `boolean`, expected `number`; got type `boolean`, expected `string`)"
+        'map value expected type "number", or type "string"'
       }, {
         n\transform {
           hello: true
@@ -503,7 +503,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "map key no matching option (got type `boolean`, expected `string`; got type `boolean`, expected `number`)"
+        'map key expected type "string", or type "number"'
       }, {
         n\transform {
           [true]: 10
@@ -523,7 +523,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "map value got `helloz`, expected `hello`"
+        'map value expected "hello"'
       }, {
         n\transform {
           [5]: "helloz"
@@ -532,7 +532,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        "map key got `5`, expected `5`"
+        "map key expected 5"
       }, {
         n\transform {
           "5": "hello"

@@ -84,7 +84,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "string length `4` is not in range [5, 20]"
+        "string length not in range from 5 to 20, got 4"
       }, {s "heck"}
 
       assert.same {
@@ -93,7 +93,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "string length `120` is not in range [5, 20]"
+        "string length not in range from 5 to 20, got 120"
       }, {s "hello!"\rep 20}
 
     it "checks string length with base type", ->
@@ -105,10 +105,8 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "string length got `6`, expected `5`"
+        'string length expected 5, got 6'
       }, {s "hello!"}
-
-
 
   describe "one_of", ->
     it "check value", ->
@@ -170,7 +168,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "value `wow` does not match one of: `a`, `b`, (my thing)"
+        'expected "a", "b", or (my thing)'
       }, {t "wow"}
 
     it "creates an optimized type checker", ->
@@ -193,31 +191,10 @@ describe "tableshape.types", ->
       }
 
       assert.same {nil, "zone is not hello"}, {t "zone"}
-      assert.same {nil, "got type `number`, expected `string`"}, {t 5}
+      assert.same {nil, 'expected type "string", got "number"'}, {t 5}
 
   describe "shape", ->
-    it "gets field errors, short_circuit", ->
-      check = types.shape { color: "red" }
-      assert.same "field `color` expected `red`, got `nil`", select 2, check\check_fields {}, true
-      assert.same "expecting table", select 2, check\check_fields "blue", true
-      assert.same "has extra field: `height`", select 2, check\check_fields { color: "red", height: 10 }, true
-      assert.same true, check\check_fields { color: "red" }, true
-
-    it "gets field errors", ->
-      check = types.shape { color: "red" }
-
-      assert.same {
-        "field `color` expected `red`, got `nil`"
-        color: "expected `red`, got `nil`"
-      }, select 2, check\check_fields {}, false
-
-      assert.same {"expecting table"}, select 2, check\check_fields "blue"
-      assert.same {"has extra field: `height`"}, select 2, check\check_fields { color: "red", height: 10 }
-      assert.same {}, select 2, check\check_fields { color: "red" }
-
     it "gets errors for multiple fields", ->
-      -- TODO: these error messages are different than transform
-
       t = types.shape {
         "blue"
         "red"
@@ -225,7 +202,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "field `1` expected `blue`, got `orange`"
+        'field 1: expected "orange"'
       }, {
         t {
           "orange", "blue", "purple"
@@ -234,28 +211,26 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "has extra field: `3`"
+        "extra fields: 3, 4"
       }, {
         t {
           "blue", "red", "purple", "yello"
         }
       }
 
-      pending "implement check_all for value test"
-      -- t = types.shape {
-      --   "blue"
-      --   "red"
-      -- }, check_all: true
+      t = types.shape {
+        "blue"
+        "red"
+      }, check_all: true
 
-      -- assert.same {
-      --   nil
-      --   "field `1`: `blue` does not equal `orange`; field `2`: `red` does not equal `blue`; extra fields: `3`"
-      -- }, {
-      --   t {
-      --     "orange", "blue", "purple"
-      --   }
-      -- }
-
+      assert.same {
+        nil
+        'field 1: expected "orange"; field 2: expected "blue"; extra fields: 3'
+      }, {
+        t {
+          "orange", "blue", "purple"
+        }
+      }
 
     it "checks value", ->
       check = types.shape { color: "red" }
@@ -368,7 +343,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "field `hello` value in table does not match: got type `number`, expected `string`"
+        'field "hello": map value expected type "string", got "number"'
       }, {
         s {
           hello: 10
@@ -427,7 +402,7 @@ describe "tableshape.types", ->
       assert.same {true}, {numbers {1.5,2,3,4}}
 
       assert.same {true}, {numbers\is_optional! nil}
-      assert.same nil, (numbers nil)
+      assert.same {nil, 'expected type "table", got "nil"'}, {numbers nil}
 
     it "of literal string", ->
       hellos = types.array_of "hello"
@@ -436,7 +411,7 @@ describe "tableshape.types", ->
       assert.same {true}, {hellos {"hello"}}
       assert.same {true}, {hellos {"hello", "hello"}}
 
-      assert.same nil, (hellos {"hello", "world"})
+      assert.same {nil, 'array item 2: expected "hello"'}, {hellos {"hello", "world"}}
 
     it "of literal number", ->
       twothreefours = types.array_of 234
@@ -444,7 +419,7 @@ describe "tableshape.types", ->
       assert.same {true}, {twothreefours {}}
       assert.same {true}, {twothreefours {234}}
       assert.same {true}, {twothreefours {234, 234}}
-      assert.same nil, (twothreefours {"uh"})
+      assert.same {nil, 'array item 1: expected 234'}, {twothreefours {"uh"}}
 
     it "of shape", ->
       shapes = types.array_of types.shape {
@@ -459,27 +434,29 @@ describe "tableshape.types", ->
         }
       }
 
-      assert.same nil, (
+      assert.same {
+        nil, 'array item 3: field "color": expected "orange", or "blue"'
+      }, {
         shapes {
           {color: "orange"}
           {color: "blue"}
           {color: "purple"}
         }
-      )
+      }
 
     it "tests length", ->
       t = types.array_of types.string, length: types.range(1,3)
 
       assert.same {
         nil
-        "array length `0` is not in range [1, 3]"
+        'array length not in range from 1 to 3, got 0'
       }, {
         t {}
       }
 
       assert.same {
         nil
-        "expected table for array_of"
+        'expected type "table", got "string"'
       }, {
         t "hi"
       }
@@ -492,7 +469,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "array length `4` is not in range [1, 3]"
+        'array length not in range from 1 to 3, got 4'
       }, {
         t {"one", "two", "nine", "10"}
       }
@@ -505,15 +482,15 @@ describe "tableshape.types", ->
       assert.same {true}, {t\check_value "hello world"}
 
       assert.same {
-        nil, "got `hello zone`, expected `hello world`"
+        nil, 'expected "hello world"'
       }, { t "hello zone" }
 
       assert.same {
-        nil, "got `hello zone`, expected `hello world`"
+        nil, 'expected "hello world"'
       }, { t\check_value "hello zone" }
 
-      assert.same {nil, "got `nil`, expected `hello world`"}, { t nil }
-      assert.same {nil, "got `nil`, expected `hello world`"}, { t\check_value nil }
+      assert.same {nil, 'expected "hello world"'}, { t nil }
+      assert.same {nil, 'expected "hello world"'}, { t\check_value nil }
 
     it "checks value when optional", ->
       t = types.literal "hello world", optional: true
@@ -540,7 +517,7 @@ describe "tableshape.types", ->
     it "checks with default error message", ->
       t = types.custom (n) -> n % 2 == 0
 
-      assert.same {nil, "5 is invalid"}, {t 5}
+      assert.same {nil, "failed custom check"}, {t 5}
 
     it "checks optional", ->
       check = types.custom(
@@ -599,7 +576,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "range got type `nil`, expected `number`"
+        'range expected type "number", got "nil"'
       }, { r nil }
 
       assert.same { true }, { r 10 }
@@ -608,12 +585,12 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "`2` is not in range [5, 10]"
+        'not in range from 5 to 10'
       }, { r 2 }
 
       assert.same {
         nil
-        "`100` is not in range [5, 10]"
+        'not in range from 5 to 10'
       }, { r 100 }
 
     it "handles string range", ->
@@ -621,7 +598,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "range got type `nil`, expected `string`"
+        'range expected type "string", got "nil"'
       }, { r nil }
 
       assert.same { true }, { r "a" }
@@ -630,24 +607,24 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        "`A` is not in range [a, f]"
+        'not in range from a to f'
       }, { r "A" }
 
       assert.same {
         nil
-        "`g` is not in range [a, f]"
+        'not in range from a to f'
       }, { r "g" }
 
 describe "tableshape.operators", ->
   it "sequence", ->
     t = types.pattern("^hello") * types.pattern("world$")
-    assert.same {nil, "doesn't match pattern `^hello`"}, {t("good work")}
-    assert.same {nil, "doesn't match pattern `world$`"}, {t("hello zone")}
+    assert.same {nil, 'doesn\'t match pattern "^hello"'}, {t("good work")}
+    assert.same {nil, 'doesn\'t match pattern "world$"'}, {t("hello zone")}
     assert.same {true}, {t("hello world")}
 
   it "first of", ->
     t = types.pattern("^hello") + types.pattern("world$")
-    assert.same {nil, "no matching option (doesn't match pattern `^hello`; doesn't match pattern `world$`)" }, {t("good work")}
+    assert.same {nil, 'expected pattern "^hello", or pattern "world$"'}, {t("good work")}
     assert.same {true}, {t("hello zone")}
     assert.same {true}, {t("zone world")}
     assert.same {true}, {t("hello world")}
@@ -656,7 +633,7 @@ describe "tableshape.operators", ->
     -- is a noop when there is no transform
     t = types.string / "hello"
     assert.same {true}, {t("hello")}
-    assert.same {nil, "got type `boolean`, expected `string`"}, {t(false)}
+    assert.same {nil, 'expected type "string", got "boolean"'}, {t(false)}
 
 
 describe "tableshape.repair", ->
@@ -685,7 +662,7 @@ describe "tableshape.repair", ->
 
     assert.same {
       nil
-      "no matching option (got type `boolean`, expected `table`; got type `nil`, expected `table`)"
+      'expected array of "nullify", or type "string"'
     }, {
       t\repair false
     }
@@ -699,29 +676,29 @@ describe "tableshape.repair", ->
 describe "tableshape.describe", ->
   it "describes a compound type with function", ->
     s = types.nil + types.literal("hello world")
-    s = s\describe -> "Need 'hello world'"
+    s = s\describe -> "str('hello world')"
 
     assert.same { true }, {s nil}
     assert.same { true }, {s "hello world"}
-    assert.same { nil, "Need 'hello world'" }, {s "cool"}
+    assert.same { nil, "expected str('hello world')" }, {s "cool"}
 
     s = types.nil / false + types.literal("hello world") / "cool"
-    s = s\describe -> "Need 'hello world'"
+    s = s\describe -> "str('hello world')"
 
     assert.same { false }, {s\transform nil}
     assert.same { "cool" }, {s\transform "hello world"}
-    assert.same { nil, "Need 'hello world'" }, {s\transform "cool"}
+    assert.same { nil, "expected str('hello world')" }, {s\transform "cool"}
 
   it "describes a compound type with string literal", ->
     s = (types.nil + types.literal("hello world"))\describe "thing"
 
     assert.same { true }, {s nil}
     assert.same { true }, {s "hello world"}
-    assert.same { nil, "thing" }, {s "cool"}
+    assert.same { nil, "expected thing" }, {s "cool"}
 
     s = (types.nil / false + types.literal("hello world") / "cool")\describe "thing"
 
     assert.same { false }, {s\transform nil}
     assert.same { "cool" }, {s\transform "hello world"}
-    assert.same { nil, "thing" }, {s\transform "cool"}
+    assert.same { nil, "expected thing" }, {s\transform "cool"}
 

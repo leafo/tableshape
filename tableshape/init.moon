@@ -21,7 +21,37 @@ merge_tag_state = (existing, new_tags) ->
   new_tags or existing or true
 
 
-local TransformNode, SequenceNode, FirstOfNode, DescribeNode
+local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode
+
+describe_literal = (val) ->
+  switch type(val)
+    when "string"
+      if not val\match '"'
+        "\"#{val}\""
+      elseif not val\match "'"
+        "'#{val}'"
+      else
+        "`#{val}`"
+    else
+      if BaseType\is_base_type val
+        val\_describe!
+      else
+        tostring val
+
+join_names = (items, sep=", ", last_sep) ->
+  count = #items
+  chunks = {}
+  for idx, name in ipairs items
+    if idx > 1
+      current_sep = if idx == count
+        last_sep or sep
+      else
+        sep
+      table.insert chunks, current_sep
+
+    table.insert chunks, name
+
+  table.concat chunks
 
 class BaseType
   @is_base_type: (val) =>
@@ -68,35 +98,41 @@ class BaseType
     else
       FirstOfNode @, right
 
+  _describe: =>
+    error "Node missing _describe: #{@@__name}"
+
   new: =>
     if @opts
       @_describe = @opts.describe
 
-  check_value: =>
-    error "override me"
+  -- like repair but only returns true or false
+  check_value: (...) =>
+    value, state_or_err = @_transform ...
 
-  transform: (...) =>
-    val, state_or_err = @_transform ...
-    if val == FailedTransform
+    if value == FailedTransform
       return nil, state_or_err
 
     if type(state_or_err) == "table"
-      val, state_or_err
+      state_or_err
     else
-      val
+      true
+
+  transform: (...) =>
+    value, state_or_err = @_transform ...
+
+    if value == FailedTransform
+      return nil, state_or_err
+
+    if type(state_or_err) == "table"
+      value, state_or_err
+    else
+      value
 
   -- alias for transform
   repair: (...) => @transform ...
 
-  _transform: (val, state) =>
-    state, err = @check_value val, state
-    if state
-      val, state
-    else
-      FailedTransform, err
-
   on_repair: (fn) =>
-    @ + types.any / fn * @
+    (@ + types.any / fn * @)\describe -> @_describe!
 
   is_optional: =>
     OptionalType @
@@ -129,19 +165,20 @@ class TransformNode extends BaseType
   @transformer: true
 
   new: (@node, @t_fn) =>
+    assert @node, "missing node for transform"
 
-  check_value: (value, state) =>
-    @node\check_value value, state
+  _describe: =>
+    @.node\_describe!
 
   _transform: (value, state) =>
-    val, state_or_err = @.node\_transform value, state
+    value, state_or_err = @.node\_transform value, state
 
-    if val == FailedTransform
-      val, state_or_err
+    if value == FailedTransform
+      FailedTransform, state_or_err
     else
       out = switch type @.t_fn
         when "function"
-          @.t_fn(val)
+          @.t_fn(value)
         else
           @.t_fn
 
@@ -153,16 +190,14 @@ class SequenceNode extends BaseType
   new: (...) =>
     @sequence = {...}
 
-  check_value: (value, state) =>
-    local new_state
+  _describe: =>
+    item_names = for i in *@sequence
+      if type(i) == "table" and i._describe
+        i\_describe!
+      else
+        describe_literal i
 
-    for node in *@sequence
-      pass, new_state = node\check_value value, new_state
-
-      unless pass
-        return nil, new_state
-
-    merge_tag_state state, new_state
+    join_names item_names, " then "
 
   _transform: (value, state) =>
     for node in *@sequence
@@ -178,40 +213,26 @@ class FirstOfNode extends BaseType
   new: (...) =>
     @options = {...}
 
-  check_value: (value, state) =>
-    local errors
-
-    for node in *@options
-      pass, new_state_or_err = node\check_value value
-
-      if pass
-        return merge_tag_state state, new_state_or_err
+  _describe: =>
+    item_names = for i in *@options
+      if type(i) == "table" and i._describe
+        i\_describe!
       else
-        if errors
-          table.insert errors, new_state_or_err
-        else
-          errors = {new_state_or_err}
+        describe_literal i
 
-
-    nil, "no matching option (#{table.concat errors or {"no options"}, "; "})"
+    join_names item_names, ", ", ", or "
 
   _transform: (value, state) =>
-    local errors
-
     unless @options[1]
       return FailedTransform, "no options for node"
 
     for node in *@options
       new_val, new_state_or_err = node\_transform value, state
-      if new_val == FailedTransform
-        if errors
-          table.insert errors, new_state_or_err
-        else
-          errors = {new_state_or_err}
-      else
+
+      unless new_val == FailedTransform
         return new_val, new_state_or_err
 
-    FailedTransform, "no matching option (#{table.concat errors or {"no options"}, "; "})"
+    FailedTransform, "expected #{@_describe!}"
 
 class DescribeNode extends BaseType
   new: (@node, describe) =>
@@ -220,18 +241,11 @@ class DescribeNode extends BaseType
     else
       describe
 
-  check_value: (...) =>
-    state, err = @node\check_value ...
-    unless state
-      return nil, @_describe ...
-
-    state, err
-
-  _transform: (...) =>
-    value, state = @node\_transform ...
+  _transform: (input, ...) =>
+    value, state = @node\_transform input, ...
 
     if value == FailedTransform
-      return FailedTransform, @_describe ...
+      return FailedTransform, "expected #{@_describe input, ...}"
 
     value, state
 
@@ -265,37 +279,18 @@ class TaggedType extends BaseType
 
     value, state
 
-  check_value: (value, state) =>
-    state = @base_type\check_value value, state
-
-    if state
-      unless type(state) == "table"
-        state = {}
-
-      if @array
-        existing = state[@tag]
-        if type(existing) == "table"
-          table.insert existing, value
-        else
-          state[@tag] = setmetatable {value}, TagValueArray
-      else
-        state[@tag] = value
-
-      state
-
   _describe: =>
-    if @base_type._describe
-      base_description = @base_type\_describe!
-      "#{base_description} tagged `#{@tag}`"
+    base_description = @base_type\_describe!
+    "#{base_description} tagged #{describe_literal @tag}"
 
 class OptionalType extends BaseType
   new: (@base_type, @opts) =>
     super!
     assert BaseType\is_base_type(base_type), "expected a type checker"
 
-  check_value: (value, state) =>
-    return state or true if value == nil
-    @base_type\check_value value, state
+  _transform: (value, state) =>
+    return value, state if value == nil
+    @base_type\_transform value, state
 
   is_optional: => @
 
@@ -305,8 +300,8 @@ class OptionalType extends BaseType
       "optional #{base_description}"
 
 class AnyType extends BaseType
-  check_value: (v, state) => state or true
   _transform: (v, state) => v, state
+  _describe: => "anything"
 
   -- any type is already optional (accepts nil)
   is_optional: => @
@@ -319,18 +314,20 @@ class Type extends BaseType
 
     super!
 
-  check_value: (value, state) =>
+  _transform: (value, state) =>
     got = type(value)
 
     if @t != got
-      return nil, "got type `#{got}`, expected `#{@t}`"
+      return FailedTransform, "expected type #{describe_literal @t}, got #{describe_literal got}"
 
     if @length_type
-      state, len_fail = @length_type\check_value #value, state
-      unless state
-        return nil, "#{@t} length #{len_fail}"
+      len = #value
+      res, state = @length_type\_transform len, state
 
-    state or true
+      if res == FailedTransform
+        return FailedTransform, "#{@t} length #{state}, got #{len}"
+
+    value, state
 
   length: (left, right) =>
     l = if BaseType\is_base_type left
@@ -341,7 +338,7 @@ class Type extends BaseType
     Type @t, @clone_opts length: l
 
   _describe: =>
-    t = "type `#{@t}`"
+    t = "type #{describe_literal @t}"
     if @length_type
       t ..= " length_type #{@length_type\_describe!}"
 
@@ -351,20 +348,22 @@ class ArrayType extends BaseType
   new: (@opts) =>
     super!
 
-  check_value: (value, state) =>
-    return nil, "expecting table" unless type(value) == "table"
+  _describe: => "an array"
+
+  _transform: (value, state) =>
+    return FailedTransform, "expecting table" unless type(value) == "table"
 
     k = 1
     for i,v in pairs value
       unless type(i) == "number"
-        return nil, "non number field: #{i}"
+        return FailedTransform, "non number field: #{i}"
 
       unless i == k
-        return nil, "non array index, got `#{i}` but expected `#{k}`"
+        return FailedTransform, "non array index, got #{describe_literal i} but expected #{describe_literal k}"
 
       k += 1
 
-    state or true
+    value, state
 
 class OneOf extends BaseType
   new: (@options, @opts) =>
@@ -382,9 +381,9 @@ class OneOf extends BaseType
       if type(i) == "table" and i._describe
         i\_describe!
       else
-        "`#{i}`"
+        describe_literal i
 
-    "one of: #{table.concat item_names, ", "}"
+    "#{join_names item_names, ", ", ", or "}"
 
   _transform: (value, state) =>
     if @options_hash
@@ -400,22 +399,7 @@ class OneOf extends BaseType
 
           return new_value, new_state
 
-    FailedTransform, "value `#{value}` does not match #{@_describe!}"
-
-  check_value: (value, state) =>
-    if @options_hash
-      if @options_hash[value]
-        return state or true
-    else
-      for item in *@options
-        return state or true if item == value
-
-        if BaseType\is_base_type(item)
-          new_state = item\check_value value
-          if new_state
-            return merge_tag_state state, new_state
-
-    nil, "value `#{value}` does not match #{@_describe!}"
+    FailedTransform, "expected #{@_describe!}"
 
 class AllOf extends BaseType
   new: (@types, @opts) =>
@@ -425,15 +409,16 @@ class AllOf extends BaseType
     for checker in *@types
       assert BaseType\is_base_type(checker), "all_of expects all type checkers"
 
-  check_value: (value, state) =>
-    new_state = nil
+  _transform: (value, state) =>
+    local new_state
 
     for t in *@types
-      new_state, err = t\check_value value, new_state
-      unless new_state
-        return nil, err
+      value, new_state = t\_transform value, new_state
 
-    merge_tag_state state, new_state
+      if value == FailedTransform
+        return FailedTransform, new_state
+
+    value, merge_tag_state state, new_state
 
 class ArrayOf extends BaseType
   @type_err_message: "expecting table"
@@ -445,69 +430,42 @@ class ArrayOf extends BaseType
 
     super!
 
+  _describe: =>
+    "array of #{describe_literal @expected}"
+
   _transform: (value, state) =>
     pass, err = types.table value
     unless pass
       return FailedTransform, err
 
-    local new_state
-
     if @length_type
-      new_state, len_fail = @length_type\check_value #value, new_state
-      unless new_state
-        return FailedTransform, "array length #{len_fail}"
+      len = #value
+      res, state = @length_type\_transform len, state
+      if res == FailedTransform
+        return FailedTransform, "array length #{state}, got #{len}"
 
     is_literal = not BaseType\is_base_type @expected
 
-    out = {}
+    local new_state
 
     out = for idx, item in ipairs value
       if is_literal
         if @expected != item
-          return FailedTransform, "array item #{idx}: got `#{item}`, expected `#{@expected}`"
+          return FailedTransform, "array item #{idx}: expected #{describe_literal @expected}"
         else
           item
       else
-        val, new_state = @expected\_transform item, new_state
+        item_val, new_state = @expected\_transform item, new_state
 
-        if val == FailedTransform
+        if item_val == FailedTransform
           return FailedTransform, "array item #{idx}: #{new_state}"
 
-        if val == nil and not @keep_nils
+        if item_val == nil and not @keep_nils
           continue
 
-        val
+        item_val
 
     out, merge_tag_state state, new_state
-
-  check_field: (key, value, tbl, state) =>
-    return state or true if value == @expected
-
-    if BaseType\is_base_type @expected
-      state, err = @expected\check_value value, state
-      unless state
-        return nil, "item #{key} in array does not match: #{err}"
-    else
-      return nil, "item #{key} in array does not match `#{@expected}`"
-
-    state or true
-
-  check_value: (value, state) =>
-    return nil, "expected table for array_of" unless type(value) == "table"
-
-    local new_state
-
-    if @length_type
-      new_state, len_fail = @length_type\check_value #value, new_state
-      unless new_state
-        return nil, "array length #{len_fail}"
-
-    for idx, item in ipairs value
-      new_state, err = @check_field idx, item, value, new_state
-      unless new_state
-        return nil, err
-
-    merge_tag_state state, new_state
 
 class MapOf extends BaseType
   new: (@expected_key, @expected_value, @opts) =>
@@ -527,7 +485,7 @@ class MapOf extends BaseType
     for k,v in pairs value
       if key_literal
         if k != @expected_key
-          return FailedTransform, "map key got `#{k}`, expected `#{@expected_key}`"
+          return FailedTransform, "map key expected #{describe_literal @expected_key}"
       else
         k, new_state = @expected_key\_transform k, new_state
         if k == FailedTransform
@@ -535,7 +493,7 @@ class MapOf extends BaseType
 
       if value_literal
         if v != @expected_value
-          return FailedTransform, "map value got `#{v}`, expected `#{@expected_value}`"
+          return FailedTransform, "map value expected #{describe_literal @expected_value}"
       else
         v, new_state = @expected_value\_transform v, new_state
         if v == FailedTransform
@@ -545,34 +503,6 @@ class MapOf extends BaseType
       out[k] = v
 
     out, merge_tag_state state, new_state
-
-  check_value: (value, state) =>
-    return nil, "expected table for map_of" unless type(value) == "table"
-
-    local new_state
-
-    for k,v in pairs value
-      -- check key
-      if @expected_key.check_value
-        new_state, err = @expected_key\check_value k, new_state
-        unless new_state
-          return nil, "field `#{k}` in table does not match: #{err}"
-
-      else
-        unless @expected_key == k
-          return nil, "field `#{k}` does not match `#{@expected_key}`"
-
-      -- check value
-      if @expected_value.check_value
-        new_state, err = @expected_value\check_value v, new_state
-        unless new_state
-          return nil, "field `#{k}` value in table does not match: #{err}"
-
-      else
-        unless @expected_value == v
-          return nil, "field `#{k}` value does not match `#{@expected_value}`"
-
-    merge_tag_state state, new_state
 
 class Shape extends BaseType
   @type_err_message: "expecting table"
@@ -619,10 +549,10 @@ class Shape extends BaseType
         if shape_val == item_value
           item_value, new_state
         else
-          FailedTransform, "`#{shape_val}` does not equal `#{item_value}`"
+          FailedTransform, "expected #{describe_literal item_value}"
 
       if new_val == FailedTransform
-        err = "field `#{shape_key}`: #{tuple_state}"
+        err = "field #{describe_literal shape_key}: #{tuple_state}"
         if check_all
           if errors
             table.insert errors, err
@@ -643,7 +573,7 @@ class Shape extends BaseType
         for k in pairs remaining_keys
           tuple, tuple_state = @.extra_fields_type\_transform {[k]: value[k]}, new_state
           if tuple == FailedTransform
-            err = "field `#{k}`: #{tuple_state}"
+            err = "field #{describe_literal k}: #{tuple_state}"
             if check_all
               if errors
                 table.insert errors, err
@@ -657,7 +587,7 @@ class Shape extends BaseType
               out[nk] = tuple[nk]
       else
         names = for key in pairs remaining_keys
-          "`#{key}`"
+          describe_literal key
 
         err = "extra fields: #{table.concat names, ", "}"
 
@@ -674,127 +604,57 @@ class Shape extends BaseType
 
     out, merge_tag_state state, new_state
 
-  check_field: (key, value, expected_value, tbl, state) =>
-    return state or true if value == expected_value
-
-    if BaseType\is_base_type(expected_value) and expected_value.check_value
-      state, err = expected_value\check_value value, state
-
-      unless state
-        return nil, "field `#{key}`: #{err}", err
-    else
-      err = "expected `#{expected_value}`, got `#{value}`"
-      return nil, "field `#{key}` #{err}", err
-
-    state or true
-
-  check_fields: (value, short_circuit=false) =>
-    unless type(value) == "table"
-      if short_circuit
-        return nil, @@type_err_message
-      else
-        return nil, { @@type_err_message }
-
-    errors = unless short_circuit then {}
-
-    state = nil
-
-    remaining_keys = if not @open
-      {key, true for key in pairs value}
-
-    for shape_key, shape_val in pairs @shape
-      item_value = value[shape_key]
-
-      if remaining_keys
-        remaining_keys[shape_key] = nil
-
-      state, err, standalone_err = @check_field shape_key, item_value, shape_val, value, state
-
-      unless state
-        if short_circuit
-          return nil, err
-        else
-          errors[shape_key] = standalone_err or err
-          table.insert errors, err
-
-    if remaining_keys
-      if @extra_fields_type
-        for k in pairs remaining_keys
-          tuple_state, tuple_err = @.extra_fields_type\check_value {[k]: value[k]}, state
-          if tuple_state
-            state = tuple_state
-          else
-            if short_circuit
-              return nil, tuple_err
-            else
-              return nil, { tuple_err }
-      elseif extra_key = next remaining_keys
-        msg = "has extra field: `#{extra_key}`"
-        if short_circuit
-          return nil, msg
-        else
-          return nil, { msg }
-
-    if errors
-      return nil, errors
-
-    state or true
-
-  check_value: (value, state) =>
-    new_state, err = @check_fields value, true
-
-    if new_state
-      merge_tag_state state, new_state
-    else
-      nil, err
-
 class Pattern extends BaseType
   new: (@pattern, @opts) =>
     super!
 
   _describe: =>
-    "pattern `#{@pattern}`"
+    "pattern #{describe_literal @pattern}"
 
-  check_value: (value, state) =>
+  -- TODO: remove coerce, can be done with operators
+  _transform: (value, state) =>
     if initial = @opts and @opts.initial_type
-      return nil, "expected `#{initial}`" unless type(value) == initial
+      return FailedTransform, "expected #{describe_literal initial}" unless type(value) == initial
 
     value = tostring value if @opts and @opts.coerce
 
-    return nil, "expected string for value" unless type(value) == "string"
+    t_res, err = types.string value
+
+    unless t_res
+      return FailedTransform, err
 
     if value\match @pattern
-      state or true
+      value, state
     else
-      nil, "doesn't match pattern `#{@pattern}`"
+      FailedTransform, "doesn't match #{@_describe!}"
 
 class Literal extends BaseType
   new: (@value, @opts) =>
     super!
 
   _describe: =>
-    "literal `#{@value}`"
+    describe_literal @value
 
-  check_value: (val, state) =>
-    if @value != val
-      return nil, "got `#{val}`, expected `#{@value}`"
+  _transform: (value, state) =>
+    if @value != value
+      return FailedTransform, "expected #{@_describe!}"
 
-    state or true
+    value, state
 
 class Custom extends BaseType
   new: (@fn, @opts) =>
     super!
 
   _describe: =>
-    @opts.describe or "custom checker #{@fn}"
+    @opts and @opts.describe or "custom checker #{@fn}"
 
-  check_value: (val, state) =>
-    pass, err = @.fn val, @
+  _transform: (value, state) =>
+    pass, err = @.fn value, @
 
     unless pass
-      return nil, err or "#{val} is invalid"
+      return FailedTransform, err or "failed custom check"
 
-    state or true
+    value, state
 
 class Equivalent extends BaseType
   values_equivalent = (a,b) ->
@@ -818,13 +678,11 @@ class Equivalent extends BaseType
   new: (@val, @opts) =>
     super!
 
-  check_value: (val, state) =>
-    if values_equivalent @val, val
-      state or true
+  _transform: (value, state) =>
+    if values_equivalent @val, value
+      value, state
     else
-      nil, "#{val} is not equivalent to #{@val}"
-
-
+      FailedTransform, "not equivalent to #{@val}"
 
 class Range extends BaseType
   new: (@left, @right, @opts) =>
@@ -832,22 +690,22 @@ class Range extends BaseType
     assert @left <= @right, "left range value should be less than right range value"
     @value_type = assert types[type(@left)], "couldn't figure out type of range boundary"
 
-  check_value: (value, state) =>
-    pass, err = @.value_type\check_value value
+  _transform: (value, state) =>
+    res, state = @.value_type\_transform value, state
 
-    unless pass
-      return nil, "range #{err}"
+    if res == FailedTransform
+      return FailedTransform, "range #{state}"
 
     if value < @left
-      return nil, "`#{value}` is not in #{@_describe!}"
+      return FailedTransform, "not in #{@_describe!}"
 
     if value > @right
-      return nil, "`#{value}` is not in #{@_describe!}"
+      return FailedTransform, "not in #{@_describe!}"
 
-    state or true
+    value, state
 
   _describe: =>
-    "range [#{@left}, #{@right}]"
+    "range from #{@left} to #{@right}"
 
 types = setmetatable {
   any: AnyType!

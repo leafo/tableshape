@@ -20,8 +20,47 @@ merge_tag_state = function(existing, new_tags)
   end
   return new_tags or existing or true
 end
-local TransformNode, SequenceNode, FirstOfNode, DescribeNode
-local BaseType
+local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode
+local describe_literal
+describe_literal = function(val)
+  local _exp_0 = type(val)
+  if "string" == _exp_0 then
+    if not val:match('"') then
+      return "\"" .. tostring(val) .. "\""
+    elseif not val:match("'") then
+      return "'" .. tostring(val) .. "'"
+    else
+      return "`" .. tostring(val) .. "`"
+    end
+  else
+    if BaseType:is_base_type(val) then
+      return val:_describe()
+    else
+      return tostring(val)
+    end
+  end
+end
+local join_names
+join_names = function(items, sep, last_sep)
+  if sep == nil then
+    sep = ", "
+  end
+  local count = #items
+  local chunks = { }
+  for idx, name in ipairs(items) do
+    if idx > 1 then
+      local current_sep
+      if idx == count then
+        current_sep = last_sep or sep
+      else
+        current_sep = sep
+      end
+      table.insert(chunks, current_sep)
+    end
+    table.insert(chunks, name)
+  end
+  return table.concat(chunks)
+end
 do
   local _class_0
   local _base_0 = {
@@ -49,34 +88,38 @@ do
         return FirstOfNode(self, right)
       end
     end,
-    check_value = function(self)
-      return error("override me")
+    _describe = function(self)
+      return error("Node missing _describe: " .. tostring(self.__class.__name))
     end,
-    transform = function(self, ...)
-      local val, state_or_err = self:_transform(...)
-      if val == FailedTransform then
+    check_value = function(self, ...)
+      local value, state_or_err = self:_transform(...)
+      if value == FailedTransform then
         return nil, state_or_err
       end
       if type(state_or_err) == "table" then
-        return val, state_or_err
+        return state_or_err
       else
-        return val
+        return true
+      end
+    end,
+    transform = function(self, ...)
+      local value, state_or_err = self:_transform(...)
+      if value == FailedTransform then
+        return nil, state_or_err
+      end
+      if type(state_or_err) == "table" then
+        return value, state_or_err
+      else
+        return value
       end
     end,
     repair = function(self, ...)
       return self:transform(...)
     end,
-    _transform = function(self, val, state)
-      local err
-      state, err = self:check_value(val, state)
-      if state then
-        return val, state
-      else
-        return FailedTransform, err
-      end
-    end,
     on_repair = function(self, fn)
-      return self + types.any / fn * self
+      return (self + types.any / fn * self):describe(function()
+        return self:_describe()
+      end)
     end,
     is_optional = function(self)
       return OptionalType(self)
@@ -168,18 +211,19 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, value, state)
-      return self.node:check_value(value, state)
+    _describe = function(self)
+      return self.node:_describe()
     end,
     _transform = function(self, value, state)
-      local val, state_or_err = self.node:_transform(value, state)
-      if val == FailedTransform then
-        return val, state_or_err
+      local state_or_err
+      value, state_or_err = self.node:_transform(value, state)
+      if value == FailedTransform then
+        return FailedTransform, state_or_err
       else
         local out
         local _exp_0 = type(self.t_fn)
         if "function" == _exp_0 then
-          out = self.t_fn(val)
+          out = self.t_fn(value)
         else
           out = self.t_fn
         end
@@ -192,6 +236,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, node, t_fn)
       self.node, self.t_fn = node, t_fn
+      return assert(self.node, "missing node for transform")
     end,
     __base = _base_0,
     __name = "TransformNode",
@@ -226,18 +271,24 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, value, state)
-      local new_state
-      local _list_0 = self.sequence
-      for _index_0 = 1, #_list_0 do
-        local node = _list_0[_index_0]
-        local pass
-        pass, new_state = node:check_value(value, new_state)
-        if not (pass) then
-          return nil, new_state
+    _describe = function(self)
+      local item_names
+      do
+        local _accum_0 = { }
+        local _len_0 = 1
+        local _list_0 = self.sequence
+        for _index_0 = 1, #_list_0 do
+          local i = _list_0[_index_0]
+          if type(i) == "table" and i._describe then
+            _accum_0[_len_0] = i:_describe()
+          else
+            _accum_0[_len_0] = describe_literal(i)
+          end
+          _len_0 = _len_0 + 1
         end
+        item_names = _accum_0
       end
-      return merge_tag_state(state, new_state)
+      return join_names(item_names, " then ")
     end,
     _transform = function(self, value, state)
       local _list_0 = self.sequence
@@ -292,30 +343,26 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, value, state)
-      local errors
-      local _list_0 = self.options
-      for _index_0 = 1, #_list_0 do
-        local node = _list_0[_index_0]
-        local pass, new_state_or_err = node:check_value(value)
-        if pass then
-          return merge_tag_state(state, new_state_or_err)
-        else
-          if errors then
-            table.insert(errors, new_state_or_err)
+    _describe = function(self)
+      local item_names
+      do
+        local _accum_0 = { }
+        local _len_0 = 1
+        local _list_0 = self.options
+        for _index_0 = 1, #_list_0 do
+          local i = _list_0[_index_0]
+          if type(i) == "table" and i._describe then
+            _accum_0[_len_0] = i:_describe()
           else
-            errors = {
-              new_state_or_err
-            }
+            _accum_0[_len_0] = describe_literal(i)
           end
+          _len_0 = _len_0 + 1
         end
+        item_names = _accum_0
       end
-      return nil, "no matching option (" .. tostring(table.concat(errors or {
-        "no options"
-      }, "; ")) .. ")"
+      return join_names(item_names, ", ", ", or ")
     end,
     _transform = function(self, value, state)
-      local errors
       if not (self.options[1]) then
         return FailedTransform, "no options for node"
       end
@@ -323,21 +370,11 @@ do
       for _index_0 = 1, #_list_0 do
         local node = _list_0[_index_0]
         local new_val, new_state_or_err = node:_transform(value, state)
-        if new_val == FailedTransform then
-          if errors then
-            table.insert(errors, new_state_or_err)
-          else
-            errors = {
-              new_state_or_err
-            }
-          end
-        else
+        if not (new_val == FailedTransform) then
           return new_val, new_state_or_err
         end
       end
-      return FailedTransform, "no matching option (" .. tostring(table.concat(errors or {
-        "no options"
-      }, "; ")) .. ")"
+      return FailedTransform, "expected " .. tostring(self:_describe())
     end
   }
   _base_0.__index = _base_0
@@ -381,17 +418,10 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, ...)
-      local state, err = self.node:check_value(...)
-      if not (state) then
-        return nil, self:_describe(...)
-      end
-      return state, err
-    end,
-    _transform = function(self, ...)
-      local value, state = self.node:_transform(...)
+    _transform = function(self, input, ...)
+      local value, state = self.node:_transform(input, ...)
       if value == FailedTransform then
-        return FailedTransform, self:_describe(...)
+        return FailedTransform, "expected " .. tostring(self:_describe(input, ...))
       end
       return value, state
     end,
@@ -465,32 +495,9 @@ do
       end
       return value, state
     end,
-    check_value = function(self, value, state)
-      state = self.base_type:check_value(value, state)
-      if state then
-        if not (type(state) == "table") then
-          state = { }
-        end
-        if self.array then
-          local existing = state[self.tag]
-          if type(existing) == "table" then
-            table.insert(existing, value)
-          else
-            state[self.tag] = setmetatable({
-              value
-            }, TagValueArray)
-          end
-        else
-          state[self.tag] = value
-        end
-        return state
-      end
-    end,
     _describe = function(self)
-      if self.base_type._describe then
-        local base_description = self.base_type:_describe()
-        return tostring(base_description) .. " tagged `" .. tostring(self.tag) .. "`"
-      end
+      local base_description = self.base_type:_describe()
+      return tostring(base_description) .. " tagged " .. tostring(describe_literal(self.tag))
     end
   }
   _base_0.__index = _base_0
@@ -535,11 +542,11 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, value, state)
+    _transform = function(self, value, state)
       if value == nil then
-        return state or true
+        return value, state
       end
-      return self.base_type:check_value(value, state)
+      return self.base_type:_transform(value, state)
     end,
     is_optional = function(self)
       return self
@@ -591,11 +598,11 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, v, state)
-      return state or true
-    end,
     _transform = function(self, v, state)
       return v, state
+    end,
+    _describe = function(self)
+      return "anything"
     end,
     is_optional = function(self)
       return self
@@ -639,19 +646,20 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, value, state)
+    _transform = function(self, value, state)
       local got = type(value)
       if self.t ~= got then
-        return nil, "got type `" .. tostring(got) .. "`, expected `" .. tostring(self.t) .. "`"
+        return FailedTransform, "expected type " .. tostring(describe_literal(self.t)) .. ", got " .. tostring(describe_literal(got))
       end
       if self.length_type then
-        local len_fail
-        state, len_fail = self.length_type:check_value(#value, state)
-        if not (state) then
-          return nil, tostring(self.t) .. " length " .. tostring(len_fail)
+        local len = #value
+        local res
+        res, state = self.length_type:_transform(len, state)
+        if res == FailedTransform then
+          return FailedTransform, tostring(self.t) .. " length " .. tostring(state) .. ", got " .. tostring(len)
         end
       end
-      return state or true
+      return value, state
     end,
     length = function(self, left, right)
       local l
@@ -665,7 +673,7 @@ do
       }))
     end,
     _describe = function(self)
-      local t = "type `" .. tostring(self.t) .. "`"
+      local t = "type " .. tostring(describe_literal(self.t))
       if self.length_type then
         t = t .. " length_type " .. tostring(self.length_type:_describe())
       end
@@ -714,21 +722,24 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, value, state)
+    _describe = function(self)
+      return "an array"
+    end,
+    _transform = function(self, value, state)
       if not (type(value) == "table") then
-        return nil, "expecting table"
+        return FailedTransform, "expecting table"
       end
       local k = 1
       for i, v in pairs(value) do
         if not (type(i) == "number") then
-          return nil, "non number field: " .. tostring(i)
+          return FailedTransform, "non number field: " .. tostring(i)
         end
         if not (i == k) then
-          return nil, "non array index, got `" .. tostring(i) .. "` but expected `" .. tostring(k) .. "`"
+          return FailedTransform, "non array index, got " .. tostring(describe_literal(i)) .. " but expected " .. tostring(describe_literal(k))
         end
         k = k + 1
       end
-      return state or true
+      return value, state
     end
   }
   _base_0.__index = _base_0
@@ -781,13 +792,13 @@ do
           if type(i) == "table" and i._describe then
             _accum_0[_len_0] = i:_describe()
           else
-            _accum_0[_len_0] = "`" .. tostring(i) .. "`"
+            _accum_0[_len_0] = describe_literal(i)
           end
           _len_0 = _len_0 + 1
         end
         item_names = _accum_0
       end
-      return "one of: " .. tostring(table.concat(item_names, ", "))
+      return tostring(join_names(item_names, ", ", ", or "))
     end,
     _transform = function(self, value, state)
       if self.options_hash then
@@ -818,29 +829,7 @@ do
           end
         end
       end
-      return FailedTransform, "value `" .. tostring(value) .. "` does not match " .. tostring(self:_describe())
-    end,
-    check_value = function(self, value, state)
-      if self.options_hash then
-        if self.options_hash[value] then
-          return state or true
-        end
-      else
-        local _list_0 = self.options
-        for _index_0 = 1, #_list_0 do
-          local item = _list_0[_index_0]
-          if item == value then
-            return state or true
-          end
-          if BaseType:is_base_type(item) then
-            local new_state = item:check_value(value)
-            if new_state then
-              return merge_tag_state(state, new_state)
-            end
-          end
-        end
-      end
-      return nil, "value `" .. tostring(value) .. "` does not match " .. tostring(self:_describe())
+      return FailedTransform, "expected " .. tostring(self:_describe())
     end
   }
   _base_0.__index = _base_0
@@ -895,18 +884,17 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, value, state)
-      local new_state = nil
+    _transform = function(self, value, state)
+      local new_state
       local _list_0 = self.types
       for _index_0 = 1, #_list_0 do
         local t = _list_0[_index_0]
-        local err
-        new_state, err = t:check_value(value, new_state)
-        if not (new_state) then
-          return nil, err
+        value, new_state = t:_transform(value, new_state)
+        if value == FailedTransform then
+          return FailedTransform, new_state
         end
       end
-      return merge_tag_state(state, new_state)
+      return value, merge_tag_state(state, new_state)
     end
   }
   _base_0.__index = _base_0
@@ -954,21 +942,25 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    _describe = function(self)
+      return "array of " .. tostring(describe_literal(self.expected))
+    end,
     _transform = function(self, value, state)
       local pass, err = types.table(value)
       if not (pass) then
         return FailedTransform, err
       end
-      local new_state
       if self.length_type then
-        local len_fail
-        new_state, len_fail = self.length_type:check_value(#value, new_state)
-        if not (new_state) then
-          return FailedTransform, "array length " .. tostring(len_fail)
+        local len = #value
+        local res
+        res, state = self.length_type:_transform(len, state)
+        if res == FailedTransform then
+          return FailedTransform, "array length " .. tostring(state) .. ", got " .. tostring(len)
         end
       end
       local is_literal = not BaseType:is_base_type(self.expected)
-      local out = { }
+      local new_state
+      local out
       do
         local _accum_0 = { }
         local _len_0 = 1
@@ -977,21 +969,21 @@ do
           repeat
             if is_literal then
               if self.expected ~= item then
-                return FailedTransform, "array item " .. tostring(idx) .. ": got `" .. tostring(item) .. "`, expected `" .. tostring(self.expected) .. "`"
+                return FailedTransform, "array item " .. tostring(idx) .. ": expected " .. tostring(describe_literal(self.expected))
               else
                 _accum_0[_len_0] = item
               end
             else
-              local val
-              val, new_state = self.expected:_transform(item, new_state)
-              if val == FailedTransform then
+              local item_val
+              item_val, new_state = self.expected:_transform(item, new_state)
+              if item_val == FailedTransform then
                 return FailedTransform, "array item " .. tostring(idx) .. ": " .. tostring(new_state)
               end
-              if val == nil and not self.keep_nils then
+              if item_val == nil and not self.keep_nils then
                 _continue_0 = true
                 break
               end
-              _accum_0[_len_0] = val
+              _accum_0[_len_0] = item_val
             end
             _len_0 = _len_0 + 1
             _continue_0 = true
@@ -1003,42 +995,6 @@ do
         out = _accum_0
       end
       return out, merge_tag_state(state, new_state)
-    end,
-    check_field = function(self, key, value, tbl, state)
-      if value == self.expected then
-        return state or true
-      end
-      if BaseType:is_base_type(self.expected) then
-        local err
-        state, err = self.expected:check_value(value, state)
-        if not (state) then
-          return nil, "item " .. tostring(key) .. " in array does not match: " .. tostring(err)
-        end
-      else
-        return nil, "item " .. tostring(key) .. " in array does not match `" .. tostring(self.expected) .. "`"
-      end
-      return state or true
-    end,
-    check_value = function(self, value, state)
-      if not (type(value) == "table") then
-        return nil, "expected table for array_of"
-      end
-      local new_state
-      if self.length_type then
-        local len_fail
-        new_state, len_fail = self.length_type:check_value(#value, new_state)
-        if not (new_state) then
-          return nil, "array length " .. tostring(len_fail)
-        end
-      end
-      for idx, item in ipairs(value) do
-        local err
-        new_state, err = self:check_field(idx, item, value, new_state)
-        if not (new_state) then
-          return nil, err
-        end
-      end
-      return merge_tag_state(state, new_state)
     end
   }
   _base_0.__index = _base_0
@@ -1100,7 +1056,7 @@ do
         repeat
           if key_literal then
             if k ~= self.expected_key then
-              return FailedTransform, "map key got `" .. tostring(k) .. "`, expected `" .. tostring(self.expected_key) .. "`"
+              return FailedTransform, "map key expected " .. tostring(describe_literal(self.expected_key))
             end
           else
             k, new_state = self.expected_key:_transform(k, new_state)
@@ -1110,7 +1066,7 @@ do
           end
           if value_literal then
             if v ~= self.expected_value then
-              return FailedTransform, "map value got `" .. tostring(v) .. "`, expected `" .. tostring(self.expected_value) .. "`"
+              return FailedTransform, "map value expected " .. tostring(describe_literal(self.expected_value))
             end
           else
             v, new_state = self.expected_value:_transform(v, new_state)
@@ -1130,37 +1086,6 @@ do
         end
       end
       return out, merge_tag_state(state, new_state)
-    end,
-    check_value = function(self, value, state)
-      if not (type(value) == "table") then
-        return nil, "expected table for map_of"
-      end
-      local new_state
-      for k, v in pairs(value) do
-        if self.expected_key.check_value then
-          local err
-          new_state, err = self.expected_key:check_value(k, new_state)
-          if not (new_state) then
-            return nil, "field `" .. tostring(k) .. "` in table does not match: " .. tostring(err)
-          end
-        else
-          if not (self.expected_key == k) then
-            return nil, "field `" .. tostring(k) .. "` does not match `" .. tostring(self.expected_key) .. "`"
-          end
-        end
-        if self.expected_value.check_value then
-          local err
-          new_state, err = self.expected_value:check_value(v, new_state)
-          if not (new_state) then
-            return nil, "field `" .. tostring(k) .. "` value in table does not match: " .. tostring(err)
-          end
-        else
-          if not (self.expected_value == v) then
-            return nil, "field `" .. tostring(k) .. "` value does not match `" .. tostring(self.expected_value) .. "`"
-          end
-        end
-      end
-      return merge_tag_state(state, new_state)
     end
   }
   _base_0.__index = _base_0
@@ -1236,11 +1161,11 @@ do
           if shape_val == item_value then
             new_val, tuple_state = item_value, new_state
           else
-            new_val, tuple_state = FailedTransform, "`" .. tostring(shape_val) .. "` does not equal `" .. tostring(item_value) .. "`"
+            new_val, tuple_state = FailedTransform, "expected " .. tostring(describe_literal(item_value))
           end
         end
         if new_val == FailedTransform then
-          err = "field `" .. tostring(shape_key) .. "`: " .. tostring(tuple_state)
+          err = "field " .. tostring(describe_literal(shape_key)) .. ": " .. tostring(tuple_state)
           if check_all then
             if errors then
               table.insert(errors, err)
@@ -1268,7 +1193,7 @@ do
               [k] = value[k]
             }, new_state)
             if tuple == FailedTransform then
-              err = "field `" .. tostring(k) .. "`: " .. tostring(tuple_state)
+              err = "field " .. tostring(describe_literal(k)) .. ": " .. tostring(tuple_state)
               if check_all then
                 if errors then
                   table.insert(errors, err)
@@ -1296,7 +1221,7 @@ do
             local _accum_0 = { }
             local _len_0 = 1
             for key in pairs(remaining_keys) do
-              _accum_0[_len_0] = "`" .. tostring(key) .. "`"
+              _accum_0[_len_0] = describe_literal(key)
               _len_0 = _len_0 + 1
             end
             names = _accum_0
@@ -1319,113 +1244,6 @@ do
         return FailedTransform, table.concat(errors, "; ")
       end
       return out, merge_tag_state(state, new_state)
-    end,
-    check_field = function(self, key, value, expected_value, tbl, state)
-      if value == expected_value then
-        return state or true
-      end
-      if BaseType:is_base_type(expected_value) and expected_value.check_value then
-        local err
-        state, err = expected_value:check_value(value, state)
-        if not (state) then
-          return nil, "field `" .. tostring(key) .. "`: " .. tostring(err), err
-        end
-      else
-        local err = "expected `" .. tostring(expected_value) .. "`, got `" .. tostring(value) .. "`"
-        return nil, "field `" .. tostring(key) .. "` " .. tostring(err), err
-      end
-      return state or true
-    end,
-    check_fields = function(self, value, short_circuit)
-      if short_circuit == nil then
-        short_circuit = false
-      end
-      if not (type(value) == "table") then
-        if short_circuit then
-          return nil, self.__class.type_err_message
-        else
-          return nil, {
-            self.__class.type_err_message
-          }
-        end
-      end
-      local errors
-      if not (short_circuit) then
-        errors = { }
-      end
-      local state = nil
-      local remaining_keys
-      if not self.open then
-        do
-          local _tbl_0 = { }
-          for key in pairs(value) do
-            _tbl_0[key] = true
-          end
-          remaining_keys = _tbl_0
-        end
-      end
-      for shape_key, shape_val in pairs(self.shape) do
-        local item_value = value[shape_key]
-        if remaining_keys then
-          remaining_keys[shape_key] = nil
-        end
-        local err, standalone_err
-        state, err, standalone_err = self:check_field(shape_key, item_value, shape_val, value, state)
-        if not (state) then
-          if short_circuit then
-            return nil, err
-          else
-            errors[shape_key] = standalone_err or err
-            table.insert(errors, err)
-          end
-        end
-      end
-      if remaining_keys then
-        if self.extra_fields_type then
-          for k in pairs(remaining_keys) do
-            local tuple_state, tuple_err = self.extra_fields_type:check_value({
-              [k] = value[k]
-            }, state)
-            if tuple_state then
-              state = tuple_state
-            else
-              if short_circuit then
-                return nil, tuple_err
-              else
-                return nil, {
-                  tuple_err
-                }
-              end
-            end
-          end
-        else
-          do
-            local extra_key = next(remaining_keys)
-            if extra_key then
-              local msg = "has extra field: `" .. tostring(extra_key) .. "`"
-              if short_circuit then
-                return nil, msg
-              else
-                return nil, {
-                  msg
-                }
-              end
-            end
-          end
-        end
-      end
-      if errors then
-        return nil, errors
-      end
-      return state or true
-    end,
-    check_value = function(self, value, state)
-      local new_state, err = self:check_fields(value, true)
-      if new_state then
-        return merge_tag_state(state, new_state)
-      else
-        return nil, err
-      end
     end
   }
   _base_0.__index = _base_0
@@ -1482,27 +1300,28 @@ do
   local _parent_0 = BaseType
   local _base_0 = {
     _describe = function(self)
-      return "pattern `" .. tostring(self.pattern) .. "`"
+      return "pattern " .. tostring(describe_literal(self.pattern))
     end,
-    check_value = function(self, value, state)
+    _transform = function(self, value, state)
       do
         local initial = self.opts and self.opts.initial_type
         if initial then
           if not (type(value) == initial) then
-            return nil, "expected `" .. tostring(initial) .. "`"
+            return FailedTransform, "expected " .. tostring(describe_literal(initial))
           end
         end
       end
       if self.opts and self.opts.coerce then
         value = tostring(value)
       end
-      if not (type(value) == "string") then
-        return nil, "expected string for value"
+      local t_res, err = types.string(value)
+      if not (t_res) then
+        return FailedTransform, err
       end
       if value:match(self.pattern) then
-        return state or true
+        return value, state
       else
-        return nil, "doesn't match pattern `" .. tostring(self.pattern) .. "`"
+        return FailedTransform, "doesn't match " .. tostring(self:_describe())
       end
     end
   }
@@ -1546,13 +1365,13 @@ do
   local _parent_0 = BaseType
   local _base_0 = {
     _describe = function(self)
-      return "literal `" .. tostring(self.value) .. "`"
+      return describe_literal(self.value)
     end,
-    check_value = function(self, val, state)
-      if self.value ~= val then
-        return nil, "got `" .. tostring(val) .. "`, expected `" .. tostring(self.value) .. "`"
+    _transform = function(self, value, state)
+      if self.value ~= value then
+        return FailedTransform, "expected " .. tostring(self:_describe())
       end
-      return state or true
+      return value, state
     end
   }
   _base_0.__index = _base_0
@@ -1595,14 +1414,14 @@ do
   local _parent_0 = BaseType
   local _base_0 = {
     _describe = function(self)
-      return self.opts.describe or "custom checker " .. tostring(self.fn)
+      return self.opts and self.opts.describe or "custom checker " .. tostring(self.fn)
     end,
-    check_value = function(self, val, state)
-      local pass, err = self.fn(val, self)
+    _transform = function(self, value, state)
+      local pass, err = self.fn(value, self)
       if not (pass) then
-        return nil, err or tostring(val) .. " is invalid"
+        return FailedTransform, err or "failed custom check"
       end
-      return state or true
+      return value, state
     end
   }
   _base_0.__index = _base_0
@@ -1645,11 +1464,11 @@ do
   local values_equivalent
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, val, state)
-      if values_equivalent(self.val, val) then
-        return state or true
+    _transform = function(self, value, state)
+      if values_equivalent(self.val, value) then
+        return value, state
       else
-        return nil, tostring(val) .. " is not equivalent to " .. tostring(self.val)
+        return FailedTransform, "not equivalent to " .. tostring(self.val)
       end
     end
   }
@@ -1726,21 +1545,22 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    check_value = function(self, value, state)
-      local pass, err = self.value_type:check_value(value)
-      if not (pass) then
-        return nil, "range " .. tostring(err)
+    _transform = function(self, value, state)
+      local res
+      res, state = self.value_type:_transform(value, state)
+      if res == FailedTransform then
+        return FailedTransform, "range " .. tostring(state)
       end
       if value < self.left then
-        return nil, "`" .. tostring(value) .. "` is not in " .. tostring(self:_describe())
+        return FailedTransform, "not in " .. tostring(self:_describe())
       end
       if value > self.right then
-        return nil, "`" .. tostring(value) .. "` is not in " .. tostring(self:_describe())
+        return FailedTransform, "not in " .. tostring(self:_describe())
       end
-      return state or true
+      return value, state
     end,
     _describe = function(self)
-      return "range [" .. tostring(self.left) .. ", " .. tostring(self.right) .. "]"
+      return "range from " .. tostring(self.left) .. " to " .. tostring(self.right)
     end
   }
   _base_0.__index = _base_0
