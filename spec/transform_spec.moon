@@ -373,6 +373,54 @@ describe "tableshape.transform", ->
         n\transform true
       }
 
+    it "returns same object if no transforms happen", ->
+      n = types.array_of types.number + types.string / "YA"
+      arr = {5, 2, 1.7, 2}
+      res = n\transform arr
+      assert.true arr == res
+      assert.same {
+        5, 2, 1.7, 2
+      }, res
+
+    it "returns new object if when transforming", ->
+      n = types.array_of types.number + types.string / "YA"
+
+      arr = {5,"hello",7,8}
+      res = n\transform arr
+
+      assert.false arr == res
+      assert.same { 5,"hello",7,8 }, arr
+      assert.same { 5, "YA", 7, 8}, res
+
+      arr = {"hello",7,"world"}
+      res = n\transform arr
+
+      assert.false arr == res
+      assert.same {"hello",7,"world"}, arr
+      assert.same {"YA", 7, "YA"}, res
+
+    it "returns new object when stripping nils", ->
+      n = types.array_of types.number + types.string / nil
+
+      arr = {5,"hello",7,8}
+      res = n\transform arr
+
+      assert.false arr == res
+      assert.same { 5,"hello",7,8 }, arr
+      assert.same { 5, 7, 8}, res
+
+      n2 = types.array_of types.number + types.string / nil, {
+        keep_nils: true
+      }
+
+      arr = {5,"hello",7,8}
+      res = n2\transform arr
+
+      assert.false arr == res
+      assert.same { 5, "hello", 7, 8 }, arr
+      assert.same { 5, nil, 7, 8 }, res
+
+
     it "transforms array items", ->
       n = types.array_of types.string + types.number / (n) -> "number: #{n}"
 

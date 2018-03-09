@@ -979,41 +979,50 @@ do
       end
       local is_literal = not BaseType:is_base_type(self.expected)
       local new_state
-      local out
-      do
-        local _accum_0 = { }
-        local _len_0 = 1
-        for idx, item in ipairs(value) do
-          local _continue_0 = false
-          repeat
-            if is_literal then
-              if self.expected ~= item then
-                return FailedTransform, "array item " .. tostring(idx) .. ": expected " .. tostring(describe_literal(self.expected))
-              else
-                _accum_0[_len_0] = item
-              end
-            else
-              local item_val
-              item_val, new_state = self.expected:_transform(item, new_state)
-              if item_val == FailedTransform then
-                return FailedTransform, "array item " .. tostring(idx) .. ": " .. tostring(new_state)
-              end
-              if item_val == nil and not self.keep_nils then
-                _continue_0 = true
-                break
-              end
-              _accum_0[_len_0] = item_val
-            end
-            _len_0 = _len_0 + 1
-            _continue_0 = true
-          until true
-          if not _continue_0 then
-            break
+      local copy, k
+      for idx, item in ipairs(value) do
+        local skip_item = false
+        local transformed_item
+        if is_literal then
+          if self.expected ~= item then
+            return FailedTransform, "array item " .. tostring(idx) .. ": expected " .. tostring(describe_literal(self.expected))
+          else
+            transformed_item = item
+          end
+        else
+          local item_val
+          item_val, new_state = self.expected:_transform(item, new_state)
+          if item_val == FailedTransform then
+            return FailedTransform, "array item " .. tostring(idx) .. ": " .. tostring(new_state)
+          end
+          if item_val == nil and not self.keep_nils then
+            skip_item = true
+          else
+            transformed_item = item_val
           end
         end
-        out = _accum_0
+        if transformed_item ~= item or skip_item then
+          if not (copy) then
+            do
+              local _accum_0 = { }
+              local _len_0 = 1
+              local _max_0 = idx - 1
+              for _index_0 = 1, _max_0 < 0 and #value + _max_0 or _max_0 do
+                local i = value[_index_0]
+                _accum_0[_len_0] = i
+                _len_0 = _len_0 + 1
+              end
+              copy = _accum_0
+            end
+            k = idx
+          end
+        end
+        if copy and not skip_item then
+          copy[k] = transformed_item
+          k = k + 1
+        end
       end
-      return out, merge_tag_state(state, new_state)
+      return copy or value, merge_tag_state(state, new_state)
     end
   }
   _base_0.__index = _base_0

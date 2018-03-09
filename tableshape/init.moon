@@ -462,9 +462,12 @@ class ArrayOf extends BaseType
     is_literal = not BaseType\is_base_type @expected
 
     local new_state
+    local copy, k
 
-    out = for idx, item in ipairs value
-      if is_literal
+    for idx, item in ipairs value
+      skip_item = false
+
+      transformed_item = if is_literal
         if @expected != item
           return FailedTransform, "array item #{idx}: expected #{describe_literal @expected}"
         else
@@ -476,11 +479,20 @@ class ArrayOf extends BaseType
           return FailedTransform, "array item #{idx}: #{new_state}"
 
         if item_val == nil and not @keep_nils
-          continue
+          skip_item = true
+        else
+          item_val
 
-        item_val
+      if transformed_item != item or skip_item
+        unless copy
+          copy = [i for i in *value[1, idx - 1]]
+          k = idx
 
-    out, merge_tag_state state, new_state
+      if copy and not skip_item
+        copy[k] = transformed_item
+        k += 1
+
+    copy or value, merge_tag_state state, new_state
 
 class MapOf extends BaseType
   new: (@expected_key, @expected_value, @opts) =>
