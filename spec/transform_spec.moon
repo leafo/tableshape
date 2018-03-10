@@ -546,7 +546,6 @@ describe "tableshape.transform", ->
         "10", "20"
       }, input
 
-
       assert.same {
         nil
         'map value expected type "number", or type "string"'
@@ -564,6 +563,44 @@ describe "tableshape.transform", ->
           [true]: 10
         }
       }
+
+    it "transforms to new object with nested transform", ->
+      t = types.map_of types.string, types.array_of types.number + types.string / nil
+
+      input = {
+        hello: {}
+        world: {1}
+        zone: {1,2}
+      }
+
+      output = assert t\transform input
+      assert.true input == output
+
+      input = {
+        hello: {}
+        world: {1}
+        one: {"one",2}
+        zone: {1,2}
+      }
+      output = assert t\transform input
+
+      assert.false input == output
+      assert.same {
+        hello: {}
+        world: {1}
+        one: {2}
+        zone: {1,2}
+      }, output
+
+      assert.same {
+        hello: {}
+        world: {1}
+        one: {"one",2}
+        zone: {1,2}
+      }, input
+
+      assert.true input.zone == output.zone
+      assert.true input.hello == output.hello
 
     it "transforms key & value literals", ->
       n = types.map_of 5, "hello"
