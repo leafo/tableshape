@@ -516,11 +516,10 @@ describe "tableshape.transform", ->
 
     it "empty table", ->
       n = types.map_of types.string, types.string
-      assert.same {
-        {}
-      }, {
-        n\transform {}
-      }
+      input = {}
+      output = assert n\transform input
+      -- it returns same object
+      assert.true input == output
 
     it "transforms keys & values", ->
       n = types.map_of(
@@ -528,17 +527,25 @@ describe "tableshape.transform", ->
         types.number + types.string / tonumber
       )
 
-      assert.same {
-        {
-          "1": 10
-          "2": 20
-        }
-      }, {
-        n\transform {
-          "10"
-          "20"
-        }
+      input = {
+        "10"
+        "20"
       }
+
+      output = assert n\transform input
+
+      assert.false input == output
+
+      assert.same {
+        "1": 10
+        "2": 20
+      }, output
+
+      --input is unchanged
+      assert.same {
+        "10", "20"
+      }, input
+
 
       assert.same {
         nil

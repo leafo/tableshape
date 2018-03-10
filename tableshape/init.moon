@@ -508,28 +508,36 @@ class MapOf extends BaseType
     key_literal = not BaseType\is_base_type @expected_key
     value_literal = not BaseType\is_base_type @expected_value
 
+    transformed = false
+
     out = {}
     for k,v in pairs value
+      new_k = k
+      new_v = v
+
       if key_literal
         if k != @expected_key
           return FailedTransform, "map key expected #{describe_literal @expected_key}"
       else
-        k, new_state = @expected_key\_transform k, new_state
-        if k == FailedTransform
+        new_k, new_state = @expected_key\_transform k, new_state
+        if new_k == FailedTransform
           return FailedTransform, "map key #{new_state}"
 
       if value_literal
         if v != @expected_value
           return FailedTransform, "map value expected #{describe_literal @expected_value}"
       else
-        v, new_state = @expected_value\_transform v, new_state
-        if v == FailedTransform
+        new_v, new_state = @expected_value\_transform v, new_state
+        if new_v == FailedTransform
           return FailedTransform, "map value #{new_state}"
 
-      continue if k == nil
-      out[k] = v
+      if new_k != k or new_v != v
+        transformed = true
 
-    out, merge_tag_state state, new_state
+      continue if new_k == nil
+      out[new_k] = new_v
+
+    transformed and out or value, merge_tag_state state, new_state
 
 class Shape extends BaseType
   @type_err_message: "expecting table"

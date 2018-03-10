@@ -1078,17 +1078,20 @@ do
       local new_state
       local key_literal = not BaseType:is_base_type(self.expected_key)
       local value_literal = not BaseType:is_base_type(self.expected_value)
+      local transformed = false
       local out = { }
       for k, v in pairs(value) do
         local _continue_0 = false
         repeat
+          local new_k = k
+          local new_v = v
           if key_literal then
             if k ~= self.expected_key then
               return FailedTransform, "map key expected " .. tostring(describe_literal(self.expected_key))
             end
           else
-            k, new_state = self.expected_key:_transform(k, new_state)
-            if k == FailedTransform then
+            new_k, new_state = self.expected_key:_transform(k, new_state)
+            if new_k == FailedTransform then
               return FailedTransform, "map key " .. tostring(new_state)
             end
           end
@@ -1097,23 +1100,26 @@ do
               return FailedTransform, "map value expected " .. tostring(describe_literal(self.expected_value))
             end
           else
-            v, new_state = self.expected_value:_transform(v, new_state)
-            if v == FailedTransform then
+            new_v, new_state = self.expected_value:_transform(v, new_state)
+            if new_v == FailedTransform then
               return FailedTransform, "map value " .. tostring(new_state)
             end
           end
-          if k == nil then
+          if new_k ~= k or new_v ~= v then
+            transformed = true
+          end
+          if new_k == nil then
             _continue_0 = true
             break
           end
-          out[k] = v
+          out[new_k] = new_v
           _continue_0 = true
         until true
         if not _continue_0 then
           break
         end
       end
-      return out, merge_tag_state(state, new_state)
+      return transformed and out or value, merge_tag_state(state, new_state)
     end
   }
   _base_0.__index = _base_0
