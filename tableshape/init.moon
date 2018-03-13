@@ -560,6 +560,12 @@ class Shape extends BaseType
   is_open: =>
     Shape @shape, @clone_opts open: true
 
+  _describe: =>
+    parts = for k, v in pairs @shape
+      "#{describe_literal k} = #{describe_literal v}"
+
+    "{ #{table.concat parts, ", "} }"
+
   _transform: (value, state) =>
     pass, err = types.table value
     unless pass

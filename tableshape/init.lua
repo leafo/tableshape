@@ -1166,6 +1166,19 @@ do
         open = true
       }))
     end,
+    _describe = function(self)
+      local parts
+      do
+        local _accum_0 = { }
+        local _len_0 = 1
+        for k, v in pairs(self.shape) do
+          _accum_0[_len_0] = tostring(describe_literal(k)) .. " = " .. tostring(describe_literal(v))
+          _len_0 = _len_0 + 1
+        end
+        parts = _accum_0
+      end
+      return "{ " .. tostring(table.concat(parts, ", ")) .. " }"
+    end,
     _transform = function(self, value, state)
       local pass, err = types.table(value)
       if not (pass) then

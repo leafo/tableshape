@@ -171,6 +171,32 @@ describe "tableshape.types", ->
         'expected "a", "b", or (my thing)'
       }, {t "wow"}
 
+    it "handles one of shapes", ->
+      s = types.one_of {
+        types.shape {
+          type: "car"
+          wheels: types.number
+        }
+        types.shape {
+          type: "house"
+          windows: types.number
+        }
+      }
+
+      assert.true (s {
+        type: "car"
+        wheels: 10
+      })
+
+      assert.same {
+        nil, ""
+      }, {
+        s {
+          type: "car"
+          wheels: "blue"
+        }
+      }
+
     it "creates an optimized type checker", ->
       t = types.one_of {
         "hello", "world", 5
