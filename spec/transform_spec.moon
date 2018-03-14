@@ -67,7 +67,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        'field "color": expected "red"'
+        'field "color": expected "blue"'
       }, { n\transform { color: "red" } }
 
       assert.same {
@@ -263,7 +263,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        'field 1: expected "orange"'
+        'field 1: expected "blue"'
       }, {
         t\transform {
           "orange", "blue", "purple"
@@ -286,7 +286,7 @@ describe "tableshape.transform", ->
 
       assert.same {
         nil
-        'field 1: expected "orange"; field 2: expected "blue"; extra fields: 3'
+        'field 1: expected "blue"; field 2: expected "red"; extra fields: 3'
       }, {
         t\transform {
           "orange", "blue", "purple"

@@ -1208,7 +1208,7 @@ do
           if shape_val == item_value then
             new_val, tuple_state = item_value, new_state
           else
-            new_val, tuple_state = FailedTransform, "expected " .. tostring(describe_literal(item_value))
+            new_val, tuple_state = FailedTransform, "expected " .. tostring(describe_literal(shape_val))
           end
         end
         if new_val == FailedTransform then

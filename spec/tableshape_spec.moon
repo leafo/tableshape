@@ -228,7 +228,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        'field 1: expected "orange"'
+        'field 1: expected "blue"'
       }, {
         t {
           "orange", "blue", "purple"
@@ -251,7 +251,7 @@ describe "tableshape.types", ->
 
       assert.same {
         nil
-        'field 1: expected "orange"; field 2: expected "blue"; extra fields: 3'
+        'field 1: expected "blue"; field 2: expected "red"; extra fields: 3'
       }, {
         t {
           "orange", "blue", "purple"

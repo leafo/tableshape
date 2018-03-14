@@ -590,7 +590,7 @@ class Shape extends BaseType
         if shape_val == item_value
           item_value, new_state
         else
-          FailedTransform, "expected #{describe_literal item_value}"
+          FailedTransform, "expected #{describe_literal shape_val}"
 
       if new_val == FailedTransform
         err = "field #{describe_literal shape_key}: #{tuple_state}"
