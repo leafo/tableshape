@@ -171,7 +171,7 @@ describe "tableshape.types", ->
         'expected "a", "b", or (my thing)'
       }, {t "wow"}
 
-    it "handles one of shapes", ->
+    it "shape errors", ->
       s = types.one_of {
         types.shape {
           type: "car"
@@ -189,7 +189,7 @@ describe "tableshape.types", ->
       })
 
       assert.same {
-        nil, ""
+        nil, [[expected { "type" = "car", "wheels" = type "number" }, or { "type" = "house", "windows" = type "number" }]]
       }, {
         s {
           type: "car"

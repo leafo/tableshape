@@ -293,7 +293,6 @@ describe "tableshape.transform", ->
         }
       }
 
-
     it "extra field", ->
       s = types.shape { }, {
         extra_fields: types.map_of(types.string, types.string)
