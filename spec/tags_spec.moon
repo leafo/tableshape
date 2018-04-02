@@ -30,6 +30,24 @@ describe "tableshape.tags", ->
       len: 2
     }
 
+  describe "function tag", ->
+    it "tags basic object", ->
+    t = types.array_of types.literal("hi")\tag (state, val) ->
+      assert.same "hi", val
+
+      if state.count
+        state.count += 1
+      else
+        state.count = 1
+
+    assert_tags t, {"hi"}, {
+      count: 1
+    }
+
+    assert_tags t, {"hi", "hi", "hi"}, {
+      count: 3
+    }
+
   describe "one_of", ->
     it "takes matching tag", ->
       s = types.one_of {

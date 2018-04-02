@@ -270,9 +270,13 @@ class DescribeNode extends BaseType
 class TaggedType extends BaseType
   new: (@base_type, opts) =>
     @tag = assert opts.tag, "tagged type missing tag"
-    if @tag\match "%[%]$"
-      @tag = @tag\sub 1, -3
-      @array = true
+
+    @tag_type = type @tag
+
+    if @tag_type == "string"
+      if @tag\match "%[%]$"
+        @tag = @tag\sub 1, -3
+        @array = true
 
   _transform: (value, state) =>
     value, state = @base_type\_transform value, state
@@ -283,14 +287,17 @@ class TaggedType extends BaseType
     unless type(state) == "table"
       state = {}
 
-    if @array
-      existing = state[@tag]
-      if type(existing) == "table"
-        table.insert existing, value
-      else
-        state[@tag] = setmetatable {value}, TagValueArray
+    if @tag_type == "function"
+      @.tag state, value
     else
-      state[@tag] = value
+      if @array
+        existing = state[@tag]
+        if type(existing) == "table"
+          table.insert existing, value
+        else
+          state[@tag] = setmetatable {value}, TagValueArray
+      else
+        state[@tag] = value
 
     value, state
 

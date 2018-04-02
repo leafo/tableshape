@@ -500,17 +500,21 @@ do
       if not (type(state) == "table") then
         state = { }
       end
-      if self.array then
-        local existing = state[self.tag]
-        if type(existing) == "table" then
-          table.insert(existing, value)
-        else
-          state[self.tag] = setmetatable({
-            value
-          }, TagValueArray)
-        end
+      if self.tag_type == "function" then
+        self.tag(state, value)
       else
-        state[self.tag] = value
+        if self.array then
+          local existing = state[self.tag]
+          if type(existing) == "table" then
+            table.insert(existing, value)
+          else
+            state[self.tag] = setmetatable({
+              value
+            }, TagValueArray)
+          end
+        else
+          state[self.tag] = value
+        end
       end
       return value, state
     end,
@@ -525,9 +529,12 @@ do
     __init = function(self, base_type, opts)
       self.base_type = base_type
       self.tag = assert(opts.tag, "tagged type missing tag")
-      if self.tag:match("%[%]$") then
-        self.tag = self.tag:sub(1, -3)
-        self.array = true
+      self.tag_type = type(self.tag)
+      if self.tag_type == "string" then
+        if self.tag:match("%[%]$") then
+          self.tag = self.tag:sub(1, -3)
+          self.array = true
+        end
       end
     end,
     __base = _base_0,
