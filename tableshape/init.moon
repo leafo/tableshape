@@ -267,6 +267,8 @@ class DescribeNode extends BaseType
   describe: (...) =>
     DescribeNode @node, ...
 
+
+
 class TaggedType extends BaseType
   new: (@base_type, opts) =>
     @tag = assert opts.tag, "tagged type missing tag"
@@ -278,17 +280,16 @@ class TaggedType extends BaseType
         @tag = @tag\sub 1, -3
         @array = true
 
-  _transform: (value, state) =>
-    value, state = @base_type\_transform value, state
 
-    if value == FailedTransform
-      return FailedTransform, state
-
+  update_state: (state, value, ...) =>
     unless type(state) == "table"
       state = {}
 
     if @tag_type == "function"
-      @.tag state, value
+      if select("#", ...) > 0
+        @.tag state, ..., value
+      else
+        @.tag state, value
     else
       if @array
         existing = state[@tag]
@@ -299,11 +300,30 @@ class TaggedType extends BaseType
       else
         state[@tag] = value
 
+    state
+
+  _transform: (value, state) =>
+    value, state = @base_type\_transform value, state
+
+    if value == FailedTransform
+      return FailedTransform, state
+
+    state = @update_state state, value
     value, state
 
   _describe: =>
     base_description = @base_type\_describe!
     "#{base_description} tagged #{describe_literal @tag}"
+
+class TagScopeType extends TaggedType
+  _transform: (value, state) =>
+    value, scope = @base_type\_transform value, nil
+
+    if value == FailedTransform
+      return FailedTransform, scope
+
+    state = @update_state state, scope, value
+    value, state
 
 class OptionalType extends BaseType
   new: (@base_type, @opts) =>
@@ -781,6 +801,7 @@ types = setmetatable {
   range: Range
   equivalent: Equivalent
   custom: Custom
+  scope: TagScopeType
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
 

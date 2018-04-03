@@ -32,21 +32,97 @@ describe "tableshape.tags", ->
 
   describe "function tag", ->
     it "tags basic object", ->
-    t = types.array_of types.literal("hi")\tag (state, val) ->
-      assert.same "hi", val
+      t = types.array_of types.literal("hi")\tag (state, val) ->
+        assert.same "hi", val
 
-      if state.count
-        state.count += 1
-      else
-        state.count = 1
+        if state.count
+          state.count += 1
+        else
+          state.count = 1
 
-    assert_tags t, {"hi"}, {
-      count: 1
-    }
+      assert_tags t, {"hi"}, {
+        count: 1
+      }
 
-    assert_tags t, {"hi", "hi", "hi"}, {
-      count: 3
-    }
+      assert_tags t, {"hi", "hi", "hi"}, {
+        count: 3
+      }
+
+  describe "scope", ->
+    it "stores scoped tags into array", ->
+      obj = types.shape {
+        name: types.string\tag "name"
+      }, open: true
+
+      larp = types.literal "larp"
+      bart = types.literal("bart")\tag "other"
+
+      s = types.shape {
+        things: types.array_of types.scope(obj + larp + bart, tag: "names[]")
+        color: types.string\tag "color"
+      }
+
+      assert_tags s, {
+        color: "blue"
+        things: {
+          { name: "bart", height: 10 }
+          "larp"
+          { name: "narf", color: "blue" }
+          "larp"
+          "bart"
+          { name: "woopsie"}
+          "larp"
+        }
+      }, {
+        color: "blue"
+        names: {
+          { name: "bart" }
+          { name: "narf" }
+          { other: "bart" }
+          { name: "woopsie" }
+        }
+      }
+
+    it "scope and function tag", ->
+      o = types.shape {
+        [1]: types.number\tag "id"
+        name: types.string\tag "name"
+      }
+
+      called = 0
+
+      s = types.shape {
+        types.string\tag "color"
+        types.scope o, tag: (state, val, val_state) ->
+          called += 1
+
+          -- the state of the current scope
+          assert.same { color: "red" }, state
+
+          -- the value being checked
+          assert.same {
+            1234
+            name: "hello"
+          }, val
+
+          -- the state captured from the value
+          assert.same { name: "hello", id: 1234 }, val_state
+
+          state.the_name = val_state.name
+      }
+
+      assert_tags s, {
+        "red"
+        {
+          1234
+          name: "hello"
+        }
+      }, {
+        color: "red"
+        the_name: "hello"
+      }
+
+      assert.same 2, called
 
   describe "one_of", ->
     it "takes matching tag", ->

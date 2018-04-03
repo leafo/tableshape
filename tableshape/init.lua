@@ -492,16 +492,16 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
-    _transform = function(self, value, state)
-      value, state = self.base_type:_transform(value, state)
-      if value == FailedTransform then
-        return FailedTransform, state
-      end
+    update_state = function(self, state, value, ...)
       if not (type(state) == "table") then
         state = { }
       end
       if self.tag_type == "function" then
-        self.tag(state, value)
+        if select("#", ...) > 0 then
+          self.tag(state, ..., value)
+        else
+          self.tag(state, value)
+        end
       else
         if self.array then
           local existing = state[self.tag]
@@ -516,6 +516,14 @@ do
           state[self.tag] = value
         end
       end
+      return state
+    end,
+    _transform = function(self, value, state)
+      value, state = self.base_type:_transform(value, state)
+      if value == FailedTransform then
+        return FailedTransform, state
+      end
+      state = self:update_state(state, value)
       return value, state
     end,
     _describe = function(self)
@@ -563,6 +571,54 @@ do
     _parent_0.__inherited(_parent_0, _class_0)
   end
   TaggedType = _class_0
+end
+local TagScopeType
+do
+  local _class_0
+  local _parent_0 = TaggedType
+  local _base_0 = {
+    _transform = function(self, value, state)
+      local scope
+      value, scope = self.base_type:_transform(value, nil)
+      if value == FailedTransform then
+        return FailedTransform, scope
+      end
+      state = self:update_state(state, scope, value)
+      return value, state
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, ...)
+      return _class_0.__parent.__init(self, ...)
+    end,
+    __base = _base_0,
+    __name = "TagScopeType",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  TagScopeType = _class_0
 end
 do
   local _class_0
@@ -1677,7 +1733,8 @@ types = setmetatable({
   literal = Literal,
   range = Range,
   equivalent = Equivalent,
-  custom = Custom
+  custom = Custom,
+  scope = TagScopeType
 }, {
   __index = function(self, fn_name)
     return error("Type checker does not exist: `" .. tostring(fn_name) .. "`")
