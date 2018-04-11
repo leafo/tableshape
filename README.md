@@ -364,10 +364,9 @@ cord:transform({ x = 9, y = 10}) --> { x = 9, y = 10}
 
 ### Tags
 
-Tags can be used to extract specified values from a type as it's checked.
+Tags can be used to extract specified values from a type as it's checked. A tag
+is only saved if the type it wraps matches.
 
-If tags are used, then a table of tags is returned as the second return value
-from a successful type match.
 
 ```lua
 loca t = types.shape {
@@ -378,8 +377,35 @@ loca t = types.shape {
   types.number:tag("y"),
 }
 
-t({1,2})          --> true, { x = 1, y = 2}
-t({a = 3, b = 9}) --> true, { x = 3, y = 9}
+t({1,2})          --> { x = 1, y = 2}
+t({a = 3, b = 9}) --> { x = 3, y = 9}
+```
+
+The results of tag matches are stored in the *state* object, an table that is
+passed throughought the entire type check. The state is returned at the end of
+a type check as the first return value on a successful match.
+
+If no state is used, then `true` is returned.
+
+### Scopes
+
+You can use scopes to nest tags into objects. A scope can be created with
+`types.scope`. A scope works by pushing a new state on the state stack. After
+the scope is completed, it is assigned to the previous scope at the specified
+name
+
+```lua
+local obj = types.shape {
+  id = types.string:tag("name"),
+  age = types.number
+}
+
+local many = typse.array_of(types.scope(obj))
+
+many({
+  { id = "leaf", age = 2000 },
+  { id = "amos", age = 15 }
+}) --> {{name = "leaf"}, {name = "amos"}}
 ```
 
 ### Transforming
@@ -718,6 +744,28 @@ when an error message is returned. `description` can either be a string
 literal, or a function. When using a function, it must return the description
 of the type as a string.
 
+
+#### `type:tag(name_or_fn)`
+
+Causes the type checker to save matched values into the state object. If
+`name_or_fn` is a string, then the tested value is stored into the state with
+key `name_or_fn`.
+
+If `name_or_fn` is a function, then you provide a callback to control how the
+state is updated. The function takes as arguments the state object and the
+value that matched: 
+
+```lua
+-- an example tag function that accumulates an array
+types.number:tag(function(state, value)
+  state.numbers = state.numbers or {}
+  table.insert(state.numbers, value)
+end)
+```
+
+You can mutate the state object with any changes. The return value of this
+function is ignored.
+
 #### `shape_type:is_open()`
 
 > This method is deprecated, use the `open = true` constructor option on shapes instead
@@ -748,6 +796,8 @@ it matches `type`, otherwise fail.
 * Add support for tagging
 * Add `state` parameter that's passed through type checks (internal use only right now)
 * Replace repair interface with simple transform
+* Error messages will never re-output the value
+* Type objects have a new interface to describe their shape
 
 **Feb 10 2016** - 1.2.1
 

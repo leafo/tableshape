@@ -1763,5 +1763,5 @@ return {
   is_type = is_type,
   type_switch = type_switch,
   BaseType = BaseType,
-  VERSION = "1.2.1"
+  VERSION = "2.0.0"
 }
