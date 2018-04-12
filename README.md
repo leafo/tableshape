@@ -48,11 +48,11 @@ local player = {
 }
 
 -- verify that it matches the shape
-assert(player_shape:check_value(player))
+assert(player_shape(player))
 
 -- let's break the shape to see the error message:
 player.position.x = "heck"
-assert(player_shape:check_value(player))
+assert(player_shape(player))
 
 -- error: field `position`: field `x`: got type `string`, expected `number`
 ```
@@ -121,14 +121,14 @@ local types = require("tableshape").types
 ```
 
 You can use the types table to check the types of simple values, not just
-tables. The `check_value` method on any type object will test a value to see if
-it matches the shape or type. It returns `true` on a match, or `nil` and the
-error message if it fails. Type objects also have the `__call` metamethod
-provided, so you can call the type checker like a function to check the value.
+tables. Calling the type checker like a function will test a value to see if it
+matches the shape or type. It returns `true` on a match, or `nil` and the error
+message if it fails. (This is done with the `__call` metamethod, you can also
+use the `check_value` method directly)
 
 ```lua
-types.string:check_value("hello!") --> true
-types.string:check_value(777)      --> nil, "got type `number`, expected `string`"
+types.string("hello!") --> true
+types.string(777)      --> nil, expected type "string", got "number"
 ```
 
 You can see the full list of the available types below in the reference.
@@ -141,10 +141,10 @@ Here we test for an array of numbers by using `array_of`:
 ```lua
 local numbers_shape = types.array_of(types.number)
 
-assert(numbers_shape:check_value({1,2,3}))
+assert(numbers_shape({1,2,3}))
 
 -- error: item 2 in array does not match: got type `string`, expected `number`
-assert(numbers_shape:check_value({1,"oops",3}))
+assert(numbers_shape({1,"oops",3}))
 ```
 
 > **Note:** The type checking is strict, a string that looks like a number,
@@ -161,19 +161,19 @@ local object_shape = types.shape{
 }
 
 -- success
-assert(object_shape:check_value({
+assert(object_shape({
   id = 1234,
   name = "hello world"
 }))
 
 -- sucess, optional field is not there
-assert(object_shape:check_value({
+assert(object_shape({
   id = 1235,
 }))
 
 
 -- error: field `id`: got type `nil`, expected `number`
-assert(object_shape:check_value({
+assert(object_shape({
   name = 424,
 }))
 ```
@@ -192,7 +192,7 @@ local object_shape = types.shape{
 }
 
 -- error: field `name` expected `Cowcat`
-assert(object_shape:check_value({
+assert(object_shape({
   name = "Cowdog"
 }))
 ```
@@ -204,10 +204,10 @@ succeed if one of them matches. (It works the same as the `+` operator)
 ```lua
 local func_or_bool = types.one_of { types.func, types.boolean }
 
-assert(func_or_bool:check_value(function() end))
+assert(func_or_bool(function() end))
 
--- error: value `2345` did not match one of: type `function`, type `boolean`
-assert(func_or_bool:check_value(2345))
+-- error: expected type "function", or type "boolean"
+assert(func_or_bool(2345))
 ```
 
 It can also be used with literal values as well:
@@ -215,11 +215,11 @@ It can also be used with literal values as well:
 ```lua
 local limbs = types.one_of{"foot", "arm"}
 
-assert(limbs:check_value("foot")) -- success
-assert(limbs:check_value("arm")) -- success
-
--- error: value `baseball` did not match one of: `foot`, `arm`
-assert(limbs:check_value("baseball"))
+assert(limbs("foot")) -- success
+assert(limbs("arm")) -- success
+ 
+-- error: expected "foot", or "arm"
+assert(limbs("baseball"))
 ```
 
 The `pattern` type can be used to test a string with a Lua pattern
@@ -227,10 +227,10 @@ The `pattern` type can be used to test a string with a Lua pattern
 ```lua
 local no_spaces = types.pattern "^[^%s]*$"
 
-assert(no_spaces:check_value("hello!"))
+assert(no_spaces("hello!"))
 
 -- error: doesn't match pattern `^[^%s]*$`
-assert(no_spaces:check_value("oh no!"))
+assert(no_spaces("oh no!"))
 ```
 
 You can see all the other type checkers provided in the reference below.
@@ -672,10 +672,9 @@ passing a string to a numeric type checker will fail up front.
 local nums = types.range 1, 20
 local letters = types.range "a", "f"
 
-
-nums:check_value(4)    --> true
-nums:check_value("c")  --> true
-nums:check_value("n")  --> true
+nums(4)    --> true
+nums("c")  --> true
+nums("n")  --> true
 ```
 
 This checker works well with the length checks for strings and arrays.
@@ -702,16 +701,18 @@ Additionally there's the special *any* type:
 
 Every type checker has the follow methods:
 
-#### `type:check_value(value)`
+#### `type(value)` or `type:check_value(value)`
 
-Tests `value` against the type checker. Returns `true` if the value passes the
-check. Returns `nil` and an error message as a string if there is a mismatch.
-The error message will identify where the mismatch happened as best it can.
+Calling `check_value` is equivalent to calling the type checker object like a
+function. The `__call` metamethod is provided on all type checker objects to
+allow you easily test a value by treating them like a function.
+
+Tests `value` against the type checker. Returns `true` (or the current state
+object) if the value passes the check. Returns `nil` and an error message as a
+string if there is a mismatch.  The error message will identify where the
+mismatch happened as best it can.
 
 `check_value` will abort on the first error found, and only that error message is returned.
-
-Can also be invoked by calling the type checker object, the `__call` metamethod
-is overidden to call this method.
 
 #### `type:transform(value)`
 
