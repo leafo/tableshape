@@ -766,6 +766,11 @@ end)
 You can mutate the state object with any changes. The return value of this
 function is ignored.
 
+#### `type:scope(name)`
+
+Pushes a new state object on top of the stack. After the scoped type matches,
+the state it created is assigned to the previous scope with the key `name`.
+
 #### `shape_type:is_open()`
 
 > This method is deprecated, use the `open = true` constructor option on shapes instead
