@@ -184,7 +184,7 @@ class TransformNode extends BaseType
       out = switch type @.t_fn
         when "function"
           if @with_state
-            @.t_fn(value, state)
+            @.t_fn(value, state_or_err)
           else
             @.t_fn(value)
         else

@@ -232,7 +232,7 @@ do
         local _exp_0 = type(self.t_fn)
         if "function" == _exp_0 then
           if self.with_state then
-            out = self.t_fn(value, state)
+            out = self.t_fn(value, state_or_err)
           else
             out = self.t_fn(value)
           end
