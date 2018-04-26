@@ -74,6 +74,13 @@ do
     __div = function(self, fn)
       return TransformNode(self, fn)
     end,
+    __mod = function(self, fn)
+      do
+        local _with_0 = TransformNode(self, fn)
+        _with_0.with_state = true
+        return _with_0
+      end
+    end,
     __mul = function(self, right)
       return SequenceNode(self, right)
     end,
@@ -192,6 +199,7 @@ do
     cls.__base.__call = cls.__call
     cls.__base.__eq = self.__eq
     cls.__base.__div = self.__div
+    cls.__base.__mod = self.__mod
     cls.__base.__mul = self.__mul
     cls.__base.__add = self.__add
     local mt = getmetatable(cls)
@@ -223,7 +231,11 @@ do
         local out
         local _exp_0 = type(self.t_fn)
         if "function" == _exp_0 then
-          out = self.t_fn(value)
+          if self.with_state then
+            out = self.t_fn(value, state)
+          else
+            out = self.t_fn(value)
+          end
         else
           out = self.t_fn
         end

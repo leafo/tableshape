@@ -66,6 +66,7 @@ class BaseType
     cls.__base.__call = cls.__call
     cls.__base.__eq = @__eq
     cls.__base.__div = @__div
+    cls.__base.__mod = @__mod
     cls.__base.__mul = @__mul
     cls.__base.__add = @__add
 
@@ -86,6 +87,10 @@ class BaseType
 
   __div: (fn) =>
     TransformNode @, fn
+
+  __mod: (fn) =>
+    with TransformNode @, fn
+      .with_state = true
 
   __mul: (right) =>
     SequenceNode @, right
@@ -178,7 +183,10 @@ class TransformNode extends BaseType
     else
       out = switch type @.t_fn
         when "function"
-          @.t_fn(value)
+          if @with_state
+            @.t_fn(value, state)
+          else
+            @.t_fn(value)
         else
           @.t_fn
 
