@@ -510,22 +510,22 @@ do
       end
       if self.tag_type == "function" then
         if select("#", ...) > 0 then
-          self.tag(state, ..., value)
+          self.tag_name(state, ..., value)
         else
-          self.tag(state, value)
+          self.tag_name(state, value)
         end
       else
-        if self.array then
-          local existing = state[self.tag]
+        if self.tag_array then
+          local existing = state[self.tag_name]
           if type(existing) == "table" then
             table.insert(existing, value)
           else
-            state[self.tag] = setmetatable({
+            state[self.tag_name] = setmetatable({
               value
             }, TagValueArray)
           end
         else
-          state[self.tag] = value
+          state[self.tag_name] = value
         end
       end
       return state
@@ -548,12 +548,12 @@ do
   _class_0 = setmetatable({
     __init = function(self, base_type, opts)
       self.base_type = base_type
-      self.tag = assert(opts.tag, "tagged type missing tag")
-      self.tag_type = type(self.tag)
+      self.tag_name = assert(opts.tag, "tagged type missing tag")
+      self.tag_type = type(self.tag_name)
       if self.tag_type == "string" then
-        if self.tag:match("%[%]$") then
-          self.tag = self.tag:sub(1, -3)
-          self.array = true
+        if self.tag_name:match("%[%]$") then
+          self.tag_name = self.tag_name:sub(1, -3)
+          self.tag_array = true
         end
       end
     end,
@@ -595,15 +595,21 @@ do
       if value == FailedTransform then
         return FailedTransform, scope
       end
-      state = self:update_state(state, scope, value)
+      if self.tag_name then
+        state = self:update_state(state, scope, value)
+      end
       return value, state
     end
   }
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, ...)
-      return _class_0.__parent.__init(self, ...)
+    __init = function(self, base_type, opts)
+      if opts then
+        return _class_0.__parent.__init(self, base_type, opts)
+      else
+        self.base_type = base_type
+      end
     end,
     __base = _base_0,
     __name = "TagScopeType",

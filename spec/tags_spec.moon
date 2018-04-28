@@ -83,6 +83,38 @@ describe "tableshape.tags", ->
         }
       }
 
+    it "drops scope with no name", ->
+      scoped = types.scope types.shape({
+        hello: types.string\tag "thing"
+      }) % (value, state) ->
+        "value: #{state.thing}"
+
+      t = types.shape {
+        name: types.string\tag "the_name"
+        items: types.array_of scoped
+      }
+
+      obj, state = assert t\transform {
+        name: "dodo"
+        items: {
+          { hello: "world" }
+          { hello: "zone" }
+        }
+      }
+
+      assert.same {
+        name: "dodo"
+        items: {
+          "value: world"
+          "value: zone"
+        }
+      }, obj
+
+      assert.same {
+        the_name: "dodo"
+      }, state
+
+
     it "scope and function tag", ->
       o = types.shape {
         [1]: types.number\tag "id"

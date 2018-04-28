@@ -279,15 +279,14 @@ class DescribeNode extends BaseType
 
 class TaggedType extends BaseType
   new: (@base_type, opts) =>
-    @tag = assert opts.tag, "tagged type missing tag"
+    @tag_name = assert opts.tag, "tagged type missing tag"
 
-    @tag_type = type @tag
+    @tag_type = type @tag_name
 
     if @tag_type == "string"
-      if @tag\match "%[%]$"
-        @tag = @tag\sub 1, -3
-        @array = true
-
+      if @tag_name\match "%[%]$"
+        @tag_name = @tag_name\sub 1, -3
+        @tag_array = true
 
   update_state: (state, value, ...) =>
     unless type(state) == "table"
@@ -295,18 +294,18 @@ class TaggedType extends BaseType
 
     if @tag_type == "function"
       if select("#", ...) > 0
-        @.tag state, ..., value
+        @.tag_name state, ..., value
       else
-        @.tag state, value
+        @.tag_name state, value
     else
-      if @array
-        existing = state[@tag]
+      if @tag_array
+        existing = state[@tag_name]
         if type(existing) == "table"
           table.insert existing, value
         else
-          state[@tag] = setmetatable {value}, TagValueArray
+          state[@tag_name] = setmetatable {value}, TagValueArray
       else
-        state[@tag] = value
+        state[@tag_name] = value
 
     state
 
@@ -324,13 +323,21 @@ class TaggedType extends BaseType
     "#{base_description} tagged #{describe_literal @tag}"
 
 class TagScopeType extends TaggedType
+  new: (base_type, opts) =>
+    if opts
+      super base_type, opts
+    else
+      @base_type = base_type
+
   _transform: (value, state) =>
     value, scope = @base_type\_transform value, nil
 
     if value == FailedTransform
       return FailedTransform, scope
 
-    state = @update_state state, scope, value
+    if @tag_name
+      state = @update_state state, scope, value
+
     value, state
 
 class OptionalType extends BaseType
