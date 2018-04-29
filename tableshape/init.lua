@@ -1781,5 +1781,6 @@ return {
   is_type = is_type,
   type_switch = type_switch,
   BaseType = BaseType,
+  FailedTransform = FailedTransform,
   VERSION = "2.0.0"
 }
