@@ -400,13 +400,18 @@ local obj = types.shape {
   age = types.number
 }
 
-local many = typse.array_of(types.scope(obj))
+local many = types.array_of(types.scope(obj, { tag = "name[]"}))
 
 many({
   { id = "leaf", age = 2000 },
   { id = "amos", age = 15 }
 }) --> {{name = "leaf"}, {name = "amos"}}
 ```
+
+If the tag of the `types.scope` is left out, then an anonymous scope is used.
+An anonymous scope is thrown away after the scope is exited. This style is
+useful if you use state for a local transformation, and don't need those values
+outside.
 
 ### Transforming
 
@@ -732,6 +737,8 @@ argument.
 
 #### `type:repair(value)`
 
+> This method is deprecated, use the `type:transform` instead
+
 An alias for `type:transform(value)`
 
 #### `type:is_optional()`
@@ -759,18 +766,45 @@ value that matched:
 ```lua
 -- an example tag function that accumulates an array
 types.number:tag(function(state, value)
-  state.numbers = state.numbers or {}
+  -- nested objects should be treated as read only, so modifications are done to a copy
+  if state.numbers
+    state.numbers = { unpack state.numbers }
+  else
+    state.numbers = { }
+  end
+
   table.insert(state.numbers, value)
 end)
 ```
 
-You can mutate the state object with any changes. The return value of this
+> This is illustrative example. If you need to accumulate a list of values then
+> use the `[]` syntax for tag names.
+
+You can mutate the `state` argument with any changes. The return value of this
 function is ignored.
+
+Note that state objects are generally immutable. Whenever a state modifying
+operation takes place, the modification is done to a copy of the state object.
+This is to prevent changes to the  state object from being kept around when a
+failing type is tested.
+
+A `function` tag gets a copy of the current state as its first argument ready
+for editing. The copy is a shallow copy. If you have any nested objects then
+it's necessary to clone them before making any modifications, as seen in the
+example above.
 
 #### `type:scope(name)`
 
 Pushes a new state object on top of the stack. After the scoped type matches,
 the state it created is assigned to the previous scope with the key `name`.
+
+It is equivalent to using the `types.scope` constructor like so:
+
+```lua
+-- The following two lines are equivalent
+type:scope(name)                  --> scoped type
+types.scope(type, { tag = name }) --> scoped type
+```
 
 #### `shape_type:is_open()`
 
@@ -800,7 +834,7 @@ it matches `type`, otherwise fail.
 * Add overloaded operators to compose types
 * Add transformation interface
 * Add support for tagging
-* Add `state` parameter that's passed through type checks (internal use only right now)
+* Add `state` parameter that's passed through type checks
 * Replace repair interface with simple transform
 * Error messages will never re-output the value
 * Type objects have a new interface to describe their shape
