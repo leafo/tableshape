@@ -1,30 +1,23 @@
 local OptionalType, TaggedType, types
 
 -- metatable to identify arrays for merging
-TagValueArray = {}
 FailedTransform = {}
 
 unpack = unpack or table.unpack
 
-merge_tag_state = (existing, new_tags) ->
-  if type(new_tags) == "table" and type(existing) == "table"
-    for k,v in pairs new_tags
-      ev = existing[k]
-      if ev and getmetatable(ev) == TagValueArray and getmetatable(v) == TagValueArray
-        for array_val in *v
-          table.insert ev, array_val
-      else
-        existing[k] = v
+-- make a clone of state for insertion
+clone_state = (state_obj) ->
+  -- uninitialized state
+  if type(state_obj) != "table"
+    return {}
 
-    return existing
+  -- shallow copy
+  out = {k, v for k, v in pairs state_obj}
+  if mt = getmetatable state_obj
+    setmetatable out, mt
 
-  -- make sure we don't prioritize empty state over set one
-  if new_tags == true
-    existing or new_tags
-  elseif existing == true
-    new_tags or existing
-  else
-    new_tags or existing or true
+  out
+
 
 local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode
 
@@ -240,10 +233,10 @@ class FirstOfNode extends BaseType
       return FailedTransform, "no options for node"
 
     for node in *@options
-      new_val, new_state_or_err = node\_transform value, state
+      new_val, new_state = node\_transform value, state
 
       unless new_val == FailedTransform
-        return new_val, new_state_or_err
+        return new_val, new_state
 
     FailedTransform, "expected #{@_describe!}"
 
@@ -280,8 +273,6 @@ class DescribeNode extends BaseType
   describe: (...) =>
     DescribeNode @node, ...
 
-
-
 class TaggedType extends BaseType
   new: (@base_type, opts) =>
     @tag_name = assert opts.tag, "tagged type missing tag"
@@ -294,25 +285,27 @@ class TaggedType extends BaseType
         @tag_array = true
 
   update_state: (state, value, ...) =>
-    unless type(state) == "table"
-      state = {}
+    out = clone_state state
 
     if @tag_type == "function"
       if select("#", ...) > 0
-        @.tag_name state, ..., value
+        @.tag_name out, ..., value
       else
-        @.tag_name state, value
+        @.tag_name out, value
     else
       if @tag_array
-        existing = state[@tag_name]
-        if type(existing) == "table"
-          table.insert existing, value
-        else
-          state[@tag_name] = setmetatable {value}, TagValueArray
-      else
-        state[@tag_name] = value
+        existing = out[@tag_name]
 
-    state
+        if type(existing) == "table"
+          copy = {k,v for k,v in pairs existing}
+          table.insert copy, value
+          out[@tag_name] = copy
+        else
+          out[@tag_name] = { value }
+      else
+        out[@tag_name] = value
+
+    out
 
   _transform: (value, state) =>
     value, state = @base_type\_transform value, state
@@ -334,8 +327,12 @@ class TagScopeType extends TaggedType
     else
       @base_type = base_type
 
+  -- override to control how empty state is created for existing state
+  create_scope_state: (state) =>
+    nil
+
   _transform: (value, state) =>
-    value, scope = @base_type\_transform value, nil
+    value, scope = @base_type\_transform value, @create_scope_state(state)
 
     if value == FailedTransform
       return FailedTransform, scope
@@ -472,15 +469,13 @@ class AllOf extends BaseType
       assert BaseType\is_base_type(checker), "all_of expects all type checkers"
 
   _transform: (value, state) =>
-    local new_state
-
     for t in *@types
-      value, new_state = t\_transform value, new_state
+      value, state = t\_transform value, state
 
       if value == FailedTransform
-        return FailedTransform, new_state
+        return FailedTransform, state
 
-    value, merge_tag_state state, new_state
+    value, state
 
 class ArrayOf extends BaseType
   @type_err_message: "expecting table"
@@ -497,6 +492,7 @@ class ArrayOf extends BaseType
 
   _transform: (value, state) =>
     pass, err = types.table value
+
     unless pass
       return FailedTransform, err
 
@@ -508,7 +504,6 @@ class ArrayOf extends BaseType
 
     is_literal = not BaseType\is_base_type @expected
 
-    local new_state
     local copy, k
 
     for idx, item in ipairs value
@@ -520,10 +515,10 @@ class ArrayOf extends BaseType
         else
           item
       else
-        item_val, new_state = @expected\_transform item, new_state
+        item_val, state = @expected\_transform item, state
 
         if item_val == FailedTransform
-          return FailedTransform, "array item #{idx}: #{new_state}"
+          return FailedTransform, "array item #{idx}: #{state}"
 
         if item_val == nil and not @keep_nils
           skip_item = true
@@ -539,7 +534,7 @@ class ArrayOf extends BaseType
         copy[k] = transformed_item
         k += 1
 
-    copy or value, merge_tag_state state, new_state
+    copy or value, state
 
 class MapOf extends BaseType
   new: (@expected_key, @expected_value, @opts) =>
@@ -549,8 +544,6 @@ class MapOf extends BaseType
     pass, err = types.table value
     unless pass
       return FailedTransform, err
-
-    local new_state
 
     key_literal = not BaseType\is_base_type @expected_key
     value_literal = not BaseType\is_base_type @expected_value
@@ -566,17 +559,17 @@ class MapOf extends BaseType
         if k != @expected_key
           return FailedTransform, "map key expected #{describe_literal @expected_key}"
       else
-        new_k, new_state = @expected_key\_transform k, new_state
+        new_k, state = @expected_key\_transform k, state
         if new_k == FailedTransform
-          return FailedTransform, "map key #{new_state}"
+          return FailedTransform, "map key #{state}"
 
       if value_literal
         if v != @expected_value
           return FailedTransform, "map value expected #{describe_literal @expected_value}"
       else
-        new_v, new_state = @expected_value\_transform v, new_state
+        new_v, state = @expected_value\_transform v, state
         if new_v == FailedTransform
-          return FailedTransform, "map value #{new_state}"
+          return FailedTransform, "map value #{state}"
 
       if new_k != k or new_v != v
         transformed = true
@@ -584,7 +577,7 @@ class MapOf extends BaseType
       continue if new_k == nil
       out[new_k] = new_v
 
-    transformed and out or value, merge_tag_state state, new_state
+    transformed and out or value, state
 
 class Shape extends BaseType
   @type_err_message: "expecting table"
@@ -623,7 +616,6 @@ class Shape extends BaseType
 
     local errors
     out = {}
-    local new_state
 
     for shape_key, shape_val in pairs @shape
       item_value = value[shape_key]
@@ -631,16 +623,16 @@ class Shape extends BaseType
       if remaining_keys
         remaining_keys[shape_key] = nil
 
-      new_val, tuple_state = if BaseType\is_base_type shape_val
-        shape_val\_transform item_value, new_state
+      new_val, state = if BaseType\is_base_type shape_val
+        shape_val\_transform item_value, state
       else
         if shape_val == item_value
-          item_value, new_state
+          item_value, state
         else
           FailedTransform, "expected #{describe_literal shape_val}"
 
       if new_val == FailedTransform
-        err = "field #{describe_literal shape_key}: #{tuple_state}"
+        err = "field #{describe_literal shape_key}: #{state}"
         if check_all
           if errors
             table.insert errors, err
@@ -649,7 +641,6 @@ class Shape extends BaseType
         else
           return FailedTransform, err
       else
-        new_state = tuple_state
         out[shape_key] = new_val
 
     if remaining_keys and next remaining_keys
@@ -659,9 +650,9 @@ class Shape extends BaseType
           out[k] = value[k]
       elseif @extra_fields_type
         for k in pairs remaining_keys
-          tuple, tuple_state = @.extra_fields_type\_transform {[k]: value[k]}, new_state
+          tuple, state = @.extra_fields_type\_transform {[k]: value[k]}, state
           if tuple == FailedTransform
-            err = "field #{describe_literal k}: #{tuple_state}"
+            err = "field #{describe_literal k}: #{state}"
             if check_all
               if errors
                 table.insert errors, err
@@ -670,7 +661,6 @@ class Shape extends BaseType
             else
               return FailedTransform, err
           else
-            new_state = tuple_state
             if nk = tuple and next tuple
               out[nk] = tuple[nk]
       else
@@ -690,7 +680,7 @@ class Shape extends BaseType
     if errors and next errors
       return FailedTransform, table.concat errors, "; "
 
-    out, merge_tag_state state, new_state
+    out, state
 
 class Pattern extends BaseType
   new: (@pattern, @opts) =>

@@ -1,30 +1,26 @@
 local OptionalType, TaggedType, types
-local TagValueArray = { }
 local FailedTransform = { }
 local unpack = unpack or table.unpack
-local merge_tag_state
-merge_tag_state = function(existing, new_tags)
-  if type(new_tags) == "table" and type(existing) == "table" then
-    for k, v in pairs(new_tags) do
-      local ev = existing[k]
-      if ev and getmetatable(ev) == TagValueArray and getmetatable(v) == TagValueArray then
-        for _index_0 = 1, #v do
-          local array_val = v[_index_0]
-          table.insert(ev, array_val)
-        end
-      else
-        existing[k] = v
-      end
+local clone_state
+clone_state = function(state_obj)
+  if type(state_obj) ~= "table" then
+    return { }
+  end
+  local out
+  do
+    local _tbl_0 = { }
+    for k, v in pairs(state_obj) do
+      _tbl_0[k] = v
     end
-    return existing
+    out = _tbl_0
   end
-  if new_tags == true then
-    return existing or new_tags
-  elseif existing == true then
-    return new_tags or existing
-  else
-    return new_tags or existing or true
+  do
+    local mt = getmetatable(state_obj)
+    if mt then
+      setmetatable(out, mt)
+    end
   end
+  return out
 end
 local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode
 local describe_literal
@@ -387,9 +383,9 @@ do
       local _list_0 = self.options
       for _index_0 = 1, #_list_0 do
         local node = _list_0[_index_0]
-        local new_val, new_state_or_err = node:_transform(value, state)
+        local new_val, new_state = node:_transform(value, state)
         if not (new_val == FailedTransform) then
-          return new_val, new_state_or_err
+          return new_val, new_state
         end
       end
       return FailedTransform, "expected " .. tostring(self:_describe())
@@ -511,30 +507,37 @@ do
   local _parent_0 = BaseType
   local _base_0 = {
     update_state = function(self, state, value, ...)
-      if not (type(state) == "table") then
-        state = { }
-      end
+      local out = clone_state(state)
       if self.tag_type == "function" then
         if select("#", ...) > 0 then
-          self.tag_name(state, ..., value)
+          self.tag_name(out, ..., value)
         else
-          self.tag_name(state, value)
+          self.tag_name(out, value)
         end
       else
         if self.tag_array then
-          local existing = state[self.tag_name]
+          local existing = out[self.tag_name]
           if type(existing) == "table" then
-            table.insert(existing, value)
+            local copy
+            do
+              local _tbl_0 = { }
+              for k, v in pairs(existing) do
+                _tbl_0[k] = v
+              end
+              copy = _tbl_0
+            end
+            table.insert(copy, value)
+            out[self.tag_name] = copy
           else
-            state[self.tag_name] = setmetatable({
+            out[self.tag_name] = {
               value
-            }, TagValueArray)
+            }
           end
         else
-          state[self.tag_name] = value
+          out[self.tag_name] = value
         end
       end
-      return state
+      return out
     end,
     _transform = function(self, value, state)
       value, state = self.base_type:_transform(value, state)
@@ -595,9 +598,12 @@ do
   local _class_0
   local _parent_0 = TaggedType
   local _base_0 = {
+    create_scope_state = function(self, state)
+      return nil
+    end,
     _transform = function(self, value, state)
       local scope
-      value, scope = self.base_type:_transform(value, nil)
+      value, scope = self.base_type:_transform(value, self:create_scope_state(state))
       if value == FailedTransform then
         return FailedTransform, scope
       end
@@ -991,16 +997,15 @@ do
   local _parent_0 = BaseType
   local _base_0 = {
     _transform = function(self, value, state)
-      local new_state
       local _list_0 = self.types
       for _index_0 = 1, #_list_0 do
         local t = _list_0[_index_0]
-        value, new_state = t:_transform(value, new_state)
+        value, state = t:_transform(value, state)
         if value == FailedTransform then
-          return FailedTransform, new_state
+          return FailedTransform, state
         end
       end
-      return value, merge_tag_state(state, new_state)
+      return value, state
     end
   }
   _base_0.__index = _base_0
@@ -1065,7 +1070,6 @@ do
         end
       end
       local is_literal = not BaseType:is_base_type(self.expected)
-      local new_state
       local copy, k
       for idx, item in ipairs(value) do
         local skip_item = false
@@ -1078,9 +1082,9 @@ do
           end
         else
           local item_val
-          item_val, new_state = self.expected:_transform(item, new_state)
+          item_val, state = self.expected:_transform(item, state)
           if item_val == FailedTransform then
-            return FailedTransform, "array item " .. tostring(idx) .. ": " .. tostring(new_state)
+            return FailedTransform, "array item " .. tostring(idx) .. ": " .. tostring(state)
           end
           if item_val == nil and not self.keep_nils then
             skip_item = true
@@ -1109,7 +1113,7 @@ do
           k = k + 1
         end
       end
-      return copy or value, merge_tag_state(state, new_state)
+      return copy or value, state
     end
   }
   _base_0.__index = _base_0
@@ -1162,7 +1166,6 @@ do
       if not (pass) then
         return FailedTransform, err
       end
-      local new_state
       local key_literal = not BaseType:is_base_type(self.expected_key)
       local value_literal = not BaseType:is_base_type(self.expected_value)
       local transformed = false
@@ -1177,9 +1180,9 @@ do
               return FailedTransform, "map key expected " .. tostring(describe_literal(self.expected_key))
             end
           else
-            new_k, new_state = self.expected_key:_transform(k, new_state)
+            new_k, state = self.expected_key:_transform(k, state)
             if new_k == FailedTransform then
-              return FailedTransform, "map key " .. tostring(new_state)
+              return FailedTransform, "map key " .. tostring(state)
             end
           end
           if value_literal then
@@ -1187,9 +1190,9 @@ do
               return FailedTransform, "map value expected " .. tostring(describe_literal(self.expected_value))
             end
           else
-            new_v, new_state = self.expected_value:_transform(v, new_state)
+            new_v, state = self.expected_value:_transform(v, state)
             if new_v == FailedTransform then
-              return FailedTransform, "map value " .. tostring(new_state)
+              return FailedTransform, "map value " .. tostring(state)
             end
           end
           if new_k ~= k or new_v ~= v then
@@ -1206,7 +1209,7 @@ do
           break
         end
       end
-      return transformed and out or value, merge_tag_state(state, new_state)
+      return transformed and out or value, state
     end
   }
   _base_0.__index = _base_0
@@ -1282,24 +1285,23 @@ do
       end
       local errors
       local out = { }
-      local new_state
       for shape_key, shape_val in pairs(self.shape) do
         local item_value = value[shape_key]
         if remaining_keys then
           remaining_keys[shape_key] = nil
         end
-        local new_val, tuple_state
+        local new_val
         if BaseType:is_base_type(shape_val) then
-          new_val, tuple_state = shape_val:_transform(item_value, new_state)
+          new_val, state = shape_val:_transform(item_value, state)
         else
           if shape_val == item_value then
-            new_val, tuple_state = item_value, new_state
+            new_val, state = item_value, state
           else
-            new_val, tuple_state = FailedTransform, "expected " .. tostring(describe_literal(shape_val))
+            new_val, state = FailedTransform, "expected " .. tostring(describe_literal(shape_val))
           end
         end
         if new_val == FailedTransform then
-          err = "field " .. tostring(describe_literal(shape_key)) .. ": " .. tostring(tuple_state)
+          err = "field " .. tostring(describe_literal(shape_key)) .. ": " .. tostring(state)
           if check_all then
             if errors then
               table.insert(errors, err)
@@ -1312,7 +1314,6 @@ do
             return FailedTransform, err
           end
         else
-          new_state = tuple_state
           out[shape_key] = new_val
         end
       end
@@ -1323,11 +1324,12 @@ do
           end
         elseif self.extra_fields_type then
           for k in pairs(remaining_keys) do
-            local tuple, tuple_state = self.extra_fields_type:_transform({
+            local tuple
+            tuple, state = self.extra_fields_type:_transform({
               [k] = value[k]
-            }, new_state)
+            }, state)
             if tuple == FailedTransform then
-              err = "field " .. tostring(describe_literal(k)) .. ": " .. tostring(tuple_state)
+              err = "field " .. tostring(describe_literal(k)) .. ": " .. tostring(state)
               if check_all then
                 if errors then
                   table.insert(errors, err)
@@ -1340,7 +1342,6 @@ do
                 return FailedTransform, err
               end
             else
-              new_state = tuple_state
               do
                 local nk = tuple and next(tuple)
                 if nk then
@@ -1377,7 +1378,7 @@ do
       if errors and next(errors) then
         return FailedTransform, table.concat(errors, "; ")
       end
-      return out, merge_tag_state(state, new_state)
+      return out, state
     end
   }
   _base_0.__index = _base_0

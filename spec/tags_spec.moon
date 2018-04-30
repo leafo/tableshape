@@ -313,18 +313,52 @@ describe "tableshape.tags", ->
         types.string\tag "world"
       }
 
-      s = {}
-      t { "one", "two" }, s
+      out = t { "one", "two" }, {}
 
       assert.same {
         hello: "one"
         world: "two"
-      }, s
+      }, out
 
+    it "doesn't mutate state object", ->
+      t = types.shape {
+        types.string\tag "hello"
+        types.string\tag "world"
+      }
+
+      -- doesn't mutate state
       s = {}
       t { "one", 5 }, s
       assert.same {}, s
 
+    it "throws out state from partial match", ->
+      t = types.shape {
+        types.string\tag "str[]"
+        types.one_of {
+          types.array_of(types.string\tag "str[]")
+          types.array_of((types.string + types.number)\tag "str_or_number[]")
+        }
+      }
+
+      out = t {
+        "alpha"
+        { "one", "two", 3 }
+      }
+
+      assert.same {
+        str: {"alpha"}
+        str_or_number: {"one", "two", 3}
+      }, out
+
+      -- sanity check, for when it matches
+      out = t {
+        "alpha"
+        { "one", "two", "three" }
+      }
+
+      assert.same {
+        str: {"alpha", "one", "two", "three"}
+      }, out
 
     it "gets tagged extra fields", ->
       s = types.shape {
