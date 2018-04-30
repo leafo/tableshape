@@ -179,7 +179,7 @@ assert(object_shape({
 ```
 
 The `is_optional` method can be called on any type checker to return a new type
-checker that can also accept `nil` as a value. (It is equivalent to `t + types.any`)
+checker that can also accept `nil` as a value. (It is equivalent to `t + types.nil`)
 
 If multiple fields fail the type check in a shape, the error message will
 contain all the failing fields
