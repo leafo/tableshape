@@ -233,7 +233,8 @@ assert(no_spaces("hello!"))
 assert(no_spaces("oh no!"))
 ```
 
-You can see all the other type checkers provided in the reference below.
+These examples only demonstrate some of the type checkers provided.  You can
+see all the other type checkers in the reference below.
 
 ### Type operators
 
@@ -243,6 +244,7 @@ a quick way to make composite types.
 * `*` — The **and** operator, both operands must match.
 * `+` — The **first of** operator, the operands are checked against the value from left to right
 * `/` — The **transform** operator, when using the `transform` method, the value will be converted by what's to the right of the operator
+* `%` — The **transform with state** operator, same as transform, but state is passed as second argument
 
 #### The 'and' operator
 
@@ -382,7 +384,7 @@ t({a = 3, b = 9}) --> { x = 3, y = 9}
 ```
 
 The results of tag matches are stored in the *state* object, an table that is
-passed throughought the entire type check. The state is returned at the end of
+passed throughout the entire type check. The state is returned at the end of
 a type check as the first return value on a successful match.
 
 If no state is used, then `true` is returned.
