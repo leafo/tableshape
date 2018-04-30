@@ -532,7 +532,7 @@ local t = types.shape({
   extra_fields = types.any / nil
 })
 
-t:repair({
+t:transform({
   name = "amos",
   color = "blue",
   1,2,3
@@ -556,7 +556,7 @@ local t = types.shape({
   )
 })
 
-t:repair({
+t:transform({
   name = "amos",
   color = "blue"
 }) --> { name = "amos", _color = "blue" }
