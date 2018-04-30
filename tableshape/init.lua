@@ -18,7 +18,13 @@ merge_tag_state = function(existing, new_tags)
     end
     return existing
   end
-  return new_tags or existing or true
+  if new_tags == true then
+    return existing or new_tags
+  elseif existing == true then
+    return new_tags or existing
+  else
+    return new_tags or existing or true
+  end
 end
 local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode
 local describe_literal

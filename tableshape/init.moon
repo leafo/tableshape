@@ -18,8 +18,13 @@ merge_tag_state = (existing, new_tags) ->
 
     return existing
 
-  new_tags or existing or true
-
+  -- make sure we don't prioritize empty state over set one
+  if new_tags == true
+    existing or new_tags
+  elseif existing == true
+    new_tags or existing
+  else
+    new_tags or existing or true
 
 local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode
 
