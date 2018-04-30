@@ -402,13 +402,17 @@ local obj = types.shape {
   age = types.number
 }
 
-local many = types.array_of(types.scope(obj, { tag = "name[]"}))
+local many = types.array_of(types.scope(obj, { tag = "names[]"}))
 
 many({
   { id = "leaf", age = 2000 },
   { id = "amos", age = 15 }
-}) --> {{name = "leaf"}, {name = "amos"}}
+}) --> { names = {name = "leaf"}, {name = "amos"}}
 ```
+
+In this example, we use the special `[]` syntax in the tag name to accumulate
+all values that are tagged into an array. If the `[]` was left out, then each
+tagged value would overwrite the previous.
 
 If the tag of the `types.scope` is left out, then an anonymous scope is used.
 An anonymous scope is thrown away after the scope is exited. This style is
@@ -489,6 +493,7 @@ value.
 
 ```lua
 local t = types.shape{
+  category = "object", -- matches the literal value `"object"`
   id = types.number,
   name = types.string
 }
@@ -518,14 +523,13 @@ t({
 
 ```
 
-Removing all extra fields:
+A transform can be used on `extra_fields` as well. In this example all extra fields are removed:
 
 ```lua
 local t = types.shape({
   name = types.string
 }, {
   extra_fields = types.any / nil
-
 })
 
 t:repair({
@@ -535,8 +539,7 @@ t:repair({
 }) --> { name = "amos"}
 ```
 
-Modifying the extra keys:
-
+Modifying the extra keys using a transform:
 
 ```lua
 types = require("tableshape").types
