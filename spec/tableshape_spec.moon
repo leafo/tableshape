@@ -188,14 +188,17 @@ describe "tableshape.types", ->
         wheels: 10
       })
 
-      assert.same {
-        nil, [[expected { "type" = "car", "wheels" = type "number" }, or { "type" = "house", "windows" = type "number" }]]
-      }, {
-        s {
-          type: "car"
-          wheels: "blue"
-        }
-      }
+      -- for undefined has ordering
+      errors = setmetatable {
+        ['expected { "type" = "car", "wheels" = type "number" }, or { "type" = "house", "windows" = type "number" }']: true
+        ['expected { "wheels" = type "number", "type" = "car" }, or { "windows" = type "number", "type" = "house" }']: true
+      }, __index: (v) =>
+        error "expected one of \n#{table.concat [k for k in pairs @], "\n"}\n got #{v}"
+
+      assert.true errors[select 2, s {
+        type: "car"
+        wheels: "blue"
+      }]
 
     it "creates an optimized type checker", ->
       t = types.one_of {
