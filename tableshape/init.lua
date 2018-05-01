@@ -1552,7 +1552,7 @@ do
       return self.opts and self.opts.describe or "custom checker " .. tostring(self.fn)
     end,
     _transform = function(self, value, state)
-      local pass, err = self.fn(value, self)
+      local pass, err = self.fn(value, state)
       if not (pass) then
         return FailedTransform, err or "failed custom check"
       end

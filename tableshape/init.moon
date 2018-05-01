@@ -727,7 +727,7 @@ class Custom extends BaseType
     @opts and @opts.describe or "custom checker #{@fn}"
 
   _transform: (value, state) =>
-    pass, err = @.fn value, @
+    pass, err = @.fn value, state
 
     unless pass
       return FailedTransform, err or "failed custom check"
