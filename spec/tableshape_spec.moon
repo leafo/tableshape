@@ -569,11 +569,25 @@ describe "tableshape.types", ->
       assert.same {true}, { check\check_value 1 }
 
   describe "equivalent", ->
-    it "checks value", ->
+    it "chekcs nil", ->
+      assert.same true, (types.equivalent(nil) nil)
+      assert.same nil, (types.equivalent(nil) false)
+      assert.same nil, (types.equivalent(nil) true)
+
+    it "chekcs literal", ->
+      assert.same nil, (types.equivalent("hi") nil)
+      assert.same nil, (types.equivalent("hi") false)
+      assert.same true, (types.equivalent("hi") "hi")
+
+    it "checks table", ->
       assert.same true, (types.equivalent({}) {})
       assert.same true, (types.equivalent({1}) {1})
       assert.same true, (types.equivalent({hello: "world"}) {hello: "world"})
       assert.falsy (types.equivalent({hello: "world"}) {hello: "worlds"})
+
+      assert.same nil, (types.equivalent({1}) "um")
+      assert.same nil, (types.equivalent({1}) nil)
+
 
       check = types.equivalent {
         "great"
