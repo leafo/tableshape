@@ -1753,6 +1753,51 @@ do
   end
   Range = _class_0
 end
+local Proxy
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    _transform = function(self, ...)
+      return assert(self.fn(), "proxy missing transformer"):_transform(...)
+    end,
+    _describe = function(self, ...)
+      return assert(self.fn(), "proxy missing transformer"):_describe(...)
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, fn, opts)
+      self.fn, self.opts = fn, opts
+    end,
+    __base = _base_0,
+    __name = "Proxy",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  Proxy = _class_0
+end
 types = setmetatable({
   any = AnyType(),
   string = Type("string"),
@@ -1778,7 +1823,8 @@ types = setmetatable({
   range = Range,
   equivalent = Equivalent,
   custom = Custom,
-  scope = TagScopeType
+  scope = TagScopeType,
+  proxy = Proxy
 }, {
   __index = function(self, fn_name)
     return error("Type checker does not exist: `" .. tostring(fn_name) .. "`")

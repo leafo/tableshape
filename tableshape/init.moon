@@ -794,6 +794,15 @@ class Range extends BaseType
   _describe: =>
     "range from #{@left} to #{@right}"
 
+class Proxy extends BaseType
+  new: (@fn, @opts) =>
+
+  _transform: (...) =>
+    assert(@.fn!, "proxy missing transformer")\_transform ...
+
+  _describe: (...) =>
+    assert(@.fn!, "proxy missing transformer")\_describe ...
+
 types = setmetatable {
   any: AnyType!
   string: Type "string"
@@ -821,6 +830,7 @@ types = setmetatable {
   equivalent: Equivalent
   custom: Custom
   scope: TagScopeType
+  proxy: Proxy
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
 
