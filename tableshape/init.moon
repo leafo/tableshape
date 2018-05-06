@@ -468,6 +468,15 @@ class AllOf extends BaseType
     for checker in *@types
       assert BaseType\is_base_type(checker), "all_of expects all type checkers"
 
+  _describe: =>
+    item_names = for i in *@types
+      if type(i) == "table" and i._describe
+        i\_describe!
+      else
+        describe_literal i
+
+    join_names item_names, " and "
+
   _transform: (value, state) =>
     for t in *@types
       value, state = t\_transform value, state

@@ -996,6 +996,25 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    _describe = function(self)
+      local item_names
+      do
+        local _accum_0 = { }
+        local _len_0 = 1
+        local _list_0 = self.types
+        for _index_0 = 1, #_list_0 do
+          local i = _list_0[_index_0]
+          if type(i) == "table" and i._describe then
+            _accum_0[_len_0] = i:_describe()
+          else
+            _accum_0[_len_0] = describe_literal(i)
+          end
+          _len_0 = _len_0 + 1
+        end
+        item_names = _accum_0
+      end
+      return join_names(item_names, " and ")
+    end,
     _transform = function(self, value, state)
       local _list_0 = self.types
       for _index_0 = 1, #_list_0 do
