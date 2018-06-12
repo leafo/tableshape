@@ -76,6 +76,16 @@ describe "tableshape.transform", ->
         }
       }, { n\transform { color: "blue" } }
 
+    it "returns same object", ->
+      n = types.shape {
+        color: "red"
+      }
+
+      input = { color: "red" }
+
+      output = assert n\transform input
+      assert input == output, "expected output to be same object as input"
+
     it "handles non table", ->
       n = types.shape {
         color: types.literal "red"
