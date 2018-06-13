@@ -585,6 +585,17 @@ describe "tableshape.transform", ->
         n\transform true
       }
 
+    it "returns same object", ->
+      n = types.map_of types.string, types.string + types.number / (v) -> tostring v
+
+      input = { one: 5 }
+      output = assert n\transform input
+      assert input != output, "expected output to be same object as input"
+      assert.same { one: "5" }, output
+
+      input = { one: "two" }
+      output = assert n\transform input
+      assert input == output, "expected output to be same object as input"
 
     it "empty table", ->
       n = types.map_of types.string, types.string
