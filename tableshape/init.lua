@@ -1303,6 +1303,7 @@ do
         remaining_keys = _tbl_0
       end
       local errors
+      local dirty = false
       local out = { }
       for shape_key, shape_val in pairs(self.shape) do
         local item_value = value[shape_key]
@@ -1333,6 +1334,9 @@ do
             return FailedTransform, err
           end
         else
+          if new_val ~= item_value then
+            dirty = true
+          end
           out[shape_key] = new_val
         end
       end
@@ -1343,9 +1347,10 @@ do
           end
         elseif self.extra_fields_type then
           for k in pairs(remaining_keys) do
+            local item_value = value[k]
             local tuple
             tuple, state = self.extra_fields_type:_transform({
-              [k] = value[k]
+              [k] = item_value
             }, state)
             if tuple == FailedTransform then
               err = "field " .. tostring(describe_literal(k)) .. ": " .. tostring(state)
@@ -1364,7 +1369,14 @@ do
               do
                 local nk = tuple and next(tuple)
                 if nk then
+                  if nk ~= k then
+                    dirty = true
+                  elseif tuple[nk] ~= item_value then
+                    dirty = true
+                  end
                   out[nk] = tuple[nk]
+                else
+                  dirty = true
                 end
               end
             end
@@ -1397,7 +1409,7 @@ do
       if errors and next(errors) then
         return FailedTransform, table.concat(errors, "; ")
       end
-      return out, state
+      return dirty and out or value, state
     end
   }
   _base_0.__index = _base_0

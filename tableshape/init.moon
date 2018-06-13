@@ -624,6 +624,7 @@ class Shape extends BaseType
     remaining_keys = {key, true for key in pairs value}
 
     local errors
+    dirty = false
     out = {}
 
     for shape_key, shape_val in pairs @shape
@@ -650,6 +651,9 @@ class Shape extends BaseType
         else
           return FailedTransform, err
       else
+        if new_val != item_value
+          dirty = true
+
         out[shape_key] = new_val
 
     if remaining_keys and next remaining_keys
@@ -659,7 +663,8 @@ class Shape extends BaseType
           out[k] = value[k]
       elseif @extra_fields_type
         for k in pairs remaining_keys
-          tuple, state = @.extra_fields_type\_transform {[k]: value[k]}, state
+          item_value = value[k]
+          tuple, state = @.extra_fields_type\_transform {[k]: item_value}, state
           if tuple == FailedTransform
             err = "field #{describe_literal k}: #{state}"
             if check_all
@@ -671,7 +676,17 @@ class Shape extends BaseType
               return FailedTransform, err
           else
             if nk = tuple and next tuple
+              -- the tuple key changed
+              if nk != k
+                dirty = true
+              -- the value changed
+              elseif tuple[nk] != item_value
+                dirty = true
+
               out[nk] = tuple[nk]
+            else
+              -- value was removed, dirty
+              dirty = true
       else
         names = for key in pairs remaining_keys
           describe_literal key
@@ -689,7 +704,7 @@ class Shape extends BaseType
     if errors and next errors
       return FailedTransform, table.concat errors, "; "
 
-    out, state
+    dirty and out or value, state
 
 class Pattern extends BaseType
   new: (@pattern, @opts) =>
