@@ -86,6 +86,69 @@ describe "tableshape.transform", ->
       output = assert n\transform input
       assert input == output, "expected output to be same object as input"
 
+    it "handles dirty key in extra_fields", ->
+      n = types.shape {
+        height: types.number
+      }, extra_fields: types.map_of((types.literal("hello") / "world") + types.string, types.string)
+
+      input = { height: 55 }
+      output = assert n\transform input
+      assert input == output, "expected output to be same object as input"
+
+      input = { height: 55, one: "two" }
+      output = assert n\transform input
+      assert input == output, "expected output to be same object as input"
+
+      input = { height: 55, one: "two", hello: "thing" }
+      output = assert n\transform input
+      assert input != output, "expected output different object"
+      assert.same {
+        world: "thing"
+        one: "two"
+        height: 55
+      }, output
+
+    it "handles dirty value in extra_fields", ->
+      n = types.shape {
+        height: types.number
+      }, extra_fields: types.map_of(types.string, (types.literal("n") / "b") + types.string)
+
+      input = { height: 55 }
+      output = assert n\transform input
+      assert input == output, "expected output to be same object as input"
+
+      input = { height: 55, hi: "hi" }
+      output = assert n\transform input
+      assert input == output, "expected output to be same object as input"
+
+      input = { height: 55, hi: "n" }
+      output = assert n\transform input
+      assert input != output, "expected output to be different object from input"
+      assert.same {
+        height: 55
+        hi: "b"
+      }, output
+
+    it "handles dirty value when removing field from extra_fields", ->
+      n = types.shape {
+        one: types.string
+      }, extra_fields: types.map_of(types.number, types.any) + types.any / nil
+
+      input = { one: "two" }
+      output = assert n\transform input
+      assert input == output, "expected output to be same object as input"
+
+      input = { one: "two", "yes" }
+      output = assert n\transform input
+      assert input == output, "expected output to be same object as input"
+
+      input = { one: "two", some: "thing" }
+      output = assert n\transform input
+      assert input != output, "expected output to be different object as input"
+      assert.same {
+        one: "two"
+      }, output
+
     it "handles non table", ->
       n = types.shape {
         color: types.literal "red"
