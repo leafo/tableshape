@@ -371,7 +371,7 @@ is only saved if the type it wraps matches.
 
 
 ```lua
-loca t = types.shape {
+local t = types.shape {
   a = types.number:tag("x"),
   b = types.number:tag("y"),
 } + types.shape {
