@@ -834,7 +834,7 @@ it matches `type`, otherwise fail.
 
 ## Changelog
 
-**Next** - 2.0.0
+**Aug 09 2018** - 2.0.0
 
 * Add overloaded operators to compose types
 * Add transformation interface
