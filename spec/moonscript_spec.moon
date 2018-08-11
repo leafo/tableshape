@@ -1,12 +1,50 @@
 
-import instance_of from require "tableshape.moonscript"
+import instance_of, class_type from require "tableshape.moonscript"
 
 describe "tableshape.moonscript", ->
+  class Other
+  class Hello
+  class World extends Hello
+  class Zone extends World
+
+  describe "class_type", ->
+    it "describes type checker", ->
+      assert.same "class", class_type\_describe!
+
+    it "tests values", ->
+      assert.same {
+        nil
+        "table is not class (missing __base)"
+      }, { class_type Hello! }
+
+      assert.true, class_type Hello
+
+      assert.same {
+        nil
+        "expecting table"
+      }, { class_type false }
+
+      assert.same {
+        nil
+        "table is not class (missing __base)"
+      }, { class_type {} }
+
+      assert.same {
+        nil
+        "table is not class (__base not table)"
+      }, { class_type { __base: "world" } }
+
+      assert.same {
+        nil
+        "table is not class (missing metatable)"
+      }, { class_type { __base: {}} }
+
+      assert.same {
+        nil
+        "table is not class (no constructor)"
+      }, { class_type setmetatable { __base: {}}, {} }
+
   describe "instance_of", ->
-    class Other
-    class Hello
-    class World extends Hello
-    class Zone extends World
 
     it "describes type checker", ->
       assert.same "instance of Other", instance_of(Other)\_describe!
