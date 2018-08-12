@@ -65,7 +65,7 @@ do
   end
   ClassType = _class_0
 end
-local InstanceOf
+local InstanceType
 do
   local _class_0
   local _parent_0 = BaseType
@@ -78,6 +78,56 @@ do
       if not (cls) then
         return FailedTransform, "table does not have __class"
       end
+      return value, state
+    end,
+    _describe = function(self)
+      return "instance"
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, ...)
+      return _class_0.__parent.__init(self, ...)
+    end,
+    __base = _base_0,
+    __name = "InstanceType",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  InstanceType = _class_0
+end
+local InstanceOf
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    _transform = function(self, value, state)
+      local out, err = InstanceType._transform(self, value, state)
+      if out == FailedTransform then
+        return FailedTransform, err
+      end
+      local cls = value.__class
       if type(self.class_identifier) == "string" then
         local current_cls = cls
         while current_cls do
@@ -143,6 +193,7 @@ do
 end
 return setmetatable({
   class_type = ClassType(),
+  instance_type = InstanceType(),
   instance_of = InstanceOf
 }, {
   __index = function(self, fn_name)

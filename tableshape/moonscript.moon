@@ -24,10 +24,7 @@ class ClassType extends BaseType
   _describe: =>
     "class"
 
-class InstanceOf extends BaseType
-  new: (@class_identifier) =>
-    assert @class_identifier, "expecting class identifier (string or class object)"
-
+class InstanceType extends BaseType
   _transform: (value, state) =>
     unless type(value) == "table"
       return FailedTransform, "expecting table"
@@ -35,6 +32,22 @@ class InstanceOf extends BaseType
     cls = value.__class
     unless cls
       return FailedTransform, "table does not have __class"
+
+    value, state
+
+  _describe: =>
+    "instance"
+
+class InstanceOf extends BaseType
+  new: (@class_identifier) =>
+    assert @class_identifier, "expecting class identifier (string or class object)"
+
+  _transform: (value, state) =>
+    out, err = InstanceType._transform @, value, state
+    if out == FailedTransform
+      return FailedTransform, err
+
+    cls = value.__class
 
     if type(@class_identifier) == "string"
       current_cls = cls
@@ -63,6 +76,7 @@ class InstanceOf extends BaseType
 
 setmetatable {
   class_type: ClassType!
+  instance_type: InstanceType!
 
   instance_of: InstanceOf
 }, __index: (fn_name) =>
