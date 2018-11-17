@@ -769,3 +769,45 @@ describe "tableshape.describe", ->
     assert.same {nil, "okay"}, { t 5 }
     assert.true called
 
+
+  describe "assert type", ->
+    it "tests for asserted type", ->
+      s = types.assert(types.number)
+      assert s 10
+      assert.has_error(
+        -> s "hello"
+        [[expected type "number", got "string"]]
+      )
+
+      ss = s * types.one_of { 5, 7 }
+
+      assert.same {
+        nil
+        'expected 5, or 7'
+      },  { ss 10 }
+
+      assert.true (ss 7)
+
+      assert.has_error(
+        -> ss "hello"
+        [[expected type "number", got "string"]]
+      )
+
+    it "transforms asserted type", ->
+      s = types.assert(types.number)
+      ss = s * types.one_of({ 5, 7 }) / (n) -> -n
+      assert.same -5, (ss\transform 5)
+
+      assert.has_error(
+        -> ss ->
+        [[expected type "number", got "function"]]
+      )
+
+    it "describes asserted type", ->
+      s = types.assert(types.number)
+      ss = s * types.one_of { 5, 7 }
+      assert.same 'assert type "number"', s\_describe!
+      assert.same 'assert type "number" then 5, or 7', ss\_describe!
+
+
+

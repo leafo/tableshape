@@ -676,7 +676,7 @@ do
     __init = function(self, base_type, opts)
       self.base_type, self.opts = base_type, opts
       _class_0.__parent.__init(self)
-      return assert(BaseType:is_base_type(base_type), "expected a type checker")
+      return assert(BaseType:is_base_type(self.base_type), "expected a type checker")
     end,
     __base = _base_0,
     __name = "OptionalType",
@@ -1810,6 +1810,59 @@ do
   end
   Proxy = _class_0
 end
+local AssertType
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    _transform = function(self, value, state)
+      local state_or_err
+      value, state_or_err = self.base_type:_transform(value, state)
+      assert(value ~= FailedTransform, state_or_err)
+      return value, state_or_err
+    end,
+    _describe = function(self)
+      if self.base_type._describe then
+        local base_description = self.base_type:_describe()
+        return "assert " .. tostring(base_description)
+      end
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, base_type, opts)
+      self.base_type, self.opts = base_type, opts
+      _class_0.__parent.__init(self)
+      return assert(BaseType:is_base_type(self.base_type), "expected a type checker")
+    end,
+    __base = _base_0,
+    __name = "AssertType",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  AssertType = _class_0
+end
 types = setmetatable({
   any = AnyType(),
   string = Type("string"),
@@ -1836,7 +1889,8 @@ types = setmetatable({
   equivalent = Equivalent,
   custom = Custom,
   scope = TagScopeType,
-  proxy = Proxy
+  proxy = Proxy,
+  assert = AssertType
 }, {
   __index = function(self, fn_name)
     return error("Type checker does not exist: `" .. tostring(fn_name) .. "`")

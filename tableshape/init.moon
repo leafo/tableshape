@@ -345,7 +345,7 @@ class TagScopeType extends TaggedType
 class OptionalType extends BaseType
   new: (@base_type, @opts) =>
     super!
-    assert BaseType\is_base_type(base_type), "expected a type checker"
+    assert BaseType\is_base_type(@base_type), "expected a type checker"
 
   _transform: (value, state) =>
     return value, state if value == nil
@@ -818,6 +818,21 @@ class Proxy extends BaseType
   _describe: (...) =>
     assert(@.fn!, "proxy missing transformer")\_describe ...
 
+class AssertType extends BaseType
+  new: (@base_type, @opts) =>
+    super!
+    assert BaseType\is_base_type(@base_type), "expected a type checker"
+
+  _transform: (value, state) =>
+    value, state_or_err = @base_type\_transform value, state
+    assert value != FailedTransform, state_or_err
+    value, state_or_err
+
+  _describe: =>
+    if @base_type._describe
+      base_description = @base_type\_describe!
+      "assert #{base_description}"
+
 types = setmetatable {
   any: AnyType!
   string: Type "string"
@@ -846,6 +861,7 @@ types = setmetatable {
   custom: Custom
   scope: TagScopeType
   proxy: Proxy
+  assert: AssertType
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
 
