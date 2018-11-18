@@ -19,7 +19,7 @@ clone_state = (state_obj) ->
   out
 
 
-local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode
+local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType
 
 describe_literal = (val) ->
   switch type(val)
@@ -67,6 +67,7 @@ class BaseType
     cls.__base.__mod = @__mod
     cls.__base.__mul = @__mul
     cls.__base.__add = @__add
+    cls.__base.__unm = @__unm
 
     mt = getmetatable cls
     create = mt.__call
@@ -100,6 +101,9 @@ class BaseType
       FirstOfNode unpack options
     else
       FirstOfNode @, right
+
+  __unm: (right) =>
+    NotType right
 
   _describe: =>
     error "Node missing _describe: #{@@__name}"
@@ -832,6 +836,23 @@ class AssertType extends BaseType
     if @base_type._describe
       base_description = @base_type\_describe!
       "assert #{base_description}"
+
+class NotType extends BaseType
+  new: (@base_type, @opts) =>
+    super!
+    assert BaseType\is_base_type(@base_type), "expected a type checker"
+
+  _transform: (value, state) =>
+    out, _ = @base_type\_transform value, state
+    if out == FailedTransform
+      value, state
+    else
+      FailedTransform, "expected #{@_describe!}"
+
+  _describe: =>
+    if @base_type._describe
+      base_description = @base_type\_describe!
+      "not #{base_description}"
 
 types = setmetatable {
   any: AnyType!

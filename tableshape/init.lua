@@ -22,7 +22,7 @@ clone_state = function(state_obj)
   end
   return out
 end
-local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode
+local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType
 local describe_literal
 describe_literal = function(val)
   local _exp_0 = type(val)
@@ -96,6 +96,9 @@ do
       else
         return FirstOfNode(self, right)
       end
+    end,
+    __unm = function(self, right)
+      return NotType(right)
     end,
     _describe = function(self)
       return error("Node missing _describe: " .. tostring(self.__class.__name))
@@ -204,6 +207,7 @@ do
     cls.__base.__mod = self.__mod
     cls.__base.__mul = self.__mul
     cls.__base.__add = self.__add
+    cls.__base.__unm = self.__unm
     local mt = getmetatable(cls)
     local create = mt.__call
     mt.__call = function(cls, ...)
@@ -1862,6 +1866,60 @@ do
     _parent_0.__inherited(_parent_0, _class_0)
   end
   AssertType = _class_0
+end
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    _transform = function(self, value, state)
+      local out, _ = self.base_type:_transform(value, state)
+      if out == FailedTransform then
+        return value, state
+      else
+        return FailedTransform, "expected " .. tostring(self:_describe())
+      end
+    end,
+    _describe = function(self)
+      if self.base_type._describe then
+        local base_description = self.base_type:_describe()
+        return "not " .. tostring(base_description)
+      end
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, base_type, opts)
+      self.base_type, self.opts = base_type, opts
+      _class_0.__parent.__init(self)
+      return assert(BaseType:is_base_type(self.base_type), "expected a type checker")
+    end,
+    __base = _base_0,
+    __name = "NotType",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  NotType = _class_0
 end
 types = setmetatable({
   any = AnyType(),

@@ -809,5 +809,28 @@ describe "tableshape.describe", ->
       assert.same 'assert type "number"', s\_describe!
       assert.same 'assert type "number" then 5, or 7', ss\_describe!
 
+  describe "not", ->
+    it "inverts type checker", ->
+      not_a_string = -types.string
+      assert.true not_a_string 10
+      assert.nil (not_a_string "hello")
+
+    it "inverted type checker ignores transform", ->
+      wrapped = types.string / (str) -> "wow#{str}wow"
+      not_wrapped = -wrapped
+
+      assert.same {
+        nil
+        'expected not type "string"'
+      }, {not_wrapped\transform "hello"}
+
+      assert.same {
+        200
+      }, {not_wrapped\transform 200}
+
+    it "describes inverted type checker", ->
+      not_a_string = -types.string
+      assert.same 'not type "string"', not_a_string\_describe!
+
 
 
