@@ -492,9 +492,10 @@ describe "tableshape.transform", ->
       assert.same {false, "YA", "b"}, n\transform arr2
 
     it "processes everything with short_circuit disabled", ->
-      n = types.array_contains types.number + types.string / "YA"
-      n.short_circuit = false
-
+      n = types.array_contains types.number + types.string / "YA", {
+        short_circuit: false
+      }
+      assert.false n.short_circuit
 
       arr = {false, 1, "a", "b"}
 
@@ -513,8 +514,9 @@ describe "tableshape.transform", ->
         1,2, false, 3, true
       }
 
-      n = types.array_contains types.boolean / nil
-      n.short_circuit = false
+      n = types.array_contains types.boolean / nil, {
+        short_circuit: false
+      }
 
       assert.same {1,2,3}, n\transform {
         1,2, false, 3, true
@@ -542,16 +544,18 @@ describe "tableshape.transform", ->
       }
 
     it "respects keep_nils", ->
-      n = types.array_contains types.boolean / nil
-      n.keep_nils = true
+      n = types.array_contains types.boolean / nil, {
+        keep_nils: true
+      }
 
       assert.same {1,2,nil, 3, true}, n\transform {
         1,2, false, 3, true
       }
 
-      n = types.array_contains types.boolean / nil
-      n.keep_nils = true
-      n.short_circuit = false
+      n = types.array_contains types.boolean / nil, {
+        keep_nils: true
+        short_circuit: false
+      }
 
       assert.same {1,2, nil, 3}, n\transform {
         1,2, false, 3, true

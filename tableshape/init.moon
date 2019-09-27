@@ -556,6 +556,11 @@ class ArrayContains extends BaseType
 
   new: (@contains, @opts) =>
     assert @contains, "missing contains"
+
+    if @opts
+      @short_circuit = @opts.short_circuit
+      @keep_nils = @opts.keep_nils
+
     super!
 
   _describe: =>

@@ -1261,6 +1261,10 @@ do
     __init = function(self, contains, opts)
       self.contains, self.opts = contains, opts
       assert(self.contains, "missing contains")
+      if self.opts then
+        self.short_circuit = self.opts.short_circuit
+        self.keep_nils = self.opts.keep_nils
+      end
       return _class_0.__parent.__init(self)
     end,
     __base = _base_0,

@@ -478,7 +478,8 @@ Here are all the available ones, full documentation is below.
 * `types.shape` - checks the shape of a table
 * `types.one_of` - checks if value matches one of the types provided
 * `types.pattern` - checks if Lua pattern matches value
-* `types.array_of` - checks if value is array of type
+* `types.array_of` - checks if value is array containing a type
+* `types.array_contains` - checks if value is an array that contains a type (short circuits by default)
 * `types.map_of` - checks if value is table that matches key and value types
 * `types.literal` - checks if value matches the provided value with `==`
 * `types.custom` - lets you provide a function to check the type
@@ -577,6 +578,29 @@ The following options are supported:
 
 * `keep_nils` &mdash; By default, if a value is transformed into a nil then it won't be kept in the output array. If you need to keep these holes then set this option to `true`
 * `length` &mdash; Provide a type checker to be used on the length of the array. The length is calculated with the `#` operator. It's typical to use `types.range` to test for a range
+
+
+#### `types.array_contains(item_type, options={})`
+
+Returns a type checker that tests if `item_type` exists in the array. By
+default, `short_circuit` is enabled. It will search until it finds the first
+instance of `item_type` in the array then stop with a success. This impacts
+transforming types, as only the first match will be transformed by default. To
+process every entry in the array, set `short_circuit = false` in the options.
+
+
+```lua
+local t = types.array_of(types.number)
+
+t({"one", "two", 3, "four"}) --> true
+t({"hello", true}) --> fails
+```
+
+The following options are supported:
+
+* `short_circuit` &mdash; (default `true`) Will stop scanning over the array if a single match is found
+* `keep_nils` &mdash; By default, if a value is transformed into a nil then it won't be kept in the output array. If you need to keep these holes then set this option to `true`
+
 
 #### `types.map_of(key_type, value_type)`
 
