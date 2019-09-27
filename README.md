@@ -543,7 +543,7 @@ t:transform({
 Modifying the extra keys using a transform:
 
 ```lua
-types = require("tableshape").types
+local types = require("tableshape").types
 
 local t = types.shape({
   name = types.string
@@ -561,6 +561,24 @@ t:transform({
   name = "amos",
   color = "blue"
 }) --> { name = "amos", _color = "blue" }
+```
+
+#### `types.partial(table_dec, options={})`
+
+The same as `types.shape` but sets `open = true` by default. This alias
+function was added because open shape objects are common when using tableshape.
+
+```lua
+local types = require("tableshape").types
+
+local t = types.partial {
+  name = types.string\tag "player_name"
+}
+
+t({
+  t: "character"
+  name: "Good Friend"
+}) --> { player_name: "Good Friend" }
 ```
 
 #### `types.array_of(item_type, options={})`
@@ -857,6 +875,13 @@ for anything else call `func(value)` and let the return value pass through if
 it matches `type`, otherwise fail.
 
 ## Changelog
+
+**Upcoming release**
+
+* Add `types.partial` alias for open shape
+* Add `types.array_contains`
+* Add `not` type, and unary minus operator
+* Add MoonScript module: `class_type`, `instance_type`, `instance_type` checkers
 
 **Aug 09 2018** - 2.0.0
 
