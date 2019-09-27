@@ -222,6 +222,34 @@ describe "tableshape.types", ->
       assert.same {nil, "zone is not hello"}, {t "zone"}
       assert.same {nil, 'expected type "string", got "number"'}, {t 5}
 
+  describe "partial", ->
+    it "tests partial shape", ->
+      check = types.partial { color: "red" }
+
+      -- extra data
+      assert.same {true}, {
+        check {
+          color: "red"
+          weight: 9
+          age: 3
+        }
+      }
+
+      assert.same {true}, {
+        check {
+          color: "red"
+        }
+      }
+
+      -- extra data
+      assert.same {nil, 'field "color": expected "red"'}, {
+        check {
+          color: "blue"
+          weight: 9
+          age: 3
+        }
+      }
+
   describe "shape", ->
     it "gets errors for multiple fields", ->
       t = types.shape {

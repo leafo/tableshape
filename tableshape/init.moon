@@ -710,6 +710,12 @@ class Shape extends BaseType
 
     dirty and out or value, state
 
+class Partial extends Shape
+  open: true
+
+  is_open: =>
+    error "is_open has no effect on Partial"
+
 class Pattern extends BaseType
   new: (@pattern, @opts) =>
     super!
@@ -873,6 +879,7 @@ types = setmetatable {
   one_of: OneOf
   all_of: AllOf
   shape: Shape
+  partial: Partial
   pattern: Pattern
   array_of: ArrayOf
   map_of: MapOf
