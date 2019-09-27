@@ -431,6 +431,130 @@ describe "tableshape.transform", ->
           1,2,3
           another: "world"
         }
+
+      }
+  describe "array_contains", ->
+    it "handles non table", ->
+      n = types.array_of types.literal "world"
+
+      assert.same {
+        nil
+        'expected type "table", got "boolean"'
+      }, {
+        n\transform true
+      }
+
+    it "doesn't mutate object when failing", ->
+      n = types.array_contains types.number + types.string / "YA"
+
+      arr = { true, false, {} }
+      assert.same {
+        nil
+        'expected array containing type "number", or type "string"'
+      }, { n\transform arr }
+
+      assert.same { true, false, {} }, arr
+
+    it "returns same object if no transforms happen", ->
+      n = types.array_contains types.number + types.string / "YA"
+      arr = { true, false, 7, {} }
+      res = n\transform arr
+      assert.true arr == res
+      assert.same {
+        true, false, 7, {}
+      }, res
+
+    it "returns different object if transform happens", ->
+      n = types.array_contains types.number + types.string / "YA"
+      arr = { true, "okay", 7, {} }
+      res = n\transform arr
+      assert.true arr != res
+
+      assert.same {
+       true, "YA", 7, {}
+      }, res
+
+      assert.same {
+       true, "okay", 7, {}
+      }, arr
+
+      -- reuses same object
+      assert.true res[4] == arr[4]
+
+    it "short circuits by default", ->
+      n = types.array_contains types.number + types.string / "YA"
+      arr = {false, 1, "a", "b"}
+
+      assert.true arr == n\transform(arr)
+
+      arr2 = {false, "a", "b"}
+
+      assert.same {false, "YA", "b"}, n\transform arr2
+
+    it "processes everything with short_circuit disabled", ->
+      n = types.array_contains types.number + types.string / "YA"
+      n.short_circuit = false
+
+
+      arr = {false, 1, "a", "b"}
+
+      assert.same {false, 1, "YA", "YA"}, n\transform(arr)
+      assert.same {false, 1, "a", "b"}, arr
+
+      arr2 = {false, "a", "b"}
+
+      assert.same {false, "YA", "YA"}, n\transform arr2
+
+    it "strips nils by default (respecting short_circuit)", ->
+      n = types.array_contains types.boolean / nil
+
+      assert.same false, n.keep_nils
+      assert.same {1,2,3, true}, n\transform {
+        1,2, false, 3, true
+      }
+
+      n = types.array_contains types.boolean / nil
+      n.short_circuit = false
+
+      assert.same {1,2,3}, n\transform {
+        1,2, false, 3, true
+      }
+
+    -- TODO: it should probably be able to loop over whole array
+    it "handles array that contains nil", ->
+      n = types.array_contains types.boolean / nil
+      assert.same {
+        nil
+        'expected array containing type "boolean"'
+      }, {
+        n\transform {
+          1, nil, 2, false, 4
+        }
+      }
+
+      n = types.array_contains types.boolean / nil
+      assert.same {
+        {1,nil, 2,false,4}
+      }, {
+        n\transform {
+          1, false, nil, 2, false, 4
+        }
+      }
+
+    it "respects keep_nils", ->
+      n = types.array_contains types.boolean / nil
+      n.keep_nils = true
+
+      assert.same {1,2,nil, 3, true}, n\transform {
+        1,2, false, 3, true
+      }
+
+      n = types.array_contains types.boolean / nil
+      n.keep_nils = true
+      n.short_circuit = false
+
+      assert.same {1,2, nil, 3}, n\transform {
+        1,2, false, 3, true
       }
 
 

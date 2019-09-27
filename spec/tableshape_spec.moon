@@ -449,6 +449,55 @@ describe "tableshape.types", ->
     assert.same nil, (static { helloz: "world" })
     assert.same nil, (static { hello: "worldz" })
 
+  describe "array_contains", ->
+    it "contains number type", ->
+      numbers = types.array_contains types.number
+      err = 'expected array containing type "number"'
+
+      assert.same {nil, err}, {numbers {}}
+      assert.same {true}, {numbers {1}}
+      assert.same {true}, {numbers {1.5}}
+      assert.same {nil, err}, {numbers {"one", "two"}}
+      assert.same {nil, err}, {numbers {one: 75, "ok"}}
+      assert.same {true}, {numbers {"one", 73, "two"}}
+      assert.same {true}, {numbers {"one", 73, 88, "two"}}
+
+      assert.same {true}, {numbers\is_optional! nil}
+      assert.same {nil, 'expected type "table", got "nil"'}, {numbers nil}
+
+    it "contains literal number 77", ->
+      has_77 = types.array_contains 77
+      err = 'expected array containing 77'
+
+      assert.same {nil, err}, {has_77 {}}
+      assert.same {nil, err}, {has_77 {7}}
+      assert.same {true}, {has_77 {77}}
+      assert.same {true}, {has_77 {"one", 77, "two"}}
+      assert.same {nil, err}, {has_77 {thing: 77}}
+
+    it "contains shape", ->
+      shapes = types.array_contains types.shape {
+        color: types.one_of {"orange", "blue"}
+      }
+      err = 'expected array containing { "color" = "orange", or "blue" }'
+
+      assert.same {true}, {
+        shapes {
+          {color: "orange"}
+          {color: "blue"}
+          {color: "orange"}
+        }
+      }
+
+      assert.same {nil, err}, {
+        shapes {
+          {color: "green"}
+          {color: "yellow"}
+          55
+        }
+      }
+
+
   describe "array_of", ->
     it "of number type", ->
       numbers = types.array_of types.number

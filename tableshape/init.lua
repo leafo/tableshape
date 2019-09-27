@@ -1179,6 +1179,119 @@ do
   end
   ArrayOf = _class_0
 end
+local ArrayContains
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    short_circuit = true,
+    keep_nils = false,
+    _describe = function(self)
+      return "array containing " .. tostring(describe_literal(self.contains))
+    end,
+    _transform = function(self, value, state)
+      local pass, err = types.table(value)
+      if not (pass) then
+        return FailedTransform, err
+      end
+      local is_literal = not BaseType:is_base_type(self.contains)
+      local contains = false
+      local copy, k
+      for idx, item in ipairs(value) do
+        local skip_item = false
+        local transformed_item
+        if is_literal then
+          if self.contains == item then
+            contains = true
+          end
+          transformed_item = item
+        else
+          local item_val
+          item_val, state = self.contains:_transform(item, state)
+          if item_val == FailedTransform then
+            transformed_item = item
+          else
+            contains = true
+            if item_val == nil and not self.keep_nils then
+              skip_item = true
+            else
+              transformed_item = item_val
+            end
+          end
+        end
+        if transformed_item ~= item or skip_item then
+          if not (copy) then
+            do
+              local _accum_0 = { }
+              local _len_0 = 1
+              local _max_0 = idx - 1
+              for _index_0 = 1, _max_0 < 0 and #value + _max_0 or _max_0 do
+                local i = value[_index_0]
+                _accum_0[_len_0] = i
+                _len_0 = _len_0 + 1
+              end
+              copy = _accum_0
+            end
+            k = idx
+          end
+        end
+        if copy and not skip_item then
+          copy[k] = transformed_item
+          k = k + 1
+        end
+        if contains and self.short_circuit then
+          if copy then
+            for kdx = idx + 1, #value do
+              copy[k] = value[kdx]
+              k = k + 1
+            end
+          end
+          break
+        end
+      end
+      if not (contains) then
+        return FailedTransform, "expected " .. tostring(self:_describe())
+      end
+      return copy or value, state
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, contains, opts)
+      self.contains, self.opts = contains, opts
+      assert(self.contains, "missing contains")
+      return _class_0.__parent.__init(self)
+    end,
+    __base = _base_0,
+    __name = "ArrayContains",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  local self = _class_0
+  self.type_err_message = "expecting table"
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  ArrayContains = _class_0
+end
 local MapOf
 do
   local _class_0
@@ -1985,6 +2098,7 @@ types = setmetatable({
   partial = Partial,
   pattern = Pattern,
   array_of = ArrayOf,
+  array_contains = ArrayContains,
   map_of = MapOf,
   literal = Literal,
   range = Range,

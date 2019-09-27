@@ -549,6 +549,74 @@ class ArrayOf extends BaseType
 
     copy or value, state
 
+class ArrayContains extends BaseType
+  @type_err_message: "expecting table"
+  short_circuit: true
+  keep_nils: false
+
+  new: (@contains, @opts) =>
+    assert @contains, "missing contains"
+    super!
+
+  _describe: =>
+    "array containing #{describe_literal @contains}"
+
+  _transform: (value, state) =>
+    pass, err = types.table value
+
+    unless pass
+      return FailedTransform, err
+
+    is_literal = not BaseType\is_base_type @contains
+
+    contains = false
+
+    local copy, k
+
+    for idx, item in ipairs value
+      skip_item = false
+
+      transformed_item = if is_literal
+        -- literal can't transform
+        if @contains == item
+          contains = true
+
+        item
+      else
+        item_val, state = @contains\_transform item, state
+        if item_val == FailedTransform
+          item
+        else
+          contains = true
+          if item_val == nil and not @keep_nils
+            skip_item = true
+          else
+            item_val
+
+      if transformed_item != item or skip_item
+        unless copy
+          copy = [i for i in *value[1, idx - 1]]
+          k = idx
+
+      if copy and not skip_item
+        copy[k] = transformed_item
+        k += 1
+
+      if contains and @short_circuit
+        if copy
+          -- copy the rest
+          for kdx=idx+1,#value
+            copy[k] = value[kdx]
+            k += 1
+
+        break
+
+    unless contains
+      return FailedTransform, "expected #{@_describe!}"
+
+    copy or value, state
+
+
 class MapOf extends BaseType
   new: (@expected_key, @expected_value, @opts) =>
     super!
@@ -882,6 +950,7 @@ types = setmetatable {
   partial: Partial
   pattern: Pattern
   array_of: ArrayOf
+  array_contains: ArrayContains
   map_of: MapOf
   literal: Literal
   range: Range
