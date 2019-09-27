@@ -471,6 +471,18 @@ describe "tableshape.transform", ->
       assert.same {"hello",7,"world"}, arr
       assert.same {"YA", 7, "YA"}, res
 
+    -- TODO: is this correct behavior?
+    it "transformed object doesn't contain non-array keys", ->
+      n = types.array_of types.number + types.string / "YA"
+
+      arr = {5,"hello",7,8, color: "green"}
+      res = n\transform arr
+
+      assert.false arr == res
+      assert.same { 5,"hello",7,8, color: "green" }, arr
+      assert.same { 5, "YA", 7, 8}, res
+
+
     it "returns new object when stripping nils", ->
       n = types.array_of types.number + types.string / nil
 
