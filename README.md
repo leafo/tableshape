@@ -876,7 +876,7 @@ it matches `type`, otherwise fail.
 
 ## Changelog
 
-**Upcoming release**
+**Oct 19 2019** - 2.1.0
 
 * Add `types.partial` alias for open shape
 * Add `types.array_contains`
