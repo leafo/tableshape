@@ -241,14 +241,14 @@ see all the other type checkers in the reference below.
 Type checker objects have the operators `*`, `+`, and `/` overloaded to provide
 a quick way to make composite types.
 
-* `*` — The **and** operator, both operands must match.
-* `+` — The **first of** operator, the operands are checked against the value from left to right
+* `*` — The **all of (and)** operator, both operands must match.
+* `+` — The **first of (or)** operator, the operands are checked against the value from left to right
 * `/` — The **transform** operator, when using the `transform` method, the value will be converted by what's to the right of the operator
 * `%` — The **transform with state** operator, same as transform, but state is passed as second argument
 
-#### The 'and' operator
+#### The 'all of' operator
 
-The **and** operator checks if a value matches multiple types. Types are
+The **all of** operator checks if a value matches multiple types. Types are
 checked from left to right, and type checking will abort on the first failed
 check. It works the same as `types.all_of`.
 
@@ -280,7 +280,7 @@ s("hello world") --> true
 s(true)          --> nil, "no matching option (got type `boolean`, expected `number`; got type `boolean`, expected `string`)"
 ```
 
-### The 'transform' operator
+#### The 'transform' operator
 
 In type matching mode, the transform operator has no effect. When using the
 `transform` method, however, the value will be modified by a callback or
