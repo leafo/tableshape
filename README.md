@@ -444,7 +444,7 @@ url_shape:transform({})                --> nil, "no matching option (expected st
 ```
 
 We can compose transformable type checkers. Now that we know how to fix a URL,
-we can fix an array of URLS:
+we can fix an array of URLs:
 
 
 ```lua
