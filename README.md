@@ -717,7 +717,7 @@ t {
 #### types.range(left, right)
 
 Creates a type checker that will check if a value is beween `left` and `right`
-conclusive. The type of the value is checked before doing the comparison:
+inclusive. The type of the value is checked before doing the comparison:
 passing a string to a numeric type checker will fail up front.
 
 ```lua
