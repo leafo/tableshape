@@ -485,6 +485,7 @@ Here are all the available ones, full documentation is below.
 * `types.custom` - lets you provide a function to check the type
 * `types.equivalent` - checks if values deeply compare to one another
 * `types.range` - checks if value is between two other values
+* `types.proxy` - dynamically load a type checker
 
 #### `types.shape(table_dec, options={})`
 
@@ -730,6 +731,31 @@ nums("n")  --> true
 ```
 
 This checker works well with the length checks for strings and arrays.
+
+#### types.proxy(fn)
+
+The proxy type checker will execute the provided function, `fn`, when called
+and use the return value as the type checker.  The `fn` function must return a
+valid tableshape type checker object.
+
+This can be used to have types that circularly depend on one another, or handle
+recursive types. `fn` is called every time the proxy checks a value, if you
+want to optimize for performance then you are responsible for caching type
+checker that is returned.
+
+
+An example recursive type checker:
+
+```lua
+local entity_type = types.shape {
+  name = types.string,
+  child = types.nil + types.proxy(function() return entity_type end)
+}
+```
+
+A proxy is needed above because the value of `entity_type` is `nil` while the
+type checker is being constructed. By using the proxy, we can create a closure
+to the variable that will eventually hold the `entity_type` checker.
 
 ### Built in types
 
