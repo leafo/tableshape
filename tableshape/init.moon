@@ -933,6 +933,27 @@ class NotType extends BaseType
       base_description = @base_type\_describe!
       "not #{base_description}"
 
+
+-- annotates failures with the value that failed
+class AnnotateType extends BaseType
+  new: (@base_type, @opts) =>
+    super!
+    assert BaseType\is_base_type(@base_type), "expected a type checker"
+
+  format_error: (value, err) =>
+    "#{tostring value}: #{err}"
+
+  _transform: (value, state) =>
+    new_value, state_or_err = @base_type\_transform value, state
+    if new_value == FailedTransform
+      FailedTransform, @format_error value, state_or_err
+    else
+      new_value, state_or_err
+
+  _describe: =>
+    if @base_type._describe
+      @base_type\_describe!
+
 types = setmetatable {
   any: AnyType!
   string: Type "string"
@@ -964,6 +985,7 @@ types = setmetatable {
   scope: TagScopeType
   proxy: Proxy
   assert: AssertType
+  annotate: AnnotateType
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
 
