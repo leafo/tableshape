@@ -277,6 +277,32 @@ class DescribeNode extends BaseType
   describe: (...) =>
     DescribeNode @node, ...
 
+-- annotates failures with the value that failed
+-- TODO: should this be part of describe?
+class AnnotateNode extends BaseType
+  new: (@base_type, @opts) =>
+    switch type @base_type
+      when "string", "number", "boolean"
+        @base_type = Literal @base_type
+
+    super!
+    assert BaseType\is_base_type(@base_type), "expected a type checker"
+    @format_error = @opts.format_error
+
+  format_error: (value, err) =>
+    "#{tostring value}: #{err}"
+
+  _transform: (value, state) =>
+    new_value, state_or_err = @base_type\_transform value, state
+    if new_value == FailedTransform
+      FailedTransform, @format_error value, state_or_err
+    else
+      new_value, state_or_err
+
+  _describe: =>
+    if @base_type._describe
+      @base_type\_describe!
+
 class TaggedType extends BaseType
   new: (@base_type, opts) =>
     @tag_name = assert opts.tag, "tagged type missing tag"
@@ -934,25 +960,6 @@ class NotType extends BaseType
       "not #{base_description}"
 
 
--- annotates failures with the value that failed
-class AnnotateType extends BaseType
-  new: (@base_type, @opts) =>
-    super!
-    assert BaseType\is_base_type(@base_type), "expected a type checker"
-
-  format_error: (value, err) =>
-    "#{tostring value}: #{err}"
-
-  _transform: (value, state) =>
-    new_value, state_or_err = @base_type\_transform value, state
-    if new_value == FailedTransform
-      FailedTransform, @format_error value, state_or_err
-    else
-      new_value, state_or_err
-
-  _describe: =>
-    if @base_type._describe
-      @base_type\_describe!
 
 types = setmetatable {
   any: AnyType!
@@ -985,7 +992,7 @@ types = setmetatable {
   scope: TagScopeType
   proxy: Proxy
   assert: AssertType
-  annotate: AnnotateType
+  annotate: AnnotateNode
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
 
