@@ -22,7 +22,7 @@ clone_state = function(state_obj)
   end
   return out
 end
-local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType
+local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType, Literal
 local describe_literal
 describe_literal = function(val)
   local _exp_0 = type(val)
@@ -1751,7 +1751,6 @@ do
   end
   Pattern = _class_0
 end
-local Literal
 do
   local _class_0
   local _parent_0 = BaseType

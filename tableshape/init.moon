@@ -19,7 +19,7 @@ clone_state = (state_obj) ->
   out
 
 
-local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType
+local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType, Literal
 
 describe_literal = (val) ->
   switch type(val)
