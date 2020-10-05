@@ -287,7 +287,8 @@ class AnnotateNode extends BaseType
 
     super!
     assert BaseType\is_base_type(@base_type), "expected a type checker"
-    @format_error = @opts.format_error
+    if @opts
+      @format_error = @opts.format_error
 
   format_error: (value, err) =>
     "#{tostring value}: #{err}"

@@ -539,7 +539,9 @@ do
       end
       _class_0.__parent.__init(self)
       assert(BaseType:is_base_type(self.base_type), "expected a type checker")
-      self.format_error = self.opts.format_error
+      if self.opts then
+        self.format_error = self.opts.format_error
+      end
     end,
     __base = _base_0,
     __name = "AnnotateNode",
