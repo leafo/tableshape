@@ -375,3 +375,58 @@ describe "tableshape.tags", ->
         extra_val: {"10cm"}
       }
 
+  describe "array_contains", ->
+    object = {
+      header: {
+        subject: "Hello world"
+        date: "June 99th"
+        from: "leafo.net"
+      }
+      body: {
+        {
+          content: "Hi there"
+          content_type: "text/plain"
+        }
+        {
+          content: "Oh there?"
+          content_type: "text/html"
+        }
+      }
+    }
+
+    it "gets tags where first item passes", ->
+      extract = types.partial {
+        header: types.partial { subject: types.string\tag "subject" }
+
+        body: types.one_of {
+          types.array_contains types.partial {
+            content: types.string\tag "body"
+            content_type: types.literal("text/html")\tag "content_type"
+          }
+        }
+      }
+      
+      assert.same {
+        subject: "Hello world"
+        body: "Oh there?"
+        content_type: "text/html"
+      }, extract object
+
+    it "gets tags where second item passes", ->
+      extract = types.partial {
+        header: types.partial { subject: types.string\tag "subject" }
+
+        body: types.one_of {
+          types.array_contains types.partial {
+            content: types.string\tag "body"
+            content_type: types.literal("text/plain")\tag "content_type"
+          }
+        }
+      }
+      
+      assert.same {
+        subject: "Hello world"
+        body: "Hi there"
+        content_type: "text/plain"
+      }, extract object
+
