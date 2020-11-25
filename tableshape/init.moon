@@ -615,10 +615,11 @@ class ArrayContains extends BaseType
 
         item
       else
-        item_val, state = @contains\_transform item, state
+        item_val, new_state = @contains\_transform item, state
         if item_val == FailedTransform
           item
         else
+          state = new_state
           contains = true
           if item_val == nil and not @keep_nils
             skip_item = true

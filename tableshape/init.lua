@@ -1270,11 +1270,11 @@ do
           end
           transformed_item = item
         else
-          local item_val
-          item_val, state = self.contains:_transform(item, state)
+          local item_val, new_state = self.contains:_transform(item, state)
           if item_val == FailedTransform then
             transformed_item = item
           else
+            state = new_state
             contains = true
             if item_val == nil and not self.keep_nils then
               skip_item = true
