@@ -1,0 +1,32 @@
+name: test
+
+on: [push]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        luaVersion: ["5.1", "luajit", "5.2", "5.3", "5.4"]
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@master
+
+    - uses: leafo/gh-actions-lua@master
+      with:
+        luaVersion: ${{ matrix.luaVersion }}
+
+    - uses: leafo/gh-actions-luarocks@master
+
+    - name: build
+      run: |
+        luarocks install busted
+        luarocks install moonscript
+        luarocks make
+
+    - name: test
+      run: |
+        busted -o utfTerminal
+
