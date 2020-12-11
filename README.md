@@ -1,7 +1,7 @@
 
 # tableshape
 
-[![Build Status](https://travis-ci.org/leafo/tableshape.svg?branch=master)](https://travis-ci.org/leafo/tableshape)
+![test](https://github.com/leafo/tableshape/workflows/test/badge.svg)
 
 A Lua library for verifying the shape (schema, structure, etc.) of a table, and
 transforming it if necessary. The type checking syntax is inspired by the
