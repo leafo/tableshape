@@ -902,6 +902,13 @@ it matches `type`, otherwise fail.
 
 ## Changelog
 
+**Jan 25 2021** - 2.2.0
+
+* Fixed bug where state could be overidden when tagging in `array_contains`
+* Expose (and add docs for) for `types.proxy`
+* Add experimental `Annotated` type
+* Update test suite to GitHub Actions
+
 **Oct 19 2019** - 2.1.0
 
 * Add `types.partial` alias for open shape
