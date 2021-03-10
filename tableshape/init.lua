@@ -2042,10 +2042,11 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    assert = assert,
     _transform = function(self, value, state)
       local state_or_err
       value, state_or_err = self.base_type:_transform(value, state)
-      assert(value ~= FailedTransform, state_or_err)
+      self.asserts(value ~= FailedTransform, state_or_err)
       return value, state_or_err
     end,
     _describe = function(self)

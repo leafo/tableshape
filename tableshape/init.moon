@@ -930,13 +930,15 @@ class Proxy extends BaseType
     assert(@.fn!, "proxy missing transformer")\_describe ...
 
 class AssertType extends BaseType
+  assert: assert
+
   new: (@base_type, @opts) =>
     super!
     assert BaseType\is_base_type(@base_type), "expected a type checker"
 
   _transform: (value, state) =>
     value, state_or_err = @base_type\_transform value, state
-    assert value != FailedTransform, state_or_err
+    @.assert value != FailedTransform, state_or_err
     value, state_or_err
 
   _describe: =>
