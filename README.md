@@ -340,7 +340,7 @@ local types = require("tableshape").types
 
 local str_to_coord = types.string / function(str)
   local x,y = str:match("(%d+)[^%d]+(%d+)")
-  if nox x then return end
+  if not x then return end
   return {
     x = tonumber(x),
     y = tonumber(y)
