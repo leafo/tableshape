@@ -862,12 +862,12 @@ class Custom extends BaseType
     @opts and @opts.describe or "custom checker #{@fn}"
 
   _transform: (value, state) =>
-    pass, err = @.fn value, state
+    pass, state_or_err = @.fn value, state
 
     unless pass
-      return FailedTransform, err or "failed custom check"
+      return FailedTransform, state_or_err or "failed custom check"
 
-    value, state
+    value, state_or_err or state
 
 class Equivalent extends BaseType
   values_equivalent = (a,b) ->
