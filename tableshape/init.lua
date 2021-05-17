@@ -1810,11 +1810,11 @@ do
       return self.opts and self.opts.describe or "custom checker " .. tostring(self.fn)
     end,
     _transform = function(self, value, state)
-      local pass, state_or_err = self.fn(value, state)
+      local pass, err = self.fn(value, state)
       if not (pass) then
-        return FailedTransform, state_or_err or "failed custom check"
+        return FailedTransform, err or "failed custom check"
       end
-      return value, state_or_err or state
+      return value, state
     end
   }
   _base_0.__index = _base_0
@@ -2046,7 +2046,7 @@ do
     _transform = function(self, value, state)
       local state_or_err
       value, state_or_err = self.base_type:_transform(value, state)
-      self.assert(value ~= FailedTransform, state_or_err)
+      self.asserts(value ~= FailedTransform, state_or_err)
       return value, state_or_err
     end,
     _describe = function(self)
