@@ -2046,7 +2046,7 @@ do
     _transform = function(self, value, state)
       local state_or_err
       value, state_or_err = self.base_type:_transform(value, state)
-      self.asserts(value ~= FailedTransform, state_or_err)
+      self.assert(value ~= FailedTransform, state_or_err)
       return value, state_or_err
     end,
     _describe = function(self)
