@@ -679,7 +679,7 @@ Returns a type checker that calls the function provided to verify the value.
 The function will receive the value being tested as the first argument, and the
 type checker as the second.
 
-The function should return `true` if the value passes, or `nil` and an error
+The function should return true if the value passes, or `nil` and an error
 message if it fails.
 
 ```lua
@@ -690,33 +690,6 @@ local is_even = types.custom(function(val)
     else
       return nil, "number is not even"
     end
-  else
-    return nil, "expected number"
-  end
-end)
-```
-
-##### Handling state
-
-The custom handler takes a second argument of the current state object. (Note
-that state may be `nil` if state has not been used yet in the type hierarchy)
-
-When returning `true` for a successful test, a second return value can be
-retuned to update the state object. The state object should be a brand new
-table, and the existing state object should not be mutated.
-
-```lua
-local count_success = types.custom(function(val, state)
-  if type(val) == "number" then
-    local out_state = {}
-    if state then
-      for k,v in pairs(state) do
-        out_state[k] = v
-      end
-    end
-
-    out_state.success_count = (out_state.success_count or 0) + 1
-    return true, out_state
   else
     return nil, "expected number"
   end

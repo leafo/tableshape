@@ -645,27 +645,6 @@ describe "tableshape.types", ->
       assert.same {true}, { check 1 }
       assert.same {true}, { check\check_value 1 }
 
-
-    it "checks with state & update", ->
-      check = types.custom (value, state) ->
-        if type(value) == "number"
-          out_state = state and {k,v for k,v in pairs state} or {}
-          out_state.count = (out_state.count or 0) + 1
-          true, out_state
-        else
-          nil, "expecting number"
-
-      assert.same { { count: 1 } }, { check 2 }
-      assert.same { nil, "expecting number" }, { check "world" }
-
-      assert.same { { count: 3 } }, { (check * check * check) 2 }
-
-      complex = (check + types.any) / "hello!" * (check + (types.any / 44) * check * check)
-
-      assert.same { { count: 3 } }, { complex 5 }
-      assert.same { { count: 2 } }, { complex "what" }
-
-
   describe "equivalent", ->
     it "chekcs nil", ->
       assert.same true, (types.equivalent(nil) nil)
