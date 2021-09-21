@@ -59,7 +59,7 @@ assert(player_shape(player))
 
 #### Transforming
 
-A malformed table can be repaired to the expected shape by using the
+A malformed value can be repaired to the expected shape by using the
 transformation operator and method. The input value is cloned and modified
 before being returned.
 
