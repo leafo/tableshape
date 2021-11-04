@@ -2,7 +2,7 @@ package = "tableshape"
 version = "dev-1"
 
 source = {
-  url = "git://github.com/leafo/tableshape.git",
+  url = "git+https://github.com/leafo/tableshape.git",
 }
 
 description = {
