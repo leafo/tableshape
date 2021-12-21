@@ -726,8 +726,8 @@ local nums = types.range 1, 20
 local letters = types.range "a", "f"
 
 nums(4)    --> true
-nums("c")  --> true
-nums("n")  --> true
+letters("c")  --> true
+letters("n")  --> true
 ```
 
 This checker works well with the length checks for strings and arrays.
