@@ -609,7 +609,7 @@ process every entry in the array, set `short_circuit = false` in the options.
 
 
 ```lua
-local t = types.array_of(types.number)
+local t = types.array_contains(types.number)
 
 t({"one", "two", 3, "four"}) --> true
 t({"hello", true}) --> fails
