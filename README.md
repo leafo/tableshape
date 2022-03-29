@@ -307,7 +307,7 @@ handed to it. A transforming type can fail also fail, here's an example:
 local n = types.number + types.string / tonumber
 
 n:transform("5") --> 5
-n:t({})          --> nil, "no matching option (got type `table`, expected `number`; got type `table`, expected `string`)"
+n:transform({})  --> nil, "no matching option (got type `table`, expected `number`; got type `table`, expected `string`)"
 ```
 
 The transform callback can either be a function, or a literal value. If a
@@ -434,8 +434,9 @@ end
 ```
 
 > If you pass a mutable object, like a table, then any transformations will be
-> done on a copies of the data. The original object will not be modified. A new
-> copy is always returned, even if no transformations take place.
+> done on a copy of the data. The original object will not be modified.
+> Generally, if a transformer makes no changes to the object it will return the
+> same reference it received.
 
 ```lua
 url_shape:transform("https://itch.io") --> https://itch.io
@@ -448,7 +449,7 @@ we can fix an array of URLs:
 
 
 ```lua
-local urls_array = types.array_of(url_shape)
+local urls_array = types.array_of(url_shape + types.any / nil)
 
 local fixed_urls = urls_array:transform({
   "https://itch.io",
@@ -456,6 +457,13 @@ local fixed_urls = urls_array:transform({
   {}
   "www.streak.club",
 })
+
+-- will return:
+-- {
+--   "https://itch.io",
+--   "http://leafo.net",
+--   "http://www.streak.club"
+-- }
 ```
 
 The `transform` method of the `array_of` type will transform each value of the
@@ -463,6 +471,12 @@ array. A special property of the `array_of` transform is to exclude any values
 that get turned into `nil` in the final output. You can use this to filter out
 any bad data without having holes in your array. (You can override this with
 the `keep_nils` option.
+
+Note how we add the `types.any / nil` alternative after the URL shape. This
+will ensure any unrecognized values are turned to `nil` so that they can be
+filtered out from the `array_of` shape. If this was not included, then the URL
+shape will fail on invalid values and the the entire transformation would be
+aborted.
 
 ## Reference
 
