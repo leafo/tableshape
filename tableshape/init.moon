@@ -69,6 +69,11 @@ class BaseType
     cls.__base.__add = @__add
     cls.__base.__unm = @__unm
 
+    -- TODO: ensure things implement describe to prevent hard error when
+    -- parsing inputs that don't pass the shape
+    -- unless rawget cls.__base, "_describe"
+    --   print "MISSING _describe", cls.__name
+
     mt = getmetatable cls
     create = mt.__call
     mt.__call = (cls, ...) ->
@@ -349,7 +354,7 @@ class TaggedType extends BaseType
 
   _describe: =>
     base_description = @base_type\_describe!
-    "#{base_description} tagged #{describe_literal @tag}"
+    "#{base_description} tagged #{describe_literal @tag_name}"
 
 class TagScopeType extends TaggedType
   new: (base_type, opts) =>
@@ -654,6 +659,9 @@ class MapOf extends BaseType
   new: (@expected_key, @expected_value, @opts) =>
     super!
 
+  _describe: =>
+    "map of #{@expected_key\_describe!} -> #{@expected_value\_describe!}"
+
   _transform: (value, state) =>
     pass, err = types.table value
     unless pass
@@ -890,6 +898,9 @@ class Equivalent extends BaseType
 
   new: (@val, @opts) =>
     super!
+
+  _describe: =>
+    "equivalent to #{describe_literal @val}"
 
   _transform: (value, state) =>
     if values_equivalent @val, value

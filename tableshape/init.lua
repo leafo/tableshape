@@ -617,7 +617,7 @@ do
     end,
     _describe = function(self)
       local base_description = self.base_type:_describe()
-      return tostring(base_description) .. " tagged " .. tostring(describe_literal(self.tag))
+      return tostring(base_description) .. " tagged " .. tostring(describe_literal(self.tag_name))
     end
   }
   _base_0.__index = _base_0
@@ -1365,6 +1365,9 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    _describe = function(self)
+      return "map of " .. tostring(self.expected_key:_describe()) .. " -> " .. tostring(self.expected_value:_describe())
+    end,
     _transform = function(self, value, state)
       local pass, err = types.table(value)
       if not (pass) then
@@ -1857,6 +1860,9 @@ do
   local values_equivalent
   local _parent_0 = BaseType
   local _base_0 = {
+    _describe = function(self)
+      return "equivalent to " .. tostring(describe_literal(self.val))
+    end,
     _transform = function(self, value, state)
       if values_equivalent(self.val, value) then
         return value, state

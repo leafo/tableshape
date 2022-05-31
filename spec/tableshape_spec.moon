@@ -809,6 +809,25 @@ describe "tableshape.describe", ->
     assert.same { "cool" }, {s\transform "hello world"}
     assert.same { nil, "expected str('hello world')" }, {s\transform "cool"}
 
+  it "describes some common types", ->
+    assert.same [[array of type "string", or type "nil"]], types.array_of(types.string + types.nil)\_describe!
+    assert.same [[map of type "string" -> type "number"]], types.map_of(types.string, types.number)\_describe!
+    assert.same [[type "string"]], types.proxy(-> types.string)\_describe!
+
+    assert.same [[{ "hello" = "world" }]], types.shape({ hello: "world" })\_describe!
+    assert.same [[{ "hello" = type "function" }]], types.shape({ hello: types.function })\_describe!
+
+    assert.same [[{ "hello" = "world" }]], types.partial({ hello: "world" })\_describe!
+    assert.same [[{ "hello" = type "function" }]], types.partial({ hello: types.function })\_describe!
+
+    assert.same [[custom checker function: 0xFF]], types.custom(-> false)\_describe!\gsub "0x.+$", "0xFF"
+
+    assert.same [[equivalent to "hi"]], types.equivalent("hi")\_describe!
+
+    assert.same [[type "string" tagged "hi"]], types.scope(types.string, tag: "hi")\_describe!
+
+
+
   it "describes a compound type with string literal", ->
     s = (types.nil + types.literal("hello world"))\describe "thing"
 
