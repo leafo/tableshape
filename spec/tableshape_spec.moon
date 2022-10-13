@@ -35,6 +35,7 @@ describe "tableshape.types", ->
 
     {"number", valid: 1234, invalid: "hello"}
     {"function", valid: (->), invalid: {}}
+    {"func", valid: (->), invalid: {}}
     {"string", valid: "234", invalid: 777}
     {"boolean", valid: true, invalid: 24323}
 
@@ -44,6 +45,9 @@ describe "tableshape.types", ->
 
     {"integer", valid: 1234, invalid: 1.1}
     {"integer", valid: 0, invalid: "1243"}
+
+    {"nil", valid: nil}
+    {"null", valid: nil}
   }
 
   for {type_name, :valid, :invalid, :check_errors} in *basic_types
