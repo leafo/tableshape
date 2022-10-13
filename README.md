@@ -179,7 +179,7 @@ assert(object_shape({
 ```
 
 The `is_optional` method can be called on any type checker to return a new type
-checker that can also accept `nil` as a value. (It is equivalent to `t + types.nil`)
+checker that can also accept `nil` as a value. (It is equivalent to `t + types['nil']`)
 
 If multiple fields fail the type check in a shape, the error message will
 contain all the failing fields
@@ -806,11 +806,25 @@ mismatch happened as best it can.
 
 `check_value` will abort on the first error found, and only that error message is returned.
 
-#### `type:transform(value)`
+#### `type:transform(value, initial_state=nil)`
 
-Will make a deep copy of the value, checking the type and performing any
-transformations if necessary. You can use the *transform operator* (`/`) to specify
-how values are transformed.
+Will apply transformation to the `value` with the provided type. If the type
+does not include any transformations then the same object will be returned
+assuming it matches the type check. If transformations take place then a new
+object will be returned with all other fields copied over.
+
+> You can use the *transform operator* (`/`) to specify how values are transformed.
+
+A second argument can optionally be provided for the initial state. This should
+be a Lua table. 
+
+If no state is provided, an empty Lua table will automatically will
+automatically be created if any of the type transformations make changes to the
+state.
+
+> The state object is used to store the result of any tagged types. The state
+> object can also be used to store data across the entire type checker for more
+> advanced functionality when using the custom state operators and types.
 
 ```lua
 local t = types.number + types.string / tonumber
@@ -819,8 +833,9 @@ t:transform(10) --> 10
 t:transform("15") --> 15
 ```
 
-If any tags are used, a tabled of tagged values is returned as the second
-argument.
+On success, this method will return the resulting value and the resulting
+state. If no state is used, then no state will be returned. On failure, the
+method will return `nil` and a string error message.
 
 #### `type:repair(value)`
 
@@ -830,7 +845,16 @@ An alias for `type:transform(value)`
 
 #### `type:is_optional()`
 
-Returns a new type checker that matches the same type, or `nil`.
+Returns a new type checker that matches the same type, or `nil`. This is
+effectively the same as using the expression:
+
+
+```lua
+local optional_my_type = types["nil"] + my_type
+````
+
+Internally, though, `is_optional` creates new *OptionalType* node in the type
+hierarchy to make printing summaries and error messages more clear.
 
 #### `type:describe(description)`
 
