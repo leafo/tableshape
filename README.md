@@ -217,7 +217,7 @@ local limbs = types.one_of{"foot", "arm"}
 
 assert(limbs("foot")) -- success
 assert(limbs("arm")) -- success
- 
+
 -- error: expected "foot", or "arm"
 assert(limbs("baseball"))
 ```
@@ -763,7 +763,7 @@ An example recursive type checker:
 ```lua
 local entity_type = types.shape {
   name = types.string,
-  child = types.nil + types.proxy(function() return entity_type end)
+  child = types['nil'] + types.proxy(function() return entity_type end)
 }
 ```
 
@@ -777,17 +777,19 @@ Built in types can be used directly without being constructed.
 
 * `types.string` - checks for `type(val) == "string"`
 * `types.number` - checks for `type(val) == "number"`
-* `types.func` - checks for `type(val) == "function"`
+* `types['function']` - checks for `type(val) == "function"`
+* `types.func` - alias for `types['function']`
 * `types.boolean` - checks for `type(val) == "boolean"`
 * `types.userdata` - checks for `type(val) == "userdata"`
 * `types.table` - checks for `type(val) == "table"`
-* `types.nil` - checks for `type(val) == "nil"`
+* `types['nil']` - checks for `type(val) == "nil"`
+* `types.null` - alias for `types['nil']`
 * `types.array` - checks for table of numerically increasing indexes
 * `types.integer` - checks for a number with no decimal component
 
 Additionally there's the special *any* type:
 
-* `types.any` - succeeds no matter what the type
+* `types.any` - succeeds no matter value is passed, including `nil`
 
 ### Type methods
 
@@ -816,7 +818,7 @@ object will be returned with all other fields copied over.
 > You can use the *transform operator* (`/`) to specify how values are transformed.
 
 A second argument can optionally be provided for the initial state. This should
-be a Lua table. 
+be a Lua table.
 
 If no state is provided, an empty Lua table will automatically will
 automatically be created if any of the type transformations make changes to the
@@ -872,13 +874,13 @@ key `name_or_fn`.
 
 If `name_or_fn` is a function, then you provide a callback to control how the
 state is updated. The function takes as arguments the state object and the
-value that matched: 
+value that matched:
 
 ```lua
 -- an example tag function that accumulates an array
 types.number:tag(function(state, value)
   -- nested objects should be treated as read only, so modifications are done to a copy
-  if state.numbers
+  if state.numbers then
     state.numbers = { unpack state.numbers }
   else
     state.numbers = { }
