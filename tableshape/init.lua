@@ -2151,15 +2151,18 @@ do
   end
   NotType = _class_0
 end
+local type_nil = Type("nil")
+local type_function = Type("function")
 types = setmetatable({
   any = AnyType(),
   string = Type("string"),
   number = Type("number"),
-  ["function"] = Type("function"),
-  func = Type("function"),
+  ["function"] = type_function,
+  func = type_function,
   boolean = Type("boolean"),
   userdata = Type("userdata"),
-  ["nil"] = Type("nil"),
+  ["nil"] = type_nil,
+  null = type_nil,
   table = Type("table"),
   array = ArrayType(),
   integer = Pattern("^%d+$", {
