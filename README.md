@@ -786,6 +786,7 @@ Built in types can be used directly without being constructed.
 * `types.null` - alias for `types['nil']`
 * `types.array` - checks for table of numerically increasing indexes
 * `types.integer` - checks for a number with no decimal component
+* `types.clone` - creates a shallow copy of the input, fails if value is not cloneable (eg. userdata, function)
 
 Additionally there's the special *any* type:
 
