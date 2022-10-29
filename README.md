@@ -497,11 +497,12 @@ that may break your program.
 ```lua
 local types = require("tableshape").types
 
+-- WARNING: READ CAREFULLY
 local add_id = types.table / function(t)
-	-- NEVER DO THIS
-	t.id = 100
-	-- I repeat, don't do what's in the line above
-	return t
+  -- NEVER DO THIS
+  t.id = 100
+  -- I repeat, don't do what's in the line above
+  return t
 end
 
 -- This is why, imagine we create a new compund type:
@@ -511,9 +512,9 @@ local array_of_add_id = types.array_of(add_id)
 -- And now we pass in the following malformed object:
 
 local items = {
-	{ entry = 1},
-	"entry2",
-	{ entry = 3},
+  { entry = 1},
+  "entry2",
+  { entry = 3},
 }
 
 
@@ -537,15 +538,21 @@ Luckily, tableshape provides a helper type that is designed to clone objects,
 local types = require("tableshape").types
 
 local add_id = types.table / function(t)
-	local new_t = assert(types.clone:transform(t))
-	new_t.id = 100
-	return new_t
+  local new_t = assert(types.clone:transform(t))
+  new_t.id = 100
+  return new_t
 end
 ```
 
 > **Advanced users only:** Since `types.clone` is a type itself, you can chain
 > it before any *dirty* functions you may have to ensure that mutations don't
-> cause side effects to persist during type validation: `types.table * types.clone / function(t) t.hello = "world"; return t end`
+> cause side effects to persist during type validation: `types.table * types.clone / my_messy_function`
+
+The built in composite types that operate on objects will automatically clone
+an object if any of the nested types have transforms that return new values.
+This includes composite type constructors like `types.shape`, `types.array_of`,
+`types.map_of`, etc. You only need to be careful about mutations when using
+custom transformation functions.
 
 ## Reference
 
@@ -559,6 +566,7 @@ Type constructors build a type checker configured by the parameters you pass.
 Here are all the available ones, full documentation is below.
 
 * `types.shape` - checks the shape of a table
+* `types.partial` - shorthand for an *open* `types.shape`
 * `types.one_of` - checks if value matches one of the types provided
 * `types.pattern` - checks if Lua pattern matches value
 * `types.array_of` - checks if value is array containing a type
@@ -873,10 +881,15 @@ allow you easily test a value by treating them like a function.
 
 Tests `value` against the type checker. Returns `true` (or the current state
 object) if the value passes the check. Returns `nil` and an error message as a
-string if there is a mismatch.  The error message will identify where the
+string if there is a mismatch. The error message will identify where the
 mismatch happened as best it can.
 
 `check_value` will abort on the first error found, and only that error message is returned.
+
+> Note: Under the hood, checking a value will always execute the full
+> transformation, but the resulting object is thrown away, and only the state
+> is returned. Keep this in mind because there is no performance benefit to
+> calling `check_value` over `transform`
 
 #### `type:transform(value, initial_state=nil)`
 
