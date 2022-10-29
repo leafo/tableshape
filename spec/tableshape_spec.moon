@@ -951,6 +951,16 @@ describe "tableshape.describe", ->
 
 
   describe "metatable_is", ->
+    it "describes", ->
+      empty_mt_type = types.metatable_is(types.nil)
+
+      mt_type = types.metatable_is types.shape {
+        __index: types.table + types.function
+      }
+
+      assert.same [[has metatable type "nil"]], empty_mt_type\_describe!
+      assert.same [[has metatable { "__index" = type "table", or type "function" }]], mt_type\_describe!
+
     it "detects empty metatable", ->
       empty_mt_type = types.metatable_is(types.nil)
       assert empty_mt_type {}

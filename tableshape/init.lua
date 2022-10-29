@@ -2229,7 +2229,7 @@ do
       return value, state_or_err
     end,
     _describe = function(self)
-      return "has metatable " .. tostring(describe_literal(self.metatable_type))
+      return "has metatable " .. tostring(describe_type(self.metatable_type))
     end
   }
   _base_0.__index = _base_0

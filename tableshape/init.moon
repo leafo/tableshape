@@ -1026,7 +1026,7 @@ class MetatableIsType extends BaseType
     value, state_or_err
 
   _describe: =>
-    "has metatable #{describe_literal @metatable_type}"
+    "has metatable #{describe_type @metatable_type}"
 
 
 type_nil = Type "nil"
