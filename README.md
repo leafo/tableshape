@@ -366,8 +366,9 @@ cord:transform({ x = 9, y = 10}) --> { x = 9, y = 10}
 
 ### Tags
 
-Tags can be used to extract specified values from a type as it's checked. A tag
-is only saved if the type it wraps matches.
+Tags can be used to extract values from a type as it's checked. A tag is only
+saved if the type it wraps matches. If a tag type wraps type checker that
+transforms a value, then the tag will store the result of the transformation
 
 
 ```lua
@@ -383,18 +384,22 @@ t({1,2})          --> { x = 1, y = 2}
 t({a = 3, b = 9}) --> { x = 3, y = 9}
 ```
 
-The results of tag matches are stored in the *state* object, an table that is
-passed throughout the entire type check. The state is returned at the end of
-a type check as the first return value on a successful match.
+The values captured by tags are stored in the *state* object, a table that is
+passed throughout the entire type check. When invoking a type check, on success
+the return value will be the state object if any state is used, via tags or any
+of the state APIs listed below. If no state is used, `true` is returned on a
+successful check.
 
-If no state is used, then `true` is returned.
+If a tag name ends in `"[]"` (eg. `"items[]"`), then repeated use of the tag
+name will cause each value to accumulate into an array. Otherwise, re-use of a
+tag name will cause the value to be overwritten at that name.
 
 ### Scopes
 
-You can use scopes to nest tags into objects. A scope can be created with
-`types.scope`. A scope works by pushing a new state on the state stack. After
-the scope is completed, it is assigned to the previous scope at the specified
-name
+You can use scopes to nest state objects (which includes the result of tags). A
+scope can be created with `types.scope`. A scope works by pushing a new state
+on the state stack. After the scope is completed, it is assigned to the
+previous scope at the specified tag name.
 
 ```lua
 local obj = types.shape {
@@ -402,41 +407,40 @@ local obj = types.shape {
   age = types.number
 }
 
-local many = types.array_of(types.scope(obj, { tag = "names[]"}))
+local many = types.array_of(types.scope(obj, { tag = "results[]"}))
 
 many({
   { id = "leaf", age = 2000 },
   { id = "amos", age = 15 }
-}) --> { names = {name = "leaf"}, {name = "amos"}}
+}) --> { results = {name = "leaf"}, {name = "amos"}}
 ```
 
-In this example, we use the special `[]` syntax in the tag name to accumulate
-all values that are tagged into an array. If the `[]` was left out, then each
-tagged value would overwrite the previous.
+> Note: In this example, we use the special `[]` syntax in the tag name to accumulate
+> all values that are tagged into an array. If the `[]` was left out, then each
+> tagged value would overwrite the previous.
 
-If the tag of the `types.scope` is left out, then an anonymous scope is used.
-An anonymous scope is thrown away after the scope is exited. This style is
-useful if you use state for a local transformation, and don't need those values
-outside.
+If the tag of the `types.scope` is left out, then an anonymous scope is
+created.  An anonymous scope is thrown away after the scope is exited. This
+style is useful if you use state for a local transformation, and don't need
+those values to affect the enclosing state object.
 
 ### Transforming
 
-When calling a type object with the transform method you can modify transform
-the input with callbacks until it matches the types you specify. This is done
-with a combination of type operators, including the `transform` operator.
+The `transform` method on a type object is a special way to invoke a type check
+that allows the value to be changed into something else during the type
+checking process. This can be usful for repairing or normalizing input into an
+expected shape.
 
-For example, we can take pattern type checker for URLs that fixes the input:
+The simplest way to tranform a value is using the transform operator, `/`:
+
+For example, we can type checker for URLs that will either accept a valid url,
+or convert any other string into a valid URL:
 
 ```lua
 local url_shape = types.pattern("^https?://") + types.string / function(val)
   return "http://" .. val
 end
 ```
-
-> If you pass a mutable object, like a table, then any transformations will be
-> done on a copy of the data. The original object will not be modified.
-> Generally, if a transformer makes no changes to the object it will return the
-> same reference it received.
 
 ```lua
 url_shape:transform("https://itch.io") --> https://itch.io
@@ -446,7 +450,6 @@ url_shape:transform({})                --> nil, "no matching option (expected st
 
 We can compose transformable type checkers. Now that we know how to fix a URL,
 we can fix an array of URLs:
-
 
 ```lua
 local urls_array = types.array_of(url_shape + types.any / nil)
@@ -477,6 +480,72 @@ will ensure any unrecognized values are turned to `nil` so that they can be
 filtered out from the `array_of` shape. If this was not included, then the URL
 shape will fail on invalid values and the the entire transformation would be
 aborted.
+
+### Transformation and mutable objects
+
+Special care must be made when writing a transformation function when working
+with mutable objects like tables. You should never modify the object, instead
+make a clone of it, make the changes, then return the new object.
+
+Because types can be deeply nested, it's possible that transformation may be
+called on a value, but the type check later fails. If you mutated the input
+value then there's no way to undo that change, and you've created a side effect
+that may break your program.
+
+**Never do this:**
+
+```lua
+local types = require("tableshape").types
+
+local add_id = types.table / function(t)
+	-- NEVER DO THIS
+	t.id = 100
+	-- I repeat, don't do what's in the line above
+	return t
+end
+
+-- This is why, imagine we create a new compund type:
+
+local array_of_add_id = types.array_of(add_id)
+
+-- And now we pass in the following malformed object:
+
+local items = {
+	{ entry = 1},
+	"entry2",
+	{ entry = 3},
+}
+
+
+-- And attempt to verify it by transforming it:
+
+local result,err = array_of_add_id:transform(items)
+
+-- This will fail because there's an value in items that will fail validation for
+-- add_id. Since types are processed incrementally, the first entry would have
+-- been permanently changed by the transformation. Even though the check failed,
+-- the data is partially modified and may result in a hard-to-catch bug.
+
+print items[1] --> = { id = 100, entry = 1}
+print items[3] --> = { entry = 3}
+```
+
+Luckily, tableshape provides a helper type that is designed to clone objects,
+`types.clone`. Here's the correct way to write the transformation:
+
+```lua
+local types = require("tableshape").types
+
+local add_id = types.table / function(t)
+	local new_t = assert(types.clone:transform(t))
+	new_t.id = 100
+	return new_t
+end
+```
+
+> **Advanced users only:** Since `types.clone` is a type itself, you can chain
+> it before any *dirty* functions you may have to ensure that mutations don't
+> cause side effects to persist during type validation: `types.table * types.clone / function(t) t.hello = "world"; return t end`
 
 ## Reference
 
