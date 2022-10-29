@@ -2136,6 +2136,72 @@ do
   end
   NotType = _class_0
 end
+local CloneType
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    _transform = function(self, value, state)
+      local _exp_0 = type(value)
+      if "nil" == _exp_0 or "string" == _exp_0 or "number" == _exp_0 or "boolean" == _exp_0 then
+        return value, state
+      elseif "table" == _exp_0 then
+        local clone_value
+        do
+          local _tbl_0 = { }
+          for k, v in pairs(value) do
+            _tbl_0[k] = v
+          end
+          clone_value = _tbl_0
+        end
+        do
+          local mt = getmetatable(value)
+          if mt then
+            setmetatable(clone_value, mt)
+          end
+        end
+        return clone_value, state
+      else
+        return FailedTransform, tostring(describe_type(value)) .. " is not cloneable"
+      end
+    end,
+    _describe = function(self)
+      return "cloneable value"
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, ...)
+      return _class_0.__parent.__init(self, ...)
+    end,
+    __base = _base_0,
+    __name = "CloneType",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  CloneType = _class_0
+end
 local type_nil = Type("nil")
 local type_function = Type("function")
 types = setmetatable({
@@ -2150,6 +2216,7 @@ types = setmetatable({
   null = type_nil,
   table = Type("table"),
   array = ArrayType(),
+  clone = CloneType(),
   integer = Pattern("^%d+$", {
     coerce = true,
     initial_type = "number"

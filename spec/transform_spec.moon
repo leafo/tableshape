@@ -899,3 +899,37 @@ describe "tableshape.transform", ->
         }
       }
 
+  describe "clone", ->
+    it "clones simple literals", ->
+      assert.equal 5, types.clone\transform 5
+      assert.equal true, types.clone\transform true
+      assert.equal false, types.clone\transform false
+      assert.equal nil, types.clone\transform nil
+      assert.equal "hello world!", types.clone\transform "hello world!"
+
+    it "clones simple tables", ->
+      for input in *{
+        {}
+        {1,2,3}
+        {one: "two"}
+        {hello: true, 4,5}
+      }
+        output = types.clone\transform input
+        assert output != input, "new object should be returned with clone"
+        assert.same output, input
+
+    it "clones with nested tables (shallow)", ->
+      input = { one: {} }
+      output = types.clone\transform input
+      assert output != input, "new object should be returned with clone"
+      assert.same output, input
+      assert input.one == output.one, "nested objects should be the same"
+
+    it "clones table with metatable", ->
+      mt = {}
+      input = setmetatable { hi: true }, mt
+      output = types.clone\transform input
+      assert output != input, "new object should be returned with clone"
+      assert.same output, input
+      assert getmetatable(output) == mt, "metatables should be the same"
+

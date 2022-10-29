@@ -971,6 +971,24 @@ class NotType extends BaseType
       base_description = @base_type\_describe!
       "not #{base_description}"
 
+class CloneType extends BaseType
+  _transform: (value, state) =>
+    switch type value
+      -- literals that don't need cloning
+      when "nil", "string", "number", "boolean"
+        return value, state
+      when "table"
+        -- shallow copy
+        clone_value = {k, v for k, v in pairs value}
+        if mt = getmetatable value
+          setmetatable clone_value, mt
+
+        return clone_value, state
+      else
+        return FailedTransform, "#{describe_type value} is not cloneable"
+
+  _describe: =>
+    "cloneable value"
 
 type_nil = Type "nil"
 type_function = Type "function"
@@ -987,6 +1005,7 @@ types = setmetatable {
   null: type_nil
   table: Type "table"
   array: ArrayType!
+  clone: CloneType!
 
   -- compound
   integer: Pattern "^%d+$", coerce: true, initial_type: "number"

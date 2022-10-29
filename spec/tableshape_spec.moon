@@ -932,5 +932,22 @@ describe "tableshape.describe", ->
       not_a_string = -types.string
       assert.same 'not type "string"', not_a_string\_describe!
 
+  describe "clone", ->
+    it "detects clonable object", ->
+      assert types.clone "hello"
+      assert types.clone nil
+      assert types.clone true
+      assert types.clone {}
+      assert types.clone 303
+      assert types.clone 303.248
+
+      if newproxy
+        assert.nil types.clone newproxy!
+
+      assert.nil types.clone =>
+
+    it "describes clone", ->
+      assert.same "array of cloneable value", types.array_of(types.clone)\_describe!
+
 
 
