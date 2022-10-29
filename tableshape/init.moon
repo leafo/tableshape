@@ -1,6 +1,11 @@
-local OptionalType, TaggedType, types
+local OptionalType, TaggedType, types, is_type
+local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType, Literal
 
--- metatable to identify arrays for merging
+-- Naming convention
+-- Type: Something that checks the type/shape of something
+-- Node: Something that adds additional information or does an operation on existing type(s)
+
+-- unique object to identify failure case for return value from _transform
 FailedTransform = {}
 
 unpack = unpack or table.unpack
@@ -18,23 +23,19 @@ clone_state = (state_obj) ->
 
   out
 
-
-local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType, Literal
-
-describe_literal = (val) ->
-  switch type(val)
-    when "string"
-      if not val\match '"'
-        "\"#{val}\""
-      elseif not val\match "'"
-        "'#{val}'"
-      else
-        "`#{val}`"
+-- Either use the describe method of the type, or print the literal value
+describe_type = (val) ->
+  if type(val) == "string"
+    if not val\match '"'
+      "\"#{val}\""
+    elseif not val\match "'"
+      "'#{val}'"
     else
-      if BaseType\is_base_type val
-        val\_describe!
-      else
-        tostring val
+      "`#{val}`"
+  elseif BaseType\is_base_type val
+    val\_describe!
+  else
+    tostring val
 
 join_names = (items, sep=", ", last_sep) ->
   count = #items
@@ -51,6 +52,17 @@ join_names = (items, sep=", ", last_sep) ->
 
   table.concat chunks
 
+
+-- This is the base class that all types must inherit from.
+-- Implementing types must provide the following methods:
+-- _transform(value, state): -> value, state
+--   Transform the value and state. No mutation must happen, return copies of
+--   values if they change. On failure return FailedTransform, "error message".
+--   Ensure that even on error no mutations happen to state or value.
+-- _describe(): -> string
+--   Return a string describing what the type should expect to get. This is
+--   used to generate error messages for complex types that bail out of value
+--   specific error messages due to complexity.
 class BaseType
   @is_base_type: (val) =>
     return false unless type(val) == "table"
@@ -206,12 +218,7 @@ class SequenceNode extends BaseType
     @sequence = {...}
 
   _describe: =>
-    item_names = for i in *@sequence
-      if type(i) == "table" and i._describe
-        i\_describe!
-      else
-        describe_literal i
-
+    item_names = [describe_type i for i in *@sequence]
     join_names item_names, " then "
 
   _transform: (value, state) =>
@@ -229,12 +236,7 @@ class FirstOfNode extends BaseType
     @options = {...}
 
   _describe: =>
-    item_names = for i in *@options
-      if type(i) == "table" and i._describe
-        i\_describe!
-      else
-        describe_literal i
-
+    item_names = [describe_type i for i in *@options]
     join_names item_names, ", ", ", or "
 
   _transform: (value, state) =>
@@ -354,7 +356,7 @@ class TaggedType extends BaseType
 
   _describe: =>
     base_description = @base_type\_describe!
-    "#{base_description} tagged #{describe_literal @tag_name}"
+    "#{base_description} tagged #{describe_type @tag_name}"
 
 class TagScopeType extends TaggedType
   new: (base_type, opts) =>
@@ -413,7 +415,7 @@ class Type extends BaseType
     got = type(value)
 
     if @t != got
-      return FailedTransform, "expected type #{describe_literal @t}, got #{describe_literal got}"
+      return FailedTransform, "expected type #{describe_type @t}, got #{describe_type got}"
 
     if @length_type
       len = #value
@@ -433,7 +435,7 @@ class Type extends BaseType
     Type @t, @clone_opts length: l
 
   _describe: =>
-    t = "type #{describe_literal @t}"
+    t = "type #{describe_type @t}"
     if @length_type
       t ..= " length_type #{@length_type\_describe!}"
 
@@ -454,7 +456,7 @@ class ArrayType extends BaseType
         return FailedTransform, "non number field: #{i}"
 
       unless i == k
-        return FailedTransform, "non array index, got #{describe_literal i} but expected #{describe_literal k}"
+        return FailedTransform, "non array index, got #{describe_type i} but expected #{describe_type k}"
 
       k += 1
 
@@ -476,7 +478,7 @@ class OneOf extends BaseType
       if type(i) == "table" and i._describe
         i\_describe!
       else
-        describe_literal i
+        describe_type i
 
     "#{join_names item_names, ", ", ", or "}"
 
@@ -505,12 +507,7 @@ class AllOf extends BaseType
       assert BaseType\is_base_type(checker), "all_of expects all type checkers"
 
   _describe: =>
-    item_names = for i in *@types
-      if type(i) == "table" and i._describe
-        i\_describe!
-      else
-        describe_literal i
-
+    item_names = [describe_type i for i in *@types]
     join_names item_names, " and "
 
   _transform: (value, state) =>
@@ -533,7 +530,7 @@ class ArrayOf extends BaseType
     super!
 
   _describe: =>
-    "array of #{describe_literal @expected}"
+    "array of #{describe_type @expected}"
 
   _transform: (value, state) =>
     pass, err = types.table value
@@ -556,7 +553,7 @@ class ArrayOf extends BaseType
 
       transformed_item = if is_literal
         if @expected != item
-          return FailedTransform, "array item #{idx}: expected #{describe_literal @expected}"
+          return FailedTransform, "array item #{idx}: expected #{describe_type @expected}"
         else
           item
       else
@@ -596,7 +593,7 @@ class ArrayContains extends BaseType
     super!
 
   _describe: =>
-    "array containing #{describe_literal @contains}"
+    "array containing #{describe_type @contains}"
 
   _transform: (value, state) =>
     pass, err = types.table value
@@ -679,7 +676,7 @@ class MapOf extends BaseType
 
       if key_literal
         if k != @expected_key
-          return FailedTransform, "map key expected #{describe_literal @expected_key}"
+          return FailedTransform, "map key expected #{describe_type @expected_key}"
       else
         new_k, state = @expected_key\_transform k, state
         if new_k == FailedTransform
@@ -687,7 +684,7 @@ class MapOf extends BaseType
 
       if value_literal
         if v != @expected_value
-          return FailedTransform, "map value expected #{describe_literal @expected_value}"
+          return FailedTransform, "map value expected #{describe_type @expected_value}"
       else
         new_v, state = @expected_value\_transform v, state
         if new_v == FailedTransform
@@ -724,7 +721,7 @@ class Shape extends BaseType
 
   _describe: =>
     parts = for k, v in pairs @shape
-      "#{describe_literal k} = #{describe_literal v}"
+      "#{describe_type k} = #{describe_type v}"
 
     "{ #{table.concat parts, ", "} }"
 
@@ -752,10 +749,10 @@ class Shape extends BaseType
         if shape_val == item_value
           item_value, state
         else
-          FailedTransform, "expected #{describe_literal shape_val}"
+          FailedTransform, "expected #{describe_type shape_val}"
 
       if new_val == FailedTransform
-        err = "field #{describe_literal shape_key}: #{state}"
+        err = "field #{describe_type shape_key}: #{state}"
         if check_all
           if errors
             table.insert errors, err
@@ -779,7 +776,7 @@ class Shape extends BaseType
           item_value = value[k]
           tuple, state = @.extra_fields_type\_transform {[k]: item_value}, state
           if tuple == FailedTransform
-            err = "field #{describe_literal k}: #{state}"
+            err = "field #{describe_type k}: #{state}"
             if check_all
               if errors
                 table.insert errors, err
@@ -802,7 +799,7 @@ class Shape extends BaseType
               dirty = true
       else
         names = for key in pairs remaining_keys
-          describe_literal key
+          describe_type key
 
         err = "extra fields: #{table.concat names, ", "}"
 
@@ -830,12 +827,12 @@ class Pattern extends BaseType
     super!
 
   _describe: =>
-    "pattern #{describe_literal @pattern}"
+    "pattern #{describe_type @pattern}"
 
   -- TODO: remove coerce, can be done with operators
   _transform: (value, state) =>
     if initial = @opts and @opts.initial_type
-      return FailedTransform, "expected #{describe_literal initial}" unless type(value) == initial
+      return FailedTransform, "expected #{describe_type initial}" unless type(value) == initial
 
     value = tostring value if @opts and @opts.coerce
 
@@ -854,7 +851,7 @@ class Literal extends BaseType
     super!
 
   _describe: =>
-    describe_literal @value
+    describe_type @value
 
   _transform: (value, state) =>
     if @value != value
@@ -900,7 +897,7 @@ class Equivalent extends BaseType
     super!
 
   _describe: =>
-    "equivalent to #{describe_literal @val}"
+    "equivalent to #{describe_type @val}"
 
   _transform: (value, state) =>
     if values_equivalent @val, value

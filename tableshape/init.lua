@@ -1,4 +1,5 @@
-local OptionalType, TaggedType, types
+local OptionalType, TaggedType, types, is_type
+local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType, Literal
 local FailedTransform = { }
 local unpack = unpack or table.unpack
 local clone_state
@@ -22,11 +23,9 @@ clone_state = function(state_obj)
   end
   return out
 end
-local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType, Literal
-local describe_literal
-describe_literal = function(val)
-  local _exp_0 = type(val)
-  if "string" == _exp_0 then
+local describe_type
+describe_type = function(val)
+  if type(val) == "string" then
     if not val:match('"') then
       return "\"" .. tostring(val) .. "\""
     elseif not val:match("'") then
@@ -34,12 +33,10 @@ describe_literal = function(val)
     else
       return "`" .. tostring(val) .. "`"
     end
+  elseif BaseType:is_base_type(val) then
+    return val:_describe()
   else
-    if BaseType:is_base_type(val) then
-      return val:_describe()
-    else
-      return tostring(val)
-    end
+    return tostring(val)
   end
 end
 local join_names
@@ -297,11 +294,7 @@ do
         local _list_0 = self.sequence
         for _index_0 = 1, #_list_0 do
           local i = _list_0[_index_0]
-          if type(i) == "table" and i._describe then
-            _accum_0[_len_0] = i:_describe()
-          else
-            _accum_0[_len_0] = describe_literal(i)
-          end
+          _accum_0[_len_0] = describe_type(i)
           _len_0 = _len_0 + 1
         end
         item_names = _accum_0
@@ -369,11 +362,7 @@ do
         local _list_0 = self.options
         for _index_0 = 1, #_list_0 do
           local i = _list_0[_index_0]
-          if type(i) == "table" and i._describe then
-            _accum_0[_len_0] = i:_describe()
-          else
-            _accum_0[_len_0] = describe_literal(i)
-          end
+          _accum_0[_len_0] = describe_type(i)
           _len_0 = _len_0 + 1
         end
         item_names = _accum_0
@@ -617,7 +606,7 @@ do
     end,
     _describe = function(self)
       local base_description = self.base_type:_describe()
-      return tostring(base_description) .. " tagged " .. tostring(describe_literal(self.tag_name))
+      return tostring(base_description) .. " tagged " .. tostring(describe_type(self.tag_name))
     end
   }
   _base_0.__index = _base_0
@@ -829,7 +818,7 @@ do
     _transform = function(self, value, state)
       local got = type(value)
       if self.t ~= got then
-        return FailedTransform, "expected type " .. tostring(describe_literal(self.t)) .. ", got " .. tostring(describe_literal(got))
+        return FailedTransform, "expected type " .. tostring(describe_type(self.t)) .. ", got " .. tostring(describe_type(got))
       end
       if self.length_type then
         local len = #value
@@ -853,7 +842,7 @@ do
       }))
     end,
     _describe = function(self)
-      local t = "type " .. tostring(describe_literal(self.t))
+      local t = "type " .. tostring(describe_type(self.t))
       if self.length_type then
         t = t .. " length_type " .. tostring(self.length_type:_describe())
       end
@@ -915,7 +904,7 @@ do
           return FailedTransform, "non number field: " .. tostring(i)
         end
         if not (i == k) then
-          return FailedTransform, "non array index, got " .. tostring(describe_literal(i)) .. " but expected " .. tostring(describe_literal(k))
+          return FailedTransform, "non array index, got " .. tostring(describe_type(i)) .. " but expected " .. tostring(describe_type(k))
         end
         k = k + 1
       end
@@ -972,7 +961,7 @@ do
           if type(i) == "table" and i._describe then
             _accum_0[_len_0] = i:_describe()
           else
-            _accum_0[_len_0] = describe_literal(i)
+            _accum_0[_len_0] = describe_type(i)
           end
           _len_0 = _len_0 + 1
         end
@@ -1072,11 +1061,7 @@ do
         local _list_0 = self.types
         for _index_0 = 1, #_list_0 do
           local i = _list_0[_index_0]
-          if type(i) == "table" and i._describe then
-            _accum_0[_len_0] = i:_describe()
-          else
-            _accum_0[_len_0] = describe_literal(i)
-          end
+          _accum_0[_len_0] = describe_type(i)
           _len_0 = _len_0 + 1
         end
         item_names = _accum_0
@@ -1141,7 +1126,7 @@ do
   local _parent_0 = BaseType
   local _base_0 = {
     _describe = function(self)
-      return "array of " .. tostring(describe_literal(self.expected))
+      return "array of " .. tostring(describe_type(self.expected))
     end,
     _transform = function(self, value, state)
       local pass, err = types.table(value)
@@ -1163,7 +1148,7 @@ do
         local transformed_item
         if is_literal then
           if self.expected ~= item then
-            return FailedTransform, "array item " .. tostring(idx) .. ": expected " .. tostring(describe_literal(self.expected))
+            return FailedTransform, "array item " .. tostring(idx) .. ": expected " .. tostring(describe_type(self.expected))
           else
             transformed_item = item
           end
@@ -1251,7 +1236,7 @@ do
     short_circuit = true,
     keep_nils = false,
     _describe = function(self)
-      return "array containing " .. tostring(describe_literal(self.contains))
+      return "array containing " .. tostring(describe_type(self.contains))
     end,
     _transform = function(self, value, state)
       local pass, err = types.table(value)
@@ -1384,7 +1369,7 @@ do
           local new_v = v
           if key_literal then
             if k ~= self.expected_key then
-              return FailedTransform, "map key expected " .. tostring(describe_literal(self.expected_key))
+              return FailedTransform, "map key expected " .. tostring(describe_type(self.expected_key))
             end
           else
             new_k, state = self.expected_key:_transform(k, state)
@@ -1394,7 +1379,7 @@ do
           end
           if value_literal then
             if v ~= self.expected_value then
-              return FailedTransform, "map value expected " .. tostring(describe_literal(self.expected_value))
+              return FailedTransform, "map value expected " .. tostring(describe_type(self.expected_value))
             end
           else
             new_v, state = self.expected_value:_transform(v, state)
@@ -1469,7 +1454,7 @@ do
         local _accum_0 = { }
         local _len_0 = 1
         for k, v in pairs(self.shape) do
-          _accum_0[_len_0] = tostring(describe_literal(k)) .. " = " .. tostring(describe_literal(v))
+          _accum_0[_len_0] = tostring(describe_type(k)) .. " = " .. tostring(describe_type(v))
           _len_0 = _len_0 + 1
         end
         parts = _accum_0
@@ -1505,11 +1490,11 @@ do
           if shape_val == item_value then
             new_val, state = item_value, state
           else
-            new_val, state = FailedTransform, "expected " .. tostring(describe_literal(shape_val))
+            new_val, state = FailedTransform, "expected " .. tostring(describe_type(shape_val))
           end
         end
         if new_val == FailedTransform then
-          err = "field " .. tostring(describe_literal(shape_key)) .. ": " .. tostring(state)
+          err = "field " .. tostring(describe_type(shape_key)) .. ": " .. tostring(state)
           if check_all then
             if errors then
               table.insert(errors, err)
@@ -1541,7 +1526,7 @@ do
               [k] = item_value
             }, state)
             if tuple == FailedTransform then
-              err = "field " .. tostring(describe_literal(k)) .. ": " .. tostring(state)
+              err = "field " .. tostring(describe_type(k)) .. ": " .. tostring(state)
               if check_all then
                 if errors then
                   table.insert(errors, err)
@@ -1575,7 +1560,7 @@ do
             local _accum_0 = { }
             local _len_0 = 1
             for key in pairs(remaining_keys) do
-              _accum_0[_len_0] = describe_literal(key)
+              _accum_0[_len_0] = describe_type(key)
               _len_0 = _len_0 + 1
             end
             names = _accum_0
@@ -1697,14 +1682,14 @@ do
   local _parent_0 = BaseType
   local _base_0 = {
     _describe = function(self)
-      return "pattern " .. tostring(describe_literal(self.pattern))
+      return "pattern " .. tostring(describe_type(self.pattern))
     end,
     _transform = function(self, value, state)
       do
         local initial = self.opts and self.opts.initial_type
         if initial then
           if not (type(value) == initial) then
-            return FailedTransform, "expected " .. tostring(describe_literal(initial))
+            return FailedTransform, "expected " .. tostring(describe_type(initial))
           end
         end
       end
@@ -1761,7 +1746,7 @@ do
   local _parent_0 = BaseType
   local _base_0 = {
     _describe = function(self)
-      return describe_literal(self.value)
+      return describe_type(self.value)
     end,
     _transform = function(self, value, state)
       if self.value ~= value then
@@ -1861,7 +1846,7 @@ do
   local _parent_0 = BaseType
   local _base_0 = {
     _describe = function(self)
-      return "equivalent to " .. tostring(describe_literal(self.val))
+      return "equivalent to " .. tostring(describe_type(self.val))
     end,
     _transform = function(self, value, state)
       if values_equivalent(self.val, value) then
@@ -2195,7 +2180,6 @@ check_shape = function(value, shape)
   assert(shape.check_value, "missing check_value method from shape")
   return shape:check_value(value)
 end
-local is_type
 is_type = function(val)
   return BaseType:is_base_type(val)
 end
