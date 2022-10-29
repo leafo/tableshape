@@ -950,4 +950,82 @@ describe "tableshape.describe", ->
       assert.same "array of cloneable value", types.array_of(types.clone)\_describe!
 
 
+  describe "metatable_is", ->
+    it "detects empty metatable", ->
+      empty_mt_type = types.metatable_is(types.nil)
+      assert empty_mt_type {}
+
+      assert.same {nil, 'metatable expected: expected type "nil", got "table"'}, { empty_mt_type setmetatable {}, {} }
+
+      -- non tables not eligible for metatables
+      assert.nil (empty_mt_type false)
+      assert.nil (empty_mt_type 2349824)
+
+    it "detects metatable", ->
+      mt_type = types.metatable_is types.shape {
+        __index: types.table + types.function
+      }
+
+      assert mt_type (setmetatable {}, {
+        __index: {}
+      })
+
+      assert.same {
+        nil
+        'metatable expected: field "__index": expected type "table", or type "function"'
+      }, {
+        mt_type (setmetatable {}, {
+          __index: false
+        })
+      }
+
+    it "fails when trying to mutate metatable", ->
+      mt_type = types.metatable_is types.shape {
+        cool: types.any / "five"
+      }
+
+      obj = {}
+      mt = {}
+
+      assert.same {
+        nil
+        'metatable was modified by a type but { allow_metatable_update = true } is not enabled'
+      }, {
+        mt_type (setmetatable obj, mt)
+      }
+
+      assert.same mt, {}
+      assert mt == getmetatable(obj)
+
+    it "allows mutation when activated", ->
+      mt_type = types.metatable_is types.shape({
+        cool: types.any / "five"
+      }), {
+        allow_metatable_update: true
+      }
+
+      obj = {}
+      mt = {}
+      assert mt_type (setmetatable obj, mt)
+
+      assert.same {}, mt
+      assert.same {
+        cool: "five"
+      }, getmetatable obj
+
+    it "allows state change in metatable type", ->
+      mt_type = types.metatable_is types.shape {
+        __index: types.any\tag "index"
+      }
+
+      obj = {}
+      mt = {
+        __index: "hello"
+      }
+
+      setmetatable obj, mt
+
+      s = mt_type obj
+      assert.same {index: "hello"}, s
+
 

@@ -2202,6 +2202,75 @@ do
   end
   CloneType = _class_0
 end
+local MetatableIsType
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    _transform = function(self, value, state)
+      local state_or_err
+      value, state_or_err = types.table:_transform(value, state)
+      if value == FailedTransform then
+        return FailedTransform, state_or_err
+      end
+      local mt = getmetatable(value)
+      local new_mt
+      new_mt, state_or_err = self.metatable_type:_transform(mt, state_or_err)
+      if new_mt == FailedTransform then
+        return FailedTransform, "metatable expected: " .. tostring(state_or_err)
+      end
+      if new_mt ~= mt then
+        if self.opts and self.opts.allow_metatable_update then
+          setmetatable(value, new_mt)
+        else
+          return FailedTransform, "metatable was modified by a type but { allow_metatable_update = true } is not enabled"
+        end
+      end
+      return value, state_or_err
+    end,
+    _describe = function(self)
+      return "has metatable " .. tostring(describe_literal(self.metatable_type))
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, metatable_type, opts)
+      self.opts = opts
+      if BaseType:is_base_type(metatable_type) then
+        self.metatable_type = metatable_type
+      else
+        self.metatable_type = Literal(metatable_type)
+      end
+      return _class_0.__parent.__init(self)
+    end,
+    __base = _base_0,
+    __name = "MetatableIsType",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  MetatableIsType = _class_0
+end
 local type_nil = Type("nil")
 local type_function = Type("function")
 types = setmetatable({
@@ -2236,7 +2305,8 @@ types = setmetatable({
   scope = TagScopeType,
   proxy = Proxy,
   assert = AssertType,
-  annotate = AnnotateNode
+  annotate = AnnotateNode,
+  metatable_is = MetatableIsType
 }, {
   __index = function(self, fn_name)
     return error("Type checker does not exist: `" .. tostring(fn_name) .. "`")

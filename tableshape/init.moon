@@ -990,6 +990,45 @@ class CloneType extends BaseType
   _describe: =>
     "cloneable value"
 
+class MetatableIsType extends BaseType
+  new: (metatable_type, @opts) =>
+    @metatable_type = if BaseType\is_base_type metatable_type
+      metatable_type
+    else
+      Literal metatable_type
+
+    super!
+
+  _transform: (value, state) =>
+    -- verify that type is a table
+    value, state_or_err = types.table\_transform value, state
+    if value == FailedTransform
+      return FailedTransform, state_or_err
+
+    mt = getmetatable value
+    new_mt, state_or_err = @metatable_type\_transform mt, state_or_err
+
+    if new_mt == FailedTransform
+      return FailedTransform, "metatable expected: #{state_or_err}"
+
+    if new_mt != mt
+      if @opts and @opts.allow_metatable_update
+        setmetatable value, new_mt
+      else
+        -- NOTE: changing a metatable is unsafe since if a parent type ends up
+        -- failing validation we can not undo the change. The only safe way to
+        -- avoid the issue would be to shallow clone value but that may come
+        -- with it's own consquences. Hence, you must explicitly enable
+        -- metatable mutation, and you should probably pass a clone into the
+        -- transform: types.clone * types.metatable_is
+        return FailedTransform, "metatable was modified by a type but { allow_metatable_update = true } is not enabled"
+
+    value, state_or_err
+
+  _describe: =>
+    "has metatable #{describe_literal @metatable_type}"
+
+
 type_nil = Type "nil"
 type_function = Type "function"
 
@@ -1027,6 +1066,7 @@ types = setmetatable {
   proxy: Proxy
   assert: AssertType
   annotate: AnnotateNode
+  metatable_is: MetatableIsType
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
 
