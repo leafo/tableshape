@@ -55,11 +55,11 @@ join_names = (items, sep=", ", last_sep) ->
 
 -- This is the base class that all types must inherit from.
 -- Implementing types must provide the following methods:
--- _transform(value, state): -> value, state
+-- _transform(value, state): => value, state
 --   Transform the value and state. No mutation must happen, return copies of
 --   values if they change. On failure return FailedTransform, "error message".
 --   Ensure that even on error no mutations happen to state or value.
--- _describe(): -> string
+-- _describe(): => string
 --   Return a string describing what the type should expect to get. This is
 --   used to generate error messages for complex types that bail out of value
 --   specific error messages due to complexity.
