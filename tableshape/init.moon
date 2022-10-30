@@ -1084,4 +1084,4 @@ is_type = (val) ->
 type_switch = (val) ->
   setmetatable { val }, { __eq: BaseType.__eq }
 
-{ :check_shape, :types, :is_type, :type_switch, :BaseType, :FailedTransform, VERSION: "2.3.0" }
+{ :check_shape, :types, :is_type, :type_switch, :BaseType, :FailedTransform, VERSION: "2.4.0" }
