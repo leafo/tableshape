@@ -44,7 +44,7 @@ describe "tableshape.moonscript", ->
 
   describe "class_type", ->
     it "describes type checker", ->
-      assert.same "class", class_type\_describe!
+      assert.same "class", tostring class_type
 
     it "tests values", ->
       assert.same {
@@ -81,8 +81,8 @@ describe "tableshape.moonscript", ->
 
   describe "instance_of", ->
     it "describes type checker", ->
-      assert.same "instance of Other", instance_of(Other)\_describe!
-      assert.same "instance of World", instance_of("World")\_describe!
+      assert.same "instance of Other", tostring instance_of Other
+      assert.same "instance of World", tostring instance_of "World"
 
     it "handles invalid types", ->
       t = instance_of(Other)
