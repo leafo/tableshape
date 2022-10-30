@@ -29,9 +29,14 @@ class InstanceType extends BaseType
     unless type(value) == "table"
       return FailedTransform, "expecting table"
 
-    cls = value.__class
+    mt = getmetatable value
+
+    unless mt
+      return FailedTransform, "table is not instance (missing metatable)"
+
+    cls = rawget mt, "__class"
     unless cls
-      return FailedTransform, "table does not have __class"
+      return FailedTransform, "table is not instance (metatable does not have __class)"
 
     value, state
 

@@ -74,9 +74,13 @@ do
       if not (type(value) == "table") then
         return FailedTransform, "expecting table"
       end
-      local cls = value.__class
+      local mt = getmetatable(value)
+      if not (mt) then
+        return FailedTransform, "table is not instance (missing metatable)"
+      end
+      local cls = rawget(mt, "__class")
       if not (cls) then
-        return FailedTransform, "table does not have __class"
+        return FailedTransform, "table is not instance (metatable does not have __class)"
       end
       return value, state
     end,

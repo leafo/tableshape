@@ -1,11 +1,46 @@
 
-import instance_of, class_type from require "tableshape.moonscript"
+import instance_of, class_type, instance_type from require "tableshape.moonscript"
 
 describe "tableshape.moonscript", ->
   class Other
   class Hello
   class World extends Hello
   class Zone extends World
+
+  describe "instance_type", ->
+    it "describes", ->
+      assert.same "class", tostring class_type
+
+    it "tests values", ->
+      assert instance_type Other!
+      assert instance_type Zone!
+
+      assert.same {
+        nil
+        "expecting table"
+      }, { instance_type true }
+
+      assert.same {
+        nil
+        "expecting table"
+      }, { instance_type -> }
+
+      assert.same {
+        nil
+        "expecting table"
+      }, { instance_type nil }
+
+      -- random table
+      assert.same {
+        nil
+        "table is not instance (missing metatable)"
+      }, { instance_type {} }
+
+      -- a class object (is not an instance)
+      assert.same {
+        nil
+        "table is not instance (metatable does not have __class)"
+      }, { instance_type World }
 
   describe "class_type", ->
     it "describes type checker", ->
@@ -45,7 +80,6 @@ describe "tableshape.moonscript", ->
       }, { class_type setmetatable { __base: {}}, {} }
 
   describe "instance_of", ->
-
     it "describes type checker", ->
       assert.same "instance of Other", instance_of(Other)\_describe!
       assert.same "instance of World", instance_of("World")\_describe!
@@ -55,7 +89,8 @@ describe "tableshape.moonscript", ->
       assert.same {nil, "expecting table"}, { t -> }
       assert.same {nil, "expecting table"}, { t false }
       assert.same {nil, "expecting table"}, { t 22 }
-      assert.same {nil, "table does not have __class"}, { t {} }
+      assert.same {nil, "table is not instance (missing metatable)"}, { t {} }
+      assert.same {nil, "table is not instance (metatable does not have __class)"}, { t setmetatable  {}, {} }
 
     it "checks instance of class by name", ->
       -- by zone
@@ -113,6 +148,11 @@ describe "tableshape.moonscript", ->
     it "checks instance of class by object", ->
       -- by zone
       assert.true instance_of(Zone) Zone!
+
+      -- it should not think a class object is an instance
+      assert.same {
+        nil, "table is not instance (metatable does not have __class)"
+      }, { instance_of(Zone) Zone }
 
       assert.same {
         nil, "table is not instance of Zone"
