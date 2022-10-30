@@ -1042,4 +1042,20 @@ describe "tableshape.describe", ->
       s = mt_type obj
       assert.same {index: "hello"}, s
 
+  describe "__tostring", ->
+    it "describes all types", ->
+      import is_type from require "tableshape"
+      for name, t in pairs types
+        if is_type(t)
+          tostring t
+
+    it "describes composite type", ->
+      t = types.nil + types.shape({ hello: "world"})\tag "hi"
+      assert.same(
+        [[type "nil", or { "hello" = "world" } tagged "hi"]]
+        tostring t
+      )
+      tt = t\describe "strange object"
+      assert.same [[strange object]], tostring tt
+
 

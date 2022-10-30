@@ -97,6 +97,9 @@ do
     __unm = function(self, right)
       return NotType(right)
     end,
+    __tostring = function(self)
+      return self:_describe()
+    end,
     _describe = function(self)
       return error("Node missing _describe: " .. tostring(self.__class.__name))
     end,
@@ -203,6 +206,7 @@ do
     cls.__base.__mul = self.__mul
     cls.__base.__add = self.__add
     cls.__base.__unm = self.__unm
+    cls.__base.__tostring = self.__tostring
     local mt = getmetatable(cls)
     local create = mt.__call
     mt.__call = function(cls, ...)

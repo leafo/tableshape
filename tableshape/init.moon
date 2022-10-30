@@ -80,6 +80,7 @@ class BaseType
     cls.__base.__mul = @__mul
     cls.__base.__add = @__add
     cls.__base.__unm = @__unm
+    cls.__base.__tostring = @__tostring
 
     -- TODO: ensure things implement describe to prevent hard error when
     -- parsing inputs that don't pass the shape
@@ -121,6 +122,9 @@ class BaseType
 
   __unm: (right) =>
     NotType right
+
+  __tostring: =>
+    @_describe!
 
   _describe: =>
     error "Node missing _describe: #{@@__name}"
