@@ -3,15 +3,19 @@
 
 describe "tableshape.is_type", ->
   it "detects type", ->
-    import is_type, types from require "tableshape"
-    assert.falsy is_type!
-    assert.falsy is_type "hello"
-    assert.falsy is_type {}
-    assert.falsy is_type ->
+    import is_type from require "tableshape"
+    assert.false is_type!
+    assert.false is_type "hello"
+    assert.false is_type {}
+    assert.false is_type ->
 
-    assert.truthy is_type types.string
-    assert.truthy is_type types.shape {}
-    assert.truthy is_type types.array_of { types.string }
+    assert.true is_type types.string
+    assert.true is_type types.shape {}
+    assert.true is_type types.array_of { types.string }
+
+    -- type constructors are not types
+    assert.false is_type types.shape
+    assert.false is_type types.array_of
 
 describe "tableshape.type_switch", ->
   it "switches on type", ->

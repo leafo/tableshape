@@ -64,13 +64,13 @@ join_names = (items, sep=", ", last_sep) ->
 --   used to generate error messages for complex types that bail out of value
 --   specific error messages due to complexity.
 class BaseType
+  -- detects if value is *instance* of base type
   @is_base_type: (val) =>
-    return false unless type(val) == "table"
+    if mt = type(val) == "table" and getmetatable val
+      if mt.__class
+        return mt.__class.is_base_type == BaseType.is_base_type
 
-    cls = val and val.__class
-    return false unless cls
-    return true if BaseType == cls
-    @is_base_type cls.__parent
+    false
 
   @__inherited: (cls) =>
     cls.__base.__call = cls.__call
