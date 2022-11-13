@@ -763,6 +763,47 @@ describe "tableshape.operators", ->
     assert.same {true}, {t("hello")}
     assert.same {nil, 'expected type "string", got "boolean"'}, {t(false)}
 
+  it "operand coersion", ->
+    test_hello = types.string * "hello"
+    assert test_hello "hello"
+
+    -- merges all options into single node
+    addition_test = types.function + "world" + 5 + true
+    assert addition_test "world"
+    assert addition_test 5
+    assert addition_test true
+    assert addition_test ->
+
+    -- all options merged into flat array
+    assert.same #addition_test.options, 4
+
+    rhs_merge = "thing" + addition_test
+    assert.same #rhs_merge.options, 5
+
+  it "invalid operands", ->
+    assert.has_error ->
+      -- forgot to instantiate array of
+      types.string * types.array_of
+
+    assert.has_error ->
+      -- same thing flipped
+      types.array_of * types.string
+
+    -- incorrect operator for transformer function
+    assert.has_error ->
+      types.string * (hello) -> "world"
+
+    assert.has_error ->
+      -- forgot to instantiate array of
+      types.string + types.array_of
+
+    assert.has_error ->
+      -- same thing flipped
+      types.array_of + types.string
+
+    -- incorrect operator for transformer function
+    assert.has_error ->
+      types.string + (hello) -> "world"
 
 describe "tableshape.repair", ->
   local t

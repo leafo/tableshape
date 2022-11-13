@@ -92,18 +92,27 @@ do
         return _with_0
       end
     end,
-    __mul = function(left, right)
+    __mul = function(_left, _right)
+      local left, err = coerce_literal(_left)
+      if not (left) then
+        error("left hand side of multiplication: " .. tostring(_left) .. ": " .. tostring(err))
+      end
+      local right
+      right, err = coerce_literal(_right)
+      if not (right) then
+        error("right hand side of multiplication: " .. tostring(_right) .. ": " .. tostring(err))
+      end
       return SequenceNode(left, right)
     end,
-    __add = function(left, right)
-      local err
-      left, err = coerce_literal(left)
+    __add = function(_left, _right)
+      local left, err = coerce_literal(_left)
       if not (left) then
-        error("left hand side of addition: " .. tostring(left) .. ": " .. tostring(err))
+        error("left hand side of addition: " .. tostring(_left) .. ": " .. tostring(err))
       end
-      right, err = coerce_literal(right)
+      local right
+      right, err = coerce_literal(_right)
       if not (right) then
-        error("right hand side of addition: " .. tostring(right) .. ": " .. tostring(err))
+        error("right hand side of addition: " .. tostring(_right) .. ": " .. tostring(err))
       end
       if left.__class == FirstOfNode then
         local options = {

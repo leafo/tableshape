@@ -120,17 +120,25 @@ class BaseType
     with TransformNode @, fn
       .with_state = true
 
-  __mul: (left, right) ->
+  __mul: (_left, _right) ->
+    left, err = coerce_literal _left
+    unless left
+      error "left hand side of multiplication: #{_left}: #{err}"
+
+    right, err = coerce_literal _right
+    unless right
+      error "right hand side of multiplication: #{_right}: #{err}"
+
     SequenceNode left, right
 
-  __add: (left, right) ->
-    left, err = coerce_literal left
+  __add: (_left, _right) ->
+    left, err = coerce_literal _left
     unless left
-      error "left hand side of addition: #{left}: #{err}"
+      error "left hand side of addition: #{_left}: #{err}"
 
-    right, err = coerce_literal right
+    right, err = coerce_literal _right
     unless right
-      error "right hand side of addition: #{right}: #{err}"
+      error "right hand side of addition: #{_right}: #{err}"
 
     if left.__class == FirstOfNode
       options = { unpack left.options }
