@@ -37,6 +37,17 @@ describe_type = (val) ->
   else
     tostring val
 
+coerce_literal = (value) ->
+  switch type value
+    when "string", "number", "boolean"
+      return Literal value
+    when "table"
+      -- already is a type
+      if BaseType\is_base_type value
+        return value
+
+  nil, "failed to coerce literal into type, use types.literal() to test for literal value"
+
 join_names = (items, sep=", ", last_sep) ->
   count = #items
   chunks = {}
@@ -109,16 +120,26 @@ class BaseType
     with TransformNode @, fn
       .with_state = true
 
-  __mul: (right) =>
-    SequenceNode @, right
+  __mul: (left, right) ->
+    SequenceNode left, right
 
-  __add: (right) =>
-    if @__class == FirstOfNode
-      options = { unpack @options }
+  __add: (left, right) ->
+    left, err = coerce_literal left
+    unless left
+      error "left hand side of addition: #{left}: #{err}"
+
+    right, err = coerce_literal right
+    unless right
+      error "right hand side of addition: #{right}: #{err}"
+
+    if left.__class == FirstOfNode
+      options = { unpack left.options }
       table.insert options, right
       FirstOfNode unpack options
+    elseif right.__class == FirstOfNode
+      FirstOfNode left, unpack right.options
     else
-      FirstOfNode @, right
+      FirstOfNode left, right
 
   __unm: (right) =>
     NotType right
@@ -285,13 +306,9 @@ class DescribeNode extends BaseType
 -- annotates failures with the value that failed
 -- TODO: should this be part of describe?
 class AnnotateNode extends BaseType
-  new: (@base_type, @opts) =>
-    switch type @base_type
-      when "string", "number", "boolean"
-        @base_type = Literal @base_type
-
+  new: (base_type, @opts) =>
     super!
-    assert BaseType\is_base_type(@base_type), "expected a type checker"
+    @base_type = assert coerce_literal base_type
     if @opts
       @format_error = @opts.format_error
 

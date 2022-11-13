@@ -39,6 +39,18 @@ describe_type = function(val)
     return tostring(val)
   end
 end
+local coerce_literal
+coerce_literal = function(value)
+  local _exp_0 = type(value)
+  if "string" == _exp_0 or "number" == _exp_0 or "boolean" == _exp_0 then
+    return Literal(value)
+  elseif "table" == _exp_0 then
+    if BaseType:is_base_type(value) then
+      return value
+    end
+  end
+  return nil, "failed to coerce literal into type, use types.literal() to test for literal value"
+end
 local join_names
 join_names = function(items, sep, last_sep)
   if sep == nil then
@@ -80,18 +92,29 @@ do
         return _with_0
       end
     end,
-    __mul = function(self, right)
-      return SequenceNode(self, right)
+    __mul = function(left, right)
+      return SequenceNode(left, right)
     end,
-    __add = function(self, right)
-      if self.__class == FirstOfNode then
+    __add = function(left, right)
+      local err
+      left, err = coerce_literal(left)
+      if not (left) then
+        error("left hand side of addition: " .. tostring(left) .. ": " .. tostring(err))
+      end
+      right, err = coerce_literal(right)
+      if not (right) then
+        error("right hand side of addition: " .. tostring(right) .. ": " .. tostring(err))
+      end
+      if left.__class == FirstOfNode then
         local options = {
-          unpack(self.options)
+          unpack(left.options)
         }
         table.insert(options, right)
         return FirstOfNode(unpack(options))
+      elseif right.__class == FirstOfNode then
+        return FirstOfNode(left, unpack(right.options))
       else
-        return FirstOfNode(self, right)
+        return FirstOfNode(left, right)
       end
     end,
     __unm = function(self, right)
@@ -517,13 +540,9 @@ do
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
     __init = function(self, base_type, opts)
-      self.base_type, self.opts = base_type, opts
-      local _exp_0 = type(self.base_type)
-      if "string" == _exp_0 or "number" == _exp_0 or "boolean" == _exp_0 then
-        self.base_type = Literal(self.base_type)
-      end
+      self.opts = opts
       _class_0.__parent.__init(self)
-      assert(BaseType:is_base_type(self.base_type), "expected a type checker")
+      self.base_type = assert(coerce_literal(base_type))
       if self.opts then
         self.format_error = self.opts.format_error
       end
