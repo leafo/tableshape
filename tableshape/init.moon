@@ -98,15 +98,6 @@ class BaseType
     -- unless rawget cls.__base, "_describe"
     --   print "MISSING _describe", cls.__name
 
-    mt = getmetatable cls
-    create = mt.__call
-    mt.__call = (cls, ...) ->
-      ret = create cls, ...
-      if ret.opts and ret.opts.optional
-        ret\is_optional!
-      else
-        ret
-
   __eq: (other) =>
     if BaseType\is_base_type other
       other @
@@ -158,9 +149,8 @@ class BaseType
   _describe: =>
     error "Node missing _describe: #{@@__name}"
 
-  new: =>
-    if @opts
-      @_describe = @opts.describe
+  new: (opts) =>
+    -- does nothing, implementing classes not expected to call super
 
   -- like repair but only returns true or false
   check_value: (...) =>
@@ -202,17 +192,8 @@ class BaseType
       tag: name
     }
 
-  clone_opts: (merge) =>
-    opts = if @opts
-      {k,v for k,v in pairs @opts}
-    else
-      {}
-
-    if merge
-      for k, v in pairs merge
-        opts[k] = v
-
-    opts
+  clone_opts: =>
+    error "clone_opts is not longer supported"
 
   __call: (...) =>
     @check_value ...
@@ -314,11 +295,12 @@ class DescribeNode extends BaseType
 -- annotates failures with the value that failed
 -- TODO: should this be part of describe?
 class AnnotateNode extends BaseType
-  new: (base_type, @opts) =>
-    super!
+  new: (base_type, opts) =>
     @base_type = assert coerce_literal base_type
-    if @opts
-      @format_error = @opts.format_error
+    if opts
+      -- replace the format error method
+      if opts.format_error
+        @format_error = assert types.func\transform opts.format_error
 
   format_error: (value, err) =>
     "#{tostring value}: #{err}"
@@ -335,7 +317,7 @@ class AnnotateNode extends BaseType
       @base_type\_describe!
 
 class TaggedType extends BaseType
-  new: (@base_type, opts) =>
+  new: (@base_type, opts={}) =>
     @tag_name = assert opts.tag, "tagged type missing tag"
 
     @tag_type = type @tag_name
@@ -404,8 +386,7 @@ class TagScopeType extends TaggedType
     value, state
 
 class OptionalType extends BaseType
-  new: (@base_type, @opts) =>
-    super!
+  new: (@base_type) =>
     assert BaseType\is_base_type(@base_type), "expected a type checker"
 
   _transform: (value, state) =>
@@ -428,11 +409,10 @@ class AnyType extends BaseType
 
 -- basic type check
 class Type extends BaseType
-  new: (@t, @opts) =>
-    if @opts
-      @length_type = @opts.length
-
-    super!
+  new: (@t, opts) =>
+    if opts
+      if opts.length
+        @length_type = assert coerce_literal opts.length
 
   _transform: (value, state) =>
     got = type(value)
@@ -449,13 +429,14 @@ class Type extends BaseType
 
     value, state
 
+  -- creates a clone of this type with the length operator replaced
   length: (left, right) =>
     l = if BaseType\is_base_type left
       left
     else
       types.range left, right
 
-    Type @t, @clone_opts length: l
+    Type @t, length: l
 
   _describe: =>
     t = "type #{describe_type @t}"
@@ -465,9 +446,6 @@ class Type extends BaseType
     t
 
 class ArrayType extends BaseType
-  new: (@opts) =>
-    super!
-
   _describe: => "an array"
 
   _transform: (value, state) =>
@@ -486,8 +464,7 @@ class ArrayType extends BaseType
     value, state
 
 class OneOf extends BaseType
-  new: (@options, @opts) =>
-    super!
+  new: (@options) =>
     assert type(@options) == "table",
       "expected table for options in one_of"
 
@@ -522,8 +499,7 @@ class OneOf extends BaseType
     FailedTransform, "expected #{@_describe!}"
 
 class AllOf extends BaseType
-  new: (@types, @opts) =>
-    super!
+  new: (@types) =>
     assert type(@types) == "table", "expected table for first argument"
 
     for checker in *@types
@@ -545,12 +521,11 @@ class AllOf extends BaseType
 class ArrayOf extends BaseType
   @type_err_message: "expecting table"
 
-  new: (@expected, @opts) =>
-    if @opts
-      @keep_nils = @opts.keep_nils
-      @length_type = @opts.length
-
-    super!
+  new: (@expected, opts) =>
+    if opts
+      @keep_nils = opts.keep_nils and true
+      if opts.length
+        @length_type = assert coerce_literal opts.length
 
   _describe: =>
     "array of #{describe_type @expected}"
@@ -606,14 +581,12 @@ class ArrayContains extends BaseType
   short_circuit: true
   keep_nils: false
 
-  new: (@contains, @opts) =>
+  new: (@contains, opts) =>
     assert @contains, "missing contains"
 
-    if @opts
-      @short_circuit = @opts.short_circuit
-      @keep_nils = @opts.keep_nils
-
-    super!
+    if opts
+      @short_circuit = opts.short_circuit and true
+      @keep_nils = opts.keep_nils and true
 
   _describe: =>
     "array containing #{describe_type @contains}"
@@ -676,8 +649,9 @@ class ArrayContains extends BaseType
 
 
 class MapOf extends BaseType
-  new: (@expected_key, @expected_value, @opts) =>
-    super!
+  new: (expected_key, expected_value) =>
+    @expected_key = coerce_literal expected_key
+    @expected_value = coerce_literal expected_value
 
   _describe: =>
     "map of #{@expected_key\_describe!} -> #{@expected_value\_describe!}"
@@ -723,14 +697,18 @@ class MapOf extends BaseType
 
 class Shape extends BaseType
   @type_err_message: "expecting table"
+  open: false
+  check_all: false
 
-  new: (@shape, @opts) =>
-    super!
+  new: (@shape, opts) =>
     assert type(@shape) == "table", "expected table for shape"
-    if @opts
-      @extra_fields_type = @opts.extra_fields
-      @open = @opts.open
-      @check_all = @opts.check_all
+    if opts
+      if opts.extra_fields
+        assert BaseType\is_base_type(opts.extra_fields), "extra_fields_type must be type checker"
+        @extra_fields_type = opts.extra_fields
+
+      @open = opts.open and true
+      @check_all = opts.check_all and true
 
       if @open
         assert not @extra_fields_type, "open can not be combined with extra_fields"
@@ -738,9 +716,12 @@ class Shape extends BaseType
       if @extra_fields_type
         assert not @open, "extra_fields can not be combined with open"
 
-  -- allow extra fields
+  -- NOTE: the extra_fields_type is stripped
   is_open: =>
-    Shape @shape, @clone_opts open: true
+    Shape @shape, {
+      open: true
+      check_all: @check_all or nil
+    }
 
   _describe: =>
     parts = for k, v in pairs @shape
@@ -797,7 +778,7 @@ class Shape extends BaseType
       elseif @extra_fields_type
         for k in pairs remaining_keys
           item_value = value[k]
-          tuple, state = @.extra_fields_type\_transform {[k]: item_value}, state
+          tuple, state = @extra_fields_type\_transform {[k]: item_value}, state
           if tuple == FailedTransform
             err = "field #{describe_type k}: #{state}"
             if check_all
@@ -846,32 +827,45 @@ class Partial extends Shape
     error "is_open has no effect on Partial"
 
 class Pattern extends BaseType
-  new: (@pattern, @opts) =>
-    super!
+  new: (@pattern, opts) =>
+    -- TODO: we could support an lpeg object, or something that implements a match method
+    assert type(@pattern) == "string", "Pattern must be a string"
+
+    if opts
+      @coerce = opts.coerce
+      assert opts.initial_type == nil, "initial_type has been removed from types.pattern (got: #{opts.initial_type})"
 
   _describe: =>
     "pattern #{describe_type @pattern}"
 
-  -- TODO: remove coerce, can be done with operators
+  -- TODO: should we remove coerce? it can be done with operators
   _transform: (value, state) =>
-    if initial = @opts and @opts.initial_type
-      return FailedTransform, "expected #{describe_type initial}" unless type(value) == initial
+    -- the value to match against, but not the value returned
+    test_value = if @coerce
+      if BaseType\is_base_type @coerce
+        c_res, err = @coerce\_transform value
 
-    value = tostring value if @opts and @opts.coerce
+        if c_res == FailedTransform
+          return FailedTransform, err
 
-    t_res, err = types.string value
+        c_res
+      else
+        tostring value
+    else
+      value
+
+    t_res, err = types.string test_value
 
     unless t_res
       return FailedTransform, err
 
-    if value\match @pattern
+    if test_value\match @pattern
       value, state
     else
       FailedTransform, "doesn't match #{@_describe!}"
 
 class Literal extends BaseType
-  new: (@value, @opts) =>
-    super!
+  new: (@value) =>
 
   _describe: =>
     describe_type @value
@@ -883,11 +877,11 @@ class Literal extends BaseType
     value, state
 
 class Custom extends BaseType
-  new: (@fn, @opts) =>
-    super!
+  new: (@fn) =>
+    assert type(@fn) == "function", "custom checker must be a function"
 
   _describe: =>
-    @opts and @opts.describe or "custom checker #{@fn}"
+    "custom checker #{@fn}"
 
   _transform: (value, state) =>
     pass, err = @.fn value, state
@@ -916,8 +910,7 @@ class Equivalent extends BaseType
     else
       false
 
-  new: (@val, @opts) =>
-    super!
+  new: (@val) =>
 
   _describe: =>
     "equivalent to #{describe_type @val}"
@@ -929,8 +922,7 @@ class Equivalent extends BaseType
       FailedTransform, "not equivalent to #{@val}"
 
 class Range extends BaseType
-  new: (@left, @right, @opts) =>
-    super!
+  new: (@left, @right) =>
     assert @left <= @right, "left range value should be less than right range value"
     @value_type = assert types[type(@left)], "couldn't figure out type of range boundary"
 
@@ -952,7 +944,7 @@ class Range extends BaseType
     "range from #{@left} to #{@right}"
 
 class Proxy extends BaseType
-  new: (@fn, @opts) =>
+  new: (@fn) =>
 
   _transform: (...) =>
     assert(@.fn!, "proxy missing transformer")\_transform ...
@@ -963,8 +955,7 @@ class Proxy extends BaseType
 class AssertType extends BaseType
   assert: assert
 
-  new: (@base_type, @opts) =>
-    super!
+  new: (@base_type) =>
     assert BaseType\is_base_type(@base_type), "expected a type checker"
 
   _transform: (value, state) =>
@@ -978,8 +969,7 @@ class AssertType extends BaseType
       "assert #{base_description}"
 
 class NotType extends BaseType
-  new: (@base_type, @opts) =>
-    super!
+  new: (@base_type) =>
     assert BaseType\is_base_type(@base_type), "expected a type checker"
 
   _transform: (value, state) =>
@@ -1014,13 +1004,16 @@ class CloneType extends BaseType
     "cloneable value"
 
 class MetatableIsType extends BaseType
-  new: (metatable_type, @opts) =>
+  allow_metatable_update: false
+
+  new: (metatable_type, opts) =>
     @metatable_type = if BaseType\is_base_type metatable_type
       metatable_type
     else
       Literal metatable_type
 
-    super!
+    if opts
+      @allow_metatable_update = opts.allow_metatable_update and true
 
   _transform: (value, state) =>
     -- verify that type is a table
@@ -1035,7 +1028,7 @@ class MetatableIsType extends BaseType
       return FailedTransform, "metatable expected: #{state_or_err}"
 
     if new_mt != mt
-      if @opts and @opts.allow_metatable_update
+      if @allow_metatable_update
         setmetatable value, new_mt
       else
         -- NOTE: changing a metatable is unsafe since if a parent type ends up
@@ -1054,11 +1047,12 @@ class MetatableIsType extends BaseType
 
 type_nil = Type "nil"
 type_function = Type "function"
+type_number = Type "number"
 
 types = setmetatable {
   any: AnyType!
   string: Type "string"
-  number: Type "number"
+  number: type_number
   function: type_function
   func: type_function
   boolean: Type "boolean"
@@ -1070,7 +1064,7 @@ types = setmetatable {
   clone: CloneType!
 
   -- compound
-  integer: Pattern "^%d+$", coerce: true, initial_type: "number"
+  integer: Pattern "^%d+$", coerce: type_number / tostring
 
   -- type constructors
   one_of: OneOf

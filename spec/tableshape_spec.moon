@@ -171,7 +171,7 @@ describe "tableshape.types", ->
     it "renders error message", ->
       t = types.one_of {
         "a", "b"
-        types.literal "MY THING", describe: => "(my thing)"
+        types.literal("MY THING")\describe "(my thing)"
       }
 
       assert.same {
@@ -588,6 +588,21 @@ describe "tableshape.types", ->
         t {"one", "two", "nine", "10"}
       }
 
+      t_fixed = types.array_of types.string, length: 2
+
+      assert.same {
+        nil
+        'array length expected 2, got 0'
+      }, {
+        t_fixed {}
+      }
+
+      assert.same {
+        true
+      }, {
+        t_fixed {"hello", "world"}
+      }
+
   describe "literal", ->
     it "checks value", ->
       t = types.literal "hello world"
@@ -607,7 +622,7 @@ describe "tableshape.types", ->
       assert.same {nil, 'expected "hello world"'}, { t\check_value nil }
 
     it "checks value when optional", ->
-      t = types.literal "hello world", optional: true
+      t = types.literal("hello world")\is_optional!
       assert.same {true}, { t nil }
       assert.same {true}, { t\check_value nil}
 
@@ -640,9 +655,7 @@ describe "tableshape.types", ->
             true
           else
             nil, "v is not 1"
-
-        optional: true
-      )
+      )\is_optional!
 
       assert.same {nil, "v is not 1"}, { check 2 }
       assert.same {nil, "v is not 1"}, { check\check_value 2 }

@@ -176,25 +176,8 @@ do
         tag = name
       })
     end,
-    clone_opts = function(self, merge)
-      local opts
-      if self.opts then
-        do
-          local _tbl_0 = { }
-          for k, v in pairs(self.opts) do
-            _tbl_0[k] = v
-          end
-          opts = _tbl_0
-        end
-      else
-        opts = { }
-      end
-      if merge then
-        for k, v in pairs(merge) do
-          opts[k] = v
-        end
-      end
-      return opts
+    clone_opts = function(self)
+      return error("clone_opts is not longer supported")
     end,
     __call = function(self, ...)
       return self:check_value(...)
@@ -202,11 +185,7 @@ do
   }
   _base_0.__index = _base_0
   _class_0 = setmetatable({
-    __init = function(self)
-      if self.opts then
-        self._describe = self.opts.describe
-      end
-    end,
+    __init = function(self, opts) end,
     __base = _base_0,
     __name = "BaseType"
   }, {
@@ -239,16 +218,6 @@ do
     cls.__base.__add = self.__add
     cls.__base.__unm = self.__unm
     cls.__base.__tostring = self.__tostring
-    local mt = getmetatable(cls)
-    local create = mt.__call
-    mt.__call = function(cls, ...)
-      local ret = create(cls, ...)
-      if ret.opts and ret.opts.optional then
-        return ret:is_optional()
-      else
-        return ret
-      end
-    end
   end
   BaseType = _class_0
 end
@@ -549,11 +518,11 @@ do
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
     __init = function(self, base_type, opts)
-      self.opts = opts
-      _class_0.__parent.__init(self)
       self.base_type = assert(coerce_literal(base_type))
-      if self.opts then
-        self.format_error = self.opts.format_error
+      if opts then
+        if opts.format_error then
+          self.format_error = assert(types.func:transform(opts.format_error))
+        end
       end
     end,
     __base = _base_0,
@@ -637,6 +606,9 @@ do
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
     __init = function(self, base_type, opts)
+      if opts == nil then
+        opts = { }
+      end
       self.base_type = base_type
       self.tag_name = assert(opts.tag, "tagged type missing tag")
       self.tag_type = type(self.tag_name)
@@ -754,9 +726,8 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, base_type, opts)
-      self.base_type, self.opts = base_type, opts
-      _class_0.__parent.__init(self)
+    __init = function(self, base_type)
+      self.base_type = base_type
       return assert(BaseType:is_base_type(self.base_type), "expected a type checker")
     end,
     __base = _base_0,
@@ -861,9 +832,9 @@ do
       else
         l = types.range(left, right)
       end
-      return Type(self.t, self:clone_opts({
+      return Type(self.t, {
         length = l
-      }))
+      })
     end,
     _describe = function(self)
       local t = "type " .. tostring(describe_type(self.t))
@@ -877,11 +848,12 @@ do
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
     __init = function(self, t, opts)
-      self.t, self.opts = t, opts
-      if self.opts then
-        self.length_type = self.opts.length
+      self.t = t
+      if opts then
+        if opts.length then
+          self.length_type = assert(coerce_literal(opts.length))
+        end
       end
-      return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
     __name = "Type",
@@ -938,9 +910,8 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, opts)
-      self.opts = opts
-      return _class_0.__parent.__init(self)
+    __init = function(self, ...)
+      return _class_0.__parent.__init(self, ...)
     end,
     __base = _base_0,
     __name = "ArrayType",
@@ -1028,9 +999,8 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, options, opts)
-      self.options, self.opts = options, opts
-      _class_0.__parent.__init(self)
+    __init = function(self, options)
+      self.options = options
       assert(type(self.options) == "table", "expected table for options in one_of")
       local fast_opts = types.array_of(types.number + types.string)
       if fast_opts(self.options) then
@@ -1107,9 +1077,8 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, types, opts)
-      self.types, self.opts = types, opts
-      _class_0.__parent.__init(self)
+    __init = function(self, types)
+      self.types = types
       assert(type(self.types) == "table", "expected table for first argument")
       local _list_0 = self.types
       for _index_0 = 1, #_list_0 do
@@ -1216,12 +1185,13 @@ do
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
     __init = function(self, expected, opts)
-      self.expected, self.opts = expected, opts
-      if self.opts then
-        self.keep_nils = self.opts.keep_nils
-        self.length_type = self.opts.length
+      self.expected = expected
+      if opts then
+        self.keep_nils = opts.keep_nils and true
+        if opts.length then
+          self.length_type = assert(coerce_literal(opts.length))
+        end
       end
-      return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
     __name = "ArrayOf",
@@ -1332,13 +1302,12 @@ do
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
     __init = function(self, contains, opts)
-      self.contains, self.opts = contains, opts
+      self.contains = contains
       assert(self.contains, "missing contains")
-      if self.opts then
-        self.short_circuit = self.opts.short_circuit
-        self.keep_nils = self.opts.keep_nils
+      if opts then
+        self.short_circuit = opts.short_circuit and true
+        self.keep_nils = opts.keep_nils and true
       end
-      return _class_0.__parent.__init(self)
     end,
     __base = _base_0,
     __name = "ArrayContains",
@@ -1431,9 +1400,9 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, expected_key, expected_value, opts)
-      self.expected_key, self.expected_value, self.opts = expected_key, expected_value, opts
-      return _class_0.__parent.__init(self)
+    __init = function(self, expected_key, expected_value)
+      self.expected_key = coerce_literal(expected_key)
+      self.expected_value = coerce_literal(expected_value)
     end,
     __base = _base_0,
     __name = "MapOf",
@@ -1467,10 +1436,13 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    open = false,
+    check_all = false,
     is_open = function(self)
-      return Shape(self.shape, self:clone_opts({
-        open = true
-      }))
+      return Shape(self.shape, {
+        open = true,
+        check_all = self.check_all or nil
+      })
     end,
     _describe = function(self)
       local parts
@@ -1613,13 +1585,15 @@ do
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
     __init = function(self, shape, opts)
-      self.shape, self.opts = shape, opts
-      _class_0.__parent.__init(self)
+      self.shape = shape
       assert(type(self.shape) == "table", "expected table for shape")
-      if self.opts then
-        self.extra_fields_type = self.opts.extra_fields
-        self.open = self.opts.open
-        self.check_all = self.opts.check_all
+      if opts then
+        if opts.extra_fields then
+          assert(BaseType:is_base_type(opts.extra_fields), "extra_fields_type must be type checker")
+          self.extra_fields_type = opts.extra_fields
+        end
+        self.open = opts.open and true
+        self.check_all = opts.check_all and true
         if self.open then
           assert(not self.extra_fields_type, "open can not be combined with extra_fields")
         end
@@ -1709,22 +1683,25 @@ do
       return "pattern " .. tostring(describe_type(self.pattern))
     end,
     _transform = function(self, value, state)
-      do
-        local initial = self.opts and self.opts.initial_type
-        if initial then
-          if not (type(value) == initial) then
-            return FailedTransform, "expected " .. tostring(describe_type(initial))
+      local test_value
+      if self.coerce then
+        if BaseType:is_base_type(self.coerce) then
+          local c_res, err = self.coerce:_transform(value)
+          if c_res == FailedTransform then
+            return FailedTransform, err
           end
+          test_value = c_res
+        else
+          test_value = tostring(value)
         end
+      else
+        test_value = value
       end
-      if self.opts and self.opts.coerce then
-        value = tostring(value)
-      end
-      local t_res, err = types.string(value)
+      local t_res, err = types.string(test_value)
       if not (t_res) then
         return FailedTransform, err
       end
-      if value:match(self.pattern) then
+      if test_value:match(self.pattern) then
         return value, state
       else
         return FailedTransform, "doesn't match " .. tostring(self:_describe())
@@ -1735,8 +1712,12 @@ do
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
     __init = function(self, pattern, opts)
-      self.pattern, self.opts = pattern, opts
-      return _class_0.__parent.__init(self)
+      self.pattern = pattern
+      assert(type(self.pattern) == "string", "Pattern must be a string")
+      if opts then
+        self.coerce = opts.coerce
+        return assert(opts.initial_type == nil, "initial_type has been removed from types.pattern (got: " .. tostring(opts.initial_type) .. ")")
+      end
     end,
     __base = _base_0,
     __name = "Pattern",
@@ -1782,9 +1763,8 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, value, opts)
-      self.value, self.opts = value, opts
-      return _class_0.__parent.__init(self)
+    __init = function(self, value)
+      self.value = value
     end,
     __base = _base_0,
     __name = "Literal",
@@ -1819,7 +1799,7 @@ do
   local _parent_0 = BaseType
   local _base_0 = {
     _describe = function(self)
-      return self.opts and self.opts.describe or "custom checker " .. tostring(self.fn)
+      return "custom checker " .. tostring(self.fn)
     end,
     _transform = function(self, value, state)
       local pass, err = self.fn(value, state)
@@ -1832,9 +1812,9 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, fn, opts)
-      self.fn, self.opts = fn, opts
-      return _class_0.__parent.__init(self)
+    __init = function(self, fn)
+      self.fn = fn
+      return assert(type(self.fn) == "function", "custom checker must be a function")
     end,
     __base = _base_0,
     __name = "Custom",
@@ -1883,9 +1863,8 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, val, opts)
-      self.val, self.opts = val, opts
-      return _class_0.__parent.__init(self)
+    __init = function(self, val)
+      self.val = val
     end,
     __base = _base_0,
     __name = "Equivalent",
@@ -1974,9 +1953,8 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, left, right, opts)
-      self.left, self.right, self.opts = left, right, opts
-      _class_0.__parent.__init(self)
+    __init = function(self, left, right)
+      self.left, self.right = left, right
       assert(self.left <= self.right, "left range value should be less than right range value")
       self.value_type = assert(types[type(self.left)], "couldn't figure out type of range boundary")
     end,
@@ -2022,8 +2000,8 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, fn, opts)
-      self.fn, self.opts = fn, opts
+    __init = function(self, fn)
+      self.fn = fn
     end,
     __base = _base_0,
     __name = "Proxy",
@@ -2074,9 +2052,8 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, base_type, opts)
-      self.base_type, self.opts = base_type, opts
-      _class_0.__parent.__init(self)
+    __init = function(self, base_type)
+      self.base_type = base_type
       return assert(BaseType:is_base_type(self.base_type), "expected a type checker")
     end,
     __base = _base_0,
@@ -2128,9 +2105,8 @@ do
   _base_0.__index = _base_0
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
-    __init = function(self, base_type, opts)
-      self.base_type, self.opts = base_type, opts
-      _class_0.__parent.__init(self)
+    __init = function(self, base_type)
+      self.base_type = base_type
       return assert(BaseType:is_base_type(self.base_type), "expected a type checker")
     end,
     __base = _base_0,
@@ -2231,6 +2207,7 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    allow_metatable_update = false,
     _transform = function(self, value, state)
       local state_or_err
       value, state_or_err = types.table:_transform(value, state)
@@ -2244,7 +2221,7 @@ do
         return FailedTransform, "metatable expected: " .. tostring(state_or_err)
       end
       if new_mt ~= mt then
-        if self.opts and self.opts.allow_metatable_update then
+        if self.allow_metatable_update then
           setmetatable(value, new_mt)
         else
           return FailedTransform, "metatable was modified by a type but { allow_metatable_update = true } is not enabled"
@@ -2260,13 +2237,14 @@ do
   setmetatable(_base_0, _parent_0.__base)
   _class_0 = setmetatable({
     __init = function(self, metatable_type, opts)
-      self.opts = opts
       if BaseType:is_base_type(metatable_type) then
         self.metatable_type = metatable_type
       else
         self.metatable_type = Literal(metatable_type)
       end
-      return _class_0.__parent.__init(self)
+      if opts then
+        self.allow_metatable_update = opts.allow_metatable_update and true
+      end
     end,
     __base = _base_0,
     __name = "MetatableIsType",
@@ -2297,10 +2275,11 @@ do
 end
 local type_nil = Type("nil")
 local type_function = Type("function")
+local type_number = Type("number")
 types = setmetatable({
   any = AnyType(),
   string = Type("string"),
-  number = Type("number"),
+  number = type_number,
   ["function"] = type_function,
   func = type_function,
   boolean = Type("boolean"),
@@ -2311,8 +2290,7 @@ types = setmetatable({
   array = ArrayType(),
   clone = CloneType(),
   integer = Pattern("^%d+$", {
-    coerce = true,
-    initial_type = "number"
+    coerce = type_number / tostring
   }),
   one_of = OneOf,
   all_of = AllOf,
