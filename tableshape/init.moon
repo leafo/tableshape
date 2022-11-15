@@ -151,8 +151,10 @@ class BaseType
 
   new: (opts) =>
     -- does nothing, implementing classes not expected to call super
+    -- this is only here in case someone was calling super at some point
 
-  -- like repair but only returns true or false
+  -- test if value matches type, returns true on success
+  -- if state is used, then the state object is returned instead
   check_value: (...) =>
     value, state_or_err = @_transform ...
 
