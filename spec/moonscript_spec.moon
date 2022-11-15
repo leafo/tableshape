@@ -1,5 +1,5 @@
 
-import instance_of, class_type, instance_type from require "tableshape.moonscript"
+import instance_of, class_type, instance_type, subclass_of from require "tableshape.moonscript"
 
 describe "tableshape.moonscript", ->
   class Other
@@ -201,3 +201,102 @@ describe "tableshape.moonscript", ->
       }, { instance_of(Other) Hello! }
 
       assert.true instance_of(Other) Other!
+
+  describe "subclass_of", ->
+    it "describes type checker", ->
+      assert.same "subclass of Other", tostring subclass_of Other
+      assert.same "subclass of World", tostring subclass_of "World"
+
+    it "handles invalid types", ->
+      t = subclass_of(Other)
+
+      assert.same {nil, "expecting table"}, { t -> }
+      assert.same {nil, "expecting table"}, { t false }
+      assert.same {nil, "expecting table"}, { t 22 }
+      assert.same {nil, "table is not class (missing __base)"}, { t {} }
+      assert.same {nil, "table is not class (missing __base)"}, { t setmetatable  {}, {} }
+
+      -- fails with instance
+      assert.same {nil, "table is not class (missing __base)"}, { t Other! }
+
+    it "checks sublcass by name", ->
+      hello_t = subclass_of "Hello"
+      world_t = subclass_of "World"
+      other_t = subclass_of "Other"
+
+      assert.same {true}, { hello_t Zone }
+      assert.same {true}, { hello_t World }
+      assert.same {nil, "table is not subclass of Hello"}, { hello_t Hello }
+      assert.same {nil, "table is not subclass of Hello"}, { hello_t Other }
+
+      assert.same {true}, { world_t Zone }
+      assert.same {nil, "table is not subclass of World"}, { world_t World }
+      assert.same {nil, "table is not subclass of World"}, { world_t Hello }
+      assert.same {nil, "table is not subclass of World"}, { world_t Other }
+
+      assert.same {nil, "table is not subclass of Other"}, { other_t Zone }
+      assert.same {nil, "table is not subclass of Other"}, { other_t World }
+      assert.same {nil, "table is not subclass of Other"}, { other_t Hello }
+      assert.same {nil, "table is not subclass of Other"}, { other_t Other }
+
+    it "checks sublcass by class reference", ->
+      hello_t = subclass_of Hello
+      world_t = subclass_of World
+      other_t = subclass_of Other
+
+      assert.same {true}, { hello_t Zone }
+      assert.same {true}, { hello_t World }
+      assert.same {nil, "table is not subclass of Hello"}, { hello_t Hello }
+      assert.same {nil, "table is not subclass of Hello"}, { hello_t Other }
+
+      assert.same {true}, { world_t Zone }
+      assert.same {nil, "table is not subclass of World"}, { world_t World }
+      assert.same {nil, "table is not subclass of World"}, { world_t Hello }
+      assert.same {nil, "table is not subclass of World"}, { world_t Other }
+
+      assert.same {nil, "table is not subclass of Other"}, { other_t Zone }
+      assert.same {nil, "table is not subclass of Other"}, { other_t World }
+      assert.same {nil, "table is not subclass of Other"}, { other_t Hello }
+      assert.same {nil, "table is not subclass of Other"}, { other_t Other }
+
+
+    describe "allow_same", ->
+      it "checks sublcass by name", ->
+        hello_t = subclass_of "Hello", allow_same: true
+        world_t = subclass_of "World", allow_same: true
+        other_t = subclass_of "Other", allow_same: true
+
+        assert.same {true}, { hello_t Zone }
+        assert.same {true}, { hello_t World }
+        assert.same {true}, { hello_t Hello }
+        assert.same {nil, "table is not subclass of Hello"}, { hello_t Other }
+
+        assert.same {true}, { world_t Zone }
+        assert.same {true}, { world_t World }
+        assert.same {nil, "table is not subclass of World"}, { world_t Hello }
+        assert.same {nil, "table is not subclass of World"}, { world_t Other }
+
+        assert.same {nil, "table is not subclass of Other"}, { other_t Zone }
+        assert.same {nil, "table is not subclass of Other"}, { other_t World }
+        assert.same {nil, "table is not subclass of Other"}, { other_t Hello }
+        assert.same {true}, { other_t Other }
+
+      it "checks sublcass by class reference", ->
+        hello_t = subclass_of Hello, allow_same: true
+        world_t = subclass_of World, allow_same: true
+        other_t = subclass_of Other, allow_same: true
+
+        assert.same {true}, { hello_t Zone }
+        assert.same {true}, { hello_t World }
+        assert.same {true}, { hello_t Hello }
+        assert.same {nil, "table is not subclass of Hello"}, { hello_t Other }
+
+        assert.same {true}, { world_t Zone }
+        assert.same {true}, { world_t World }
+        assert.same {nil, "table is not subclass of World"}, { world_t Hello }
+        assert.same {nil, "table is not subclass of World"}, { world_t Other }
+
+        assert.same {nil, "table is not subclass of Other"}, { other_t Zone }
+        assert.same {nil, "table is not subclass of Other"}, { other_t World }
+        assert.same {nil, "table is not subclass of Other"}, { other_t Hello }
+        assert.same {true}, { other_t Other }

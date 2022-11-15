@@ -43,12 +43,55 @@ class InstanceType extends BaseType
   _describe: =>
     "instance"
 
+
+class SubclassOf extends BaseType
+  new: (@class_identifier, opts) =>
+    @allow_same = if opts and opts.allow_same
+      true
+    else
+      false
+
+    assert @class_identifier, "expecting class identifier (string or class object)"
+
+  _transform: (value, state) =>
+    out, err = ClassType._transform nil, value, state
+    if out == FailedTransform
+      return FailedTransform, err
+
+    current_class = if @allow_same
+      value
+    else
+      value.__parent
+
+    if type(@class_identifier) == "string"
+      while current_class
+        if current_class.__name == @class_identifier
+          return value, state
+
+        current_class = current_class.__parent
+    else
+      while current_class
+        if current_class == @class_identifier
+          return value, state
+
+        current_class = current_class.__parent
+
+    FailedTransform, "table is not #{@_describe!}"
+
+  _describe: =>
+    name = if type(@class_identifier) == "string"
+      @class_identifier
+    else
+      @class_identifier.__name or "Class"
+
+    "subclass of #{name}"
+
 class InstanceOf extends BaseType
   new: (@class_identifier) =>
     assert @class_identifier, "expecting class identifier (string or class object)"
 
   _transform: (value, state) =>
-    out, err = InstanceType._transform @, value, state
+    out, err = InstanceType._transform nil, value, state
     if out == FailedTransform
       return FailedTransform, err
 
@@ -84,5 +127,6 @@ setmetatable {
   instance_type: InstanceType!
 
   instance_of: InstanceOf
+  subclass_of: SubclassOf
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
