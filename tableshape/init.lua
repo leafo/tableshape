@@ -2337,5 +2337,5 @@ return {
   type_switch = type_switch,
   BaseType = BaseType,
   FailedTransform = FailedTransform,
-  VERSION = "2.4.0"
+  VERSION = "2.5.0"
 }
