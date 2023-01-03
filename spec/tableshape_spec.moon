@@ -17,18 +17,6 @@ describe "tableshape.is_type", ->
     assert.false is_type types.shape
     assert.false is_type types.array_of
 
-describe "tableshape.type_switch", ->
-  it "switches on type", ->
-    import type_switch from require "tableshape"
-
-    k = switch type_switch(5)
-      when types.string
-        "no"
-      when types.number
-        "yes"
-
-    assert.same k, "yes"
-
 describe "tableshape.types", ->
   basic_types = {
     {"any", valid: 1234}

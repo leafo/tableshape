@@ -85,7 +85,6 @@ class BaseType
 
   @__inherited: (cls) =>
     cls.__base.__call = cls.__call
-    cls.__base.__eq = @__eq
     cls.__base.__div = @__div
     cls.__base.__mod = @__mod
     cls.__base.__mul = @__mul
@@ -97,12 +96,6 @@ class BaseType
     -- parsing inputs that don't pass the shape
     -- unless rawget cls.__base, "_describe"
     --   print "MISSING _describe", cls.__name
-
-  __eq: (other) =>
-    if BaseType\is_base_type other
-      other @
-    else
-      @ other[1]
 
   __div: (fn) =>
     TransformNode @, fn
@@ -1096,7 +1089,4 @@ check_shape = (value, shape) ->
 is_type = (val) ->
   BaseType\is_base_type val
 
-type_switch = (val) ->
-  setmetatable { val }, { __eq: BaseType.__eq }
-
-{ :check_shape, :types, :is_type, :type_switch, :BaseType, :FailedTransform, VERSION: "2.5.0" }
+{ :check_shape, :types, :is_type, :BaseType, :FailedTransform, VERSION: "2.5.0" }

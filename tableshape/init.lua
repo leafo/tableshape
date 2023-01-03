@@ -75,13 +75,6 @@ end
 do
   local _class_0
   local _base_0 = {
-    __eq = function(self, other)
-      if BaseType:is_base_type(other) then
-        return other(self)
-      else
-        return self(other[1])
-      end
-    end,
     __div = function(self, fn)
       return TransformNode(self, fn)
     end,
@@ -211,7 +204,6 @@ do
   end
   self.__inherited = function(self, cls)
     cls.__base.__call = cls.__call
-    cls.__base.__eq = self.__eq
     cls.__base.__div = self.__div
     cls.__base.__mod = self.__mod
     cls.__base.__mul = self.__mul
@@ -2322,19 +2314,10 @@ end
 is_type = function(val)
   return BaseType:is_base_type(val)
 end
-local type_switch
-type_switch = function(val)
-  return setmetatable({
-    val
-  }, {
-    __eq = BaseType.__eq
-  })
-end
 return {
   check_shape = check_shape,
   types = types,
   is_type = is_type,
-  type_switch = type_switch,
   BaseType = BaseType,
   FailedTransform = FailedTransform,
   VERSION = "2.5.0"
