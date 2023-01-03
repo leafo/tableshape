@@ -2320,5 +2320,5 @@ return {
   is_type = is_type,
   BaseType = BaseType,
   FailedTransform = FailedTransform,
-  VERSION = "2.5.0"
+  VERSION = "2.6.0"
 }
