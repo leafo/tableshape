@@ -989,7 +989,7 @@ for editing. The copy is a shallow copy. If you have any nested objects then
 it's necessary to clone them before making any modifications, as seen in the
 example above.
 
-#### `type:scope(name)`
+#### `type:tag(name)`
 
 Pushes a new state object on top of the stack. After the scoped type matches,
 the state it created is assigned to the previous scope with the key `name`.
@@ -998,7 +998,7 @@ It is equivalent to using the `types.scope` constructor like so:
 
 ```lua
 -- The following two lines are equivalent
-type:scope(name)                  --> scoped type
+type:tag(name)                    --> scoped type
 types.scope(type, { tag = name }) --> scoped type
 ```
 

@@ -21,6 +21,7 @@ build = {
     ["tableshape"] = "tableshape/init.lua",
     ["tableshape.luassert"] = "tableshape/luassert.lua",
     ["tableshape.moonscript"] = "tableshape/moonscript.lua",
+    ["tableshape.json_schema"] = "tableshape/json_schema.lua",
   }
 }
 
