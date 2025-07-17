@@ -77,9 +77,14 @@ join_names = (items, sep=", ", last_sep) ->
 class BaseType
   -- detects if value is *instance* of base type
   @is_base_type: (val) =>
-    if mt = type(val) == "table" and getmetatable val
-      if mt.__class
-        return mt.__class.is_base_type == BaseType.is_base_type
+    if type(val) == "table"
+      -- this detects if we have a class's __base object instead of an instance
+      if rawget(val, "__index") == val
+        return false
+
+      if mt = getmetatable val
+        if mt.__class
+          return mt.__class.is_base_type == BaseType.is_base_type
 
     false
 
@@ -288,7 +293,8 @@ class DescribeNode extends BaseType
     DescribeNode @node, ...
 
 -- annotates failures with the value that failed
--- TODO: should this be part of describe?
+-- TODO: this should become general purpose node to associated data with a
+-- type checker
 class AnnotateNode extends BaseType
   new: (base_type, opts) =>
     @base_type = assert coerce_literal base_type

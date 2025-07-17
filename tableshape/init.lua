@@ -192,11 +192,16 @@ do
   _base_0.__class = _class_0
   local self = _class_0
   self.is_base_type = function(self, val)
-    do
-      local mt = type(val) == "table" and getmetatable(val)
-      if mt then
-        if mt.__class then
-          return mt.__class.is_base_type == BaseType.is_base_type
+    if type(val) == "table" then
+      if rawget(val, "__index") == val then
+        return false
+      end
+      do
+        local mt = getmetatable(val)
+        if mt then
+          if mt.__class then
+            return mt.__class.is_base_type == BaseType.is_base_type
+          end
         end
       end
     end

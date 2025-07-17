@@ -4,18 +4,24 @@
 describe "tableshape.is_type", ->
   it "detects type", ->
     import is_type from require "tableshape"
-    assert.false is_type!
-    assert.false is_type "hello"
-    assert.false is_type {}
-    assert.false is_type ->
 
-    assert.true is_type types.string
-    assert.true is_type types.shape {}
-    assert.true is_type types.array_of { types.string }
+    assert.false is_type!, "nil is not a type"
+
+    assert.false is_type("hello"), "Strings are not types"
+    assert.false is_type({}), "Tables are not types"
+    assert.false is_type(->), "Functions are not types"
+
+    assert.true is_type(types.string), "Expected 'types.string' to be a type."
+    assert.true is_type(types.shape {}), "Expected 'types.shape {}' to be a type."
+    assert.true is_type(types.array_of { types.string }), "Expected 'types.array_of { types.string }' to be a type."
 
     -- type constructors are not types
-    assert.false is_type types.shape
-    assert.false is_type types.array_of
+    assert.false is_type(types.shape), "Type constructor types.shape is not a type."
+    assert.false is_type(types.array_of), "Type constructor types.array_of is not a type."
+
+    -- the metatable of a type is *not* a type
+    assert.false is_type(getmetatable(types.string)), "metatable of type is not a type"
+
 
 describe "tableshape.types", ->
   basic_types = {
