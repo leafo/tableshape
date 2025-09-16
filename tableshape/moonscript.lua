@@ -82,6 +82,9 @@ do
       if not (cls) then
         return FailedTransform, "table is not instance (metatable does not have __class)"
       end
+      if value.__index == value then
+        return FailedTransform, "table is an instance metatable (__base)"
+      end
       return value, state
     end,
     _describe = function(self)

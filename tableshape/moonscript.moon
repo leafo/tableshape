@@ -38,6 +38,9 @@ class InstanceType extends BaseType
     unless cls
       return FailedTransform, "table is not instance (metatable does not have __class)"
 
+    if value.__index == value
+      return FailedTransform, "table is an instance metatable (__base)"
+
     value, state
 
   _describe: =>

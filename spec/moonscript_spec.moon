@@ -12,8 +12,11 @@ describe "tableshape.moonscript", ->
       assert.same "class", tostring class_type
 
     it "tests values", ->
-      assert instance_type Other!
-      assert instance_type Zone!
+      assert.true instance_type Other!
+      assert.true instance_type Zone!
+
+      -- a instance's metatable is not an instance (the __base object)
+      assert.is_nil instance_type(getmetatable Zone!), "instance metatable is not a instande"
 
       assert.same {
         nil
@@ -52,7 +55,8 @@ describe "tableshape.moonscript", ->
         "table is not class (missing __base)"
       }, { class_type Hello! }
 
-      assert.true, class_type Hello
+      assert.is_true class_type Hello
+      assert.is_false, class_type(Hello.__base), "class __base object is not a class type"
 
       assert.same {
         nil
@@ -92,9 +96,10 @@ describe "tableshape.moonscript", ->
       assert.same {nil, "table is not instance (missing metatable)"}, { t {} }
       assert.same {nil, "table is not instance (metatable does not have __class)"}, { t setmetatable  {}, {} }
 
-    it "checks instance of class by name", ->
+    it "checks instance_of class by name", ->
       -- by zone
       assert.true instance_of("Zone") Zone!
+      assert.is_nil instance_of("Zone") getmetatable Zone!
 
       assert.same {
         nil, "table is not instance of Zone"
@@ -148,6 +153,7 @@ describe "tableshape.moonscript", ->
     it "checks instance of class by object", ->
       -- by zone
       assert.true instance_of(Zone) Zone!
+      assert.is_nil instance_of(Zone) getmetatable Zone!
 
       -- it should not think a class object is an instance
       assert.same {
@@ -169,6 +175,7 @@ describe "tableshape.moonscript", ->
       -- by world
       assert.true instance_of(World) Zone!
       assert.true instance_of(World) World!
+      assert.is_nil instance_of(World) getmetatable World!
 
       assert.same {
         nil, "table is not instance of World"
@@ -182,6 +189,7 @@ describe "tableshape.moonscript", ->
       assert.true instance_of(Hello) Zone!
       assert.true instance_of(Hello) World!
       assert.true instance_of(Hello) Hello!
+      assert.is_nil instance_of(Hello) getmetatable Hello!
 
       assert.same {
         nil, "table is not instance of Hello"
@@ -201,6 +209,7 @@ describe "tableshape.moonscript", ->
       }, { instance_of(Other) Hello! }
 
       assert.true instance_of(Other) Other!
+      assert.is_nil instance_of(Other) getmetatable Other!
 
   describe "subclass_of", ->
     it "describes type checker", ->
@@ -228,16 +237,19 @@ describe "tableshape.moonscript", ->
       assert.same {true}, { hello_t World }
       assert.same {nil, "table is not subclass of Hello"}, { hello_t Hello }
       assert.same {nil, "table is not subclass of Hello"}, { hello_t Other }
+      assert.same {nil, "table is not class (missing __base)"}, { hello_t Hello.__base }
 
       assert.same {true}, { world_t Zone }
       assert.same {nil, "table is not subclass of World"}, { world_t World }
       assert.same {nil, "table is not subclass of World"}, { world_t Hello }
       assert.same {nil, "table is not subclass of World"}, { world_t Other }
+      assert.same {nil, "table is not class (missing __base)"}, { world_t World.__base }
 
       assert.same {nil, "table is not subclass of Other"}, { other_t Zone }
       assert.same {nil, "table is not subclass of Other"}, { other_t World }
       assert.same {nil, "table is not subclass of Other"}, { other_t Hello }
       assert.same {nil, "table is not subclass of Other"}, { other_t Other }
+      assert.same {nil, "table is not class (missing __base)"}, { other_t Other.__base }
 
     it "checks sublcass by class reference", ->
       hello_t = subclass_of Hello
@@ -248,16 +260,19 @@ describe "tableshape.moonscript", ->
       assert.same {true}, { hello_t World }
       assert.same {nil, "table is not subclass of Hello"}, { hello_t Hello }
       assert.same {nil, "table is not subclass of Hello"}, { hello_t Other }
+      assert.same {nil, "table is not class (missing __base)"}, { hello_t Hello.__base }
 
       assert.same {true}, { world_t Zone }
       assert.same {nil, "table is not subclass of World"}, { world_t World }
       assert.same {nil, "table is not subclass of World"}, { world_t Hello }
       assert.same {nil, "table is not subclass of World"}, { world_t Other }
+      assert.same {nil, "table is not class (missing __base)"}, { world_t World.__base }
 
       assert.same {nil, "table is not subclass of Other"}, { other_t Zone }
       assert.same {nil, "table is not subclass of Other"}, { other_t World }
       assert.same {nil, "table is not subclass of Other"}, { other_t Hello }
       assert.same {nil, "table is not subclass of Other"}, { other_t Other }
+      assert.same {nil, "table is not class (missing __base)"}, { other_t Other.__base }
 
 
     describe "allow_same", ->
@@ -270,16 +285,19 @@ describe "tableshape.moonscript", ->
         assert.same {true}, { hello_t World }
         assert.same {true}, { hello_t Hello }
         assert.same {nil, "table is not subclass of Hello"}, { hello_t Other }
+        assert.same {nil, "table is not class (missing __base)"}, { hello_t Hello.__base }
 
         assert.same {true}, { world_t Zone }
         assert.same {true}, { world_t World }
         assert.same {nil, "table is not subclass of World"}, { world_t Hello }
         assert.same {nil, "table is not subclass of World"}, { world_t Other }
+        assert.same {nil, "table is not class (missing __base)"}, { world_t World.__base }
 
         assert.same {nil, "table is not subclass of Other"}, { other_t Zone }
         assert.same {nil, "table is not subclass of Other"}, { other_t World }
         assert.same {nil, "table is not subclass of Other"}, { other_t Hello }
         assert.same {true}, { other_t Other }
+        assert.same {nil, "table is not class (missing __base)"}, { other_t Other.__base }
 
       it "checks sublcass by class reference", ->
         hello_t = subclass_of Hello, allow_same: true
@@ -290,13 +308,16 @@ describe "tableshape.moonscript", ->
         assert.same {true}, { hello_t World }
         assert.same {true}, { hello_t Hello }
         assert.same {nil, "table is not subclass of Hello"}, { hello_t Other }
+        assert.same {nil, "table is not class (missing __base)"}, { hello_t Hello.__base }
 
         assert.same {true}, { world_t Zone }
         assert.same {true}, { world_t World }
         assert.same {nil, "table is not subclass of World"}, { world_t Hello }
         assert.same {nil, "table is not subclass of World"}, { world_t Other }
+        assert.same {nil, "table is not class (missing __base)"}, { world_t World.__base }
 
         assert.same {nil, "table is not subclass of Other"}, { other_t Zone }
         assert.same {nil, "table is not subclass of Other"}, { other_t World }
         assert.same {nil, "table is not subclass of Other"}, { other_t Hello }
         assert.same {true}, { other_t Other }
+        assert.same {nil, "table is not class (missing __base)"}, { other_t Other.__base }
