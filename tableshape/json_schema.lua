@@ -19,7 +19,8 @@ match_type = function(t)
   assert(instance_type(t), "expected class type")
   return types.equivalent(t) * types.metatable_is(types.literal(getmetatable(t)))
 end
-local to_json_schema = types.one_of({
+local to_json_schema
+to_json_schema = types.one_of({
   match_type(types.any) / function()
     return { }
   end,
@@ -65,6 +66,46 @@ local to_json_schema = types.one_of({
   end,
   match_type(types.userdata) / function()
     return error("userdata not supported in JSON Schema")
+  end,
+  match_type_class(types.literal) / function(t)
+    return {
+      const = t
+    }
+  end,
+  types.one_of({
+    types.string,
+    types.number,
+    types.boolean
+  }) / function(value)
+    return {
+      const = value
+    }
+  end,
+  types.one_of({
+    match_type_class(types.partial),
+    match_type_class(types.shape)
+  }) / function(t)
+    if t.extra_fields_type then
+      error("extra fields not supported in JSON Schema")
+    end
+    local additional_properties
+    if t.open then
+      additional_properties = nil
+    else
+      additional_properties = false
+    end
+    local properties = { }
+    local required = { }
+    for k, v in pairs(t.shape) do
+      properties[k] = to_json_schema:transform(v)
+      table.insert(required, k)
+    end
+    return {
+      type = "object",
+      properties = properties,
+      required = setmetatable(required, json.array_mt),
+      additionalProperties = additional_properties
+    }
   end
 })
 return {
