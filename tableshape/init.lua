@@ -35,6 +35,8 @@ describe_type = function(val)
     end
   elseif BaseType:is_base_type(val) then
     return val:_describe()
+  elseif type(val) == "table" and rawget(val, "__index") == val then
+    return tostring(rawget(val, "__class"))
   else
     return tostring(val)
   end
@@ -2305,6 +2307,7 @@ types = setmetatable({
   proxy = Proxy,
   assert = AssertType,
   annotate = AnnotateNode,
+  describe = DescribeNode,
   metatable_is = MetatableIsType
 }, {
   __index = function(self, fn_name)

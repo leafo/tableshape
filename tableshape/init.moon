@@ -34,6 +34,9 @@ describe_type = (val) ->
       "`#{val}`"
   elseif BaseType\is_base_type val
     val\_describe!
+  elseif type(val) == "table" and rawget(val, "__index") == val
+    -- __base prototype table, use class name to avoid triggering __tostring
+    tostring rawget(val, "__class")
   else
     tostring val
 
@@ -76,6 +79,9 @@ join_names = (items, sep=", ", last_sep) ->
 --   specific error messages due to complexity.
 class BaseType
   -- detects if value is *instance* of base type
+  -- Check if val is an instance of a BaseType subclass. Rejects __base
+  -- prototype tables which have __index pointing to themselves, unlike
+  -- instances which inherit __index through their metatable
   @is_base_type: (val) =>
     if type(val) == "table"
       -- this detects if we have a class's __base object instead of an instance
@@ -1084,6 +1090,7 @@ types = setmetatable {
   proxy: Proxy
   assert: AssertType
   annotate: AnnotateNode
+  describe: DescribeNode
   metatable_is: MetatableIsType
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"

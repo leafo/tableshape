@@ -23,6 +23,25 @@ describe "tableshape.is_type", ->
     assert.false is_type(getmetatable(types.string)), "metatable of type is not a type"
 
 
+    -- __base prototype tables are not types
+    assert.false is_type types.string.__class.__base
+    assert.false is_type types.shape.__base
+    assert.false is_type (types.string\describe "x").__class.__base
+
+    -- moonscript classes and instances should not be detected as types
+    class Foo
+      hello: => "world"
+
+    class Bar extends Foo
+      hello: => "bar"
+
+    assert.false is_type Foo
+    assert.false is_type Bar
+    assert.false is_type Foo!
+    assert.false is_type Bar!
+    assert.false is_type Foo.__base
+    assert.false is_type Bar.__base
+
 describe "tableshape.types", ->
   basic_types = {
     {"any", valid: 1234}
