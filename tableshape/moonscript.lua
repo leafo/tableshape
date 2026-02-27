@@ -12,19 +12,12 @@ do
       if not (type(value) == "table") then
         return FailedTransform, "expecting table"
       end
-      local base = value.__base
-      if not (base) then
+      if not (rawget(value, "__base") ~= nil) then
         return FailedTransform, "table is not class (missing __base)"
       end
-      if not (type(base) == "table") then
-        return FailedTransform, "table is not class (__base not table)"
-      end
       local mt = getmetatable(value)
-      if not (mt) then
-        return FailedTransform, "table is not class (missing metatable)"
-      end
-      if not (mt.__call) then
-        return FailedTransform, "table is not class (no constructor)"
+      if not (mt and rawget(mt, "__call") ~= nil) then
+        return FailedTransform, "table is not class (missing constructor)"
       end
       return value, state
     end,
@@ -78,9 +71,11 @@ do
       if not (mt) then
         return FailedTransform, "table is not instance (missing metatable)"
       end
-      local cls = rawget(mt, "__class")
-      if not (cls) then
-        return FailedTransform, "table is not instance (metatable does not have __class)"
+      if not (rawget(mt, "__index") == mt) then
+        return FailedTransform, "table is not instance (metatable __index does not refer to metatable)"
+      end
+      if rawget(value, "__index") == value then
+        return FailedTransform, "table is not instance (__base object, not instance)"
       end
       if value.__index == value then
         return FailedTransform, "table is an instance metatable (__base)"

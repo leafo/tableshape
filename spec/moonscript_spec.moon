@@ -42,8 +42,19 @@ describe "tableshape.moonscript", ->
       -- a class object (is not an instance)
       assert.same {
         nil
-        "table is not instance (metatable does not have __class)"
+        "table is not instance (metatable __index does not refer to metatable)"
       }, { instance_type World }
+
+      -- a class's __base object should not be considered an instance
+      assert.same {
+        nil
+        "table is not instance (missing metatable)"
+      }, { instance_type Hello.__base }
+
+      assert.same {
+        nil
+        "table is not instance (__base object, not instance)"
+      }, { instance_type World.__base }
 
   describe "class_type", ->
     it "describes type checker", ->
@@ -68,20 +79,32 @@ describe "tableshape.moonscript", ->
         "table is not class (missing __base)"
       }, { class_type {} }
 
+      -- has __base but no metatable with __call
       assert.same {
         nil
-        "table is not class (__base not table)"
+        "table is not class (missing constructor)"
       }, { class_type { __base: "world" } }
 
       assert.same {
         nil
-        "table is not class (missing metatable)"
+        "table is not class (missing constructor)"
       }, { class_type { __base: {}} }
 
       assert.same {
         nil
-        "table is not class (no constructor)"
+        "table is not class (missing constructor)"
       }, { class_type setmetatable { __base: {}}, {} }
+
+      -- a class's __base object should not be considered a class
+      assert.same {
+        nil
+        "table is not class (missing __base)"
+      }, { class_type Hello.__base }
+
+      assert.same {
+        nil
+        "table is not class (missing __base)"
+      }, { class_type World.__base }
 
   describe "instance_of", ->
     it "describes type checker", ->
@@ -94,7 +117,7 @@ describe "tableshape.moonscript", ->
       assert.same {nil, "expecting table"}, { t false }
       assert.same {nil, "expecting table"}, { t 22 }
       assert.same {nil, "table is not instance (missing metatable)"}, { t {} }
-      assert.same {nil, "table is not instance (metatable does not have __class)"}, { t setmetatable  {}, {} }
+      assert.same {nil, "table is not instance (metatable __index does not refer to metatable)"}, { t setmetatable  {}, {} }
 
     it "checks instance_of class by name", ->
       -- by zone
@@ -157,7 +180,7 @@ describe "tableshape.moonscript", ->
 
       -- it should not think a class object is an instance
       assert.same {
-        nil, "table is not instance (metatable does not have __class)"
+        nil, "table is not instance (metatable __index does not refer to metatable)"
       }, { instance_of(Zone) Zone }
 
       assert.same {
@@ -223,7 +246,7 @@ describe "tableshape.moonscript", ->
       assert.same {nil, "expecting table"}, { t false }
       assert.same {nil, "expecting table"}, { t 22 }
       assert.same {nil, "table is not class (missing __base)"}, { t {} }
-      assert.same {nil, "table is not class (missing __base)"}, { t setmetatable  {}, {} }
+      assert.same {nil, "table is not class (missing __base)"}, { t setmetatable {}, {} }
 
       -- fails with instance
       assert.same {nil, "table is not class (missing __base)"}, { t Other! }

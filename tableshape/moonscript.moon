@@ -5,19 +5,12 @@ class ClassType extends BaseType
     unless type(value) == "table"
       return FailedTransform, "expecting table"
 
-    base = value.__base
-    unless base
+    unless rawget(value, "__base") != nil
       return FailedTransform, "table is not class (missing __base)"
 
-    unless type(base) == "table"
-      return FailedTransform, "table is not class (__base not table)"
-
     mt = getmetatable value
-    unless mt
-      return FailedTransform, "table is not class (missing metatable)"
-
-    unless mt.__call
-      return FailedTransform, "table is not class (no constructor)"
+    unless mt and rawget(mt, "__call") != nil
+      return FailedTransform, "table is not class (missing constructor)"
 
     value, state
 
@@ -34,9 +27,11 @@ class InstanceType extends BaseType
     unless mt
       return FailedTransform, "table is not instance (missing metatable)"
 
-    cls = rawget mt, "__class"
-    unless cls
-      return FailedTransform, "table is not instance (metatable does not have __class)"
+    unless rawget(mt, "__index") == mt
+      return FailedTransform, "table is not instance (metatable __index does not refer to metatable)"
+
+    if rawget(value, "__index") == value
+      return FailedTransform, "table is not instance (__base object, not instance)"
 
     if value.__index == value
       return FailedTransform, "table is an instance metatable (__base)"
