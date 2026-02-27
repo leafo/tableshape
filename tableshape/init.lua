@@ -2308,6 +2308,7 @@ types = setmetatable({
   assert = AssertType,
   annotate = AnnotateNode,
   describe = DescribeNode,
+  optional = OptionalType,
   metatable_is = MetatableIsType
 }, {
   __index = function(self, fn_name)

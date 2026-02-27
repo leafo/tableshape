@@ -61,7 +61,27 @@ describe "tableshape.json_schema", ->
         type: "object"
         properties: {
           name: {type: "string"}
-          email: {type: {"string", "null"}}
+          email: {type: "string"}
+        }
+        required: {"name"}
+        additionalProperties: false
+      }
+      assert.same expected, result
+
+    it "converts shape with optional described fields", ->
+      user_shape = types.shape {
+        name: types.string
+        email: types.string\describe("an email")\is_optional!
+        age: types.number\is_optional!\describe("user age")
+      }
+      result = to_json_schema\transform user_shape
+
+      expected = {
+        type: "object"
+        properties: {
+          name: {type: "string"}
+          email: {type: "string", description: "an email"}
+          age: {type: "number", description: "user age"}
         }
         required: {"name"}
         additionalProperties: false

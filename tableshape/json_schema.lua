@@ -26,6 +26,9 @@ to_json_schema = types.one_of({
     inner.description = v._describe()
     return inner
   end,
+  match_type_class(types.optional) / function(v)
+    return to_json_schema:transform(v.base_type)
+  end,
   match_type(types.any) / function()
     return { }
   end,
@@ -99,11 +102,27 @@ to_json_schema = types.one_of({
     else
       additional_properties = false
     end
+    local is_optional_type = match_type_class(types.optional)
+    local check_optional
+    check_optional = function(node)
+      if is_optional_type(node) then
+        return true
+      end
+      if node.node then
+        return check_optional(node.node)
+      end
+      if node.base_type then
+        return check_optional(node.base_type)
+      end
+      return false
+    end
     local properties = { }
     local required = { }
     for k, v in pairs(t.shape) do
       properties[k] = to_json_schema:transform(v)
-      table.insert(required, k)
+      if not (check_optional(v)) then
+        table.insert(required, k)
+      end
     end
     return {
       type = "object",

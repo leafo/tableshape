@@ -1091,6 +1091,7 @@ types = setmetatable {
   assert: AssertType
   annotate: AnnotateNode
   describe: DescribeNode
+  optional: OptionalType
   metatable_is: MetatableIsType
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"

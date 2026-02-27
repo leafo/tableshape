@@ -24,6 +24,9 @@ to_json_schema = types.one_of {
     inner.description = v._describe!
     inner
 
+  match_type_class(types.optional) / (v) ->
+    to_json_schema\transform v.base_type
+
   match_type(types.any) / -> {}
   match_type(types.string) / -> { type: "string" }
   match_type(types.number) / -> { type: "number" }
@@ -57,11 +60,22 @@ to_json_schema = types.one_of {
     else
       false
 
+    is_optional_type = match_type_class types.optional
+
+    -- traverse wrapper nodes to check if type contains OptionalType
+    check_optional = (node) ->
+      return true if is_optional_type node
+      -- DescribeNode wraps .node, OptionalType wraps .base_type
+      return check_optional node.node if node.node
+      return check_optional node.base_type if node.base_type
+      false
+
     properties = {}
     required = {}
     for k,v in pairs t.shape
       properties[k] = to_json_schema\transform v
-      table.insert required, k
+      unless check_optional v
+        table.insert required, k
 
     {
       type: "object"
