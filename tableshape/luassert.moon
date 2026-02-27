@@ -1,6 +1,7 @@
 
 -- this installs luassert assertion and formatter for tableshape types
 
+import is_type from require "tableshape"
 say = require "say"
 assert = require "luassert"
 

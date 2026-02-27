@@ -1,3 +1,5 @@
+local is_type
+is_type = require("tableshape").is_type
 local say = require("say")
 local assert = require("luassert")
 say:set("assertion.shape.positive", "Expected %s to match shape:\n%s")
