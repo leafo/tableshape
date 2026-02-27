@@ -21,6 +21,11 @@ match_type = function(t)
 end
 local to_json_schema
 to_json_schema = types.one_of({
+  match_type_class(types.describe) / function(v)
+    local inner = to_json_schema:transform(v.node)
+    inner.description = v._describe()
+    return inner
+  end,
   match_type(types.any) / function()
     return { }
   end,

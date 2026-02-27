@@ -19,6 +19,11 @@ match_type = (t) ->
 
 local to_json_schema
 to_json_schema = types.one_of {
+  match_type_class(types.describe) / (v) ->
+    inner = to_json_schema\transform v.node
+    inner.description = v._describe!
+    inner
+
   match_type(types.any) / -> {}
   match_type(types.string) / -> { type: "string" }
   match_type(types.number) / -> { type: "number" }

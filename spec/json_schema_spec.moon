@@ -302,3 +302,16 @@ describe "tableshape.json_schema", ->
   --     result = schema\transform!
   --     assert.same {type: {"number", "null"}}, result
 
+  describe "describe nodes", ->
+    it "converts boolean with description", ->
+      result = to_json_schema\transform types.boolean\describe "a flag"
+      assert.same {type: "boolean", description: "a flag"}, result
+
+    it "converts string with description", ->
+      result = to_json_schema\transform types.string\describe "user name"
+      assert.same {type: "string", description: "user name"}, result
+
+    it "converts number with description", ->
+      result = to_json_schema\transform types.number\describe "the count"
+      assert.same {type: "number", description: "the count"}, result
+
