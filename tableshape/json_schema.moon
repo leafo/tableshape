@@ -39,7 +39,7 @@ to_json_schema = types.one_of {
 
   match_type(types.userdata) / -> error "userdata not supported in JSON Schema"
 
-  match_type_class(types.literal) / (t) -> { const: t }
+  match_type_class(types.literal) / (t) -> { const: t.value }
 
   -- literal types
   types.one_of({

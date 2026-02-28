@@ -322,6 +322,48 @@ describe "tableshape.json_schema", ->
   --     result = schema\transform!
   --     assert.same {type: {"number", "null"}}, result
 
+  describe "literal types", ->
+    it "converts string literal", ->
+      result = to_json_schema\transform types.literal "hello"
+      assert.same {const: "hello"}, result
+
+    it "converts number literal", ->
+      result = to_json_schema\transform types.literal 42
+      assert.same {const: 42}, result
+
+    it "converts boolean literal", ->
+      result = to_json_schema\transform types.literal true
+      assert.same {const: true}, result
+
+    it "converts plain string value", ->
+      result = to_json_schema\transform "fixed_value"
+      assert.same {const: "fixed_value"}, result
+
+    it "converts plain number value", ->
+      result = to_json_schema\transform 99
+      assert.same {const: 99}, result
+
+    it "converts plain boolean value", ->
+      result = to_json_schema\transform false
+      assert.same {const: false}, result
+
+    it "converts literal in shape field", ->
+      s = types.shape {
+        status: types.literal "active"
+        count: types.literal 5
+      }
+      result = to_json_schema\transform s
+      expected = {
+        type: "object"
+        properties: {
+          status: {const: "active"}
+          count: {const: 5}
+        }
+        required: {"status", "count"}
+        additionalProperties: false
+      }
+      assert.same expected, result
+
   describe "describe nodes", ->
     it "converts boolean with description", ->
       result = to_json_schema\transform types.boolean\describe "a flag"
