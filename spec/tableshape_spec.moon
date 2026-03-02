@@ -1020,6 +1020,17 @@ describe "tableshape.describe", ->
     it "describes clone", ->
       assert.same "array of cloneable value", types.array_of(types.clone)\_describe!
 
+  describe "proxy", ->
+    it "tests resurcive type", ->
+      local thing
+      thing = types.partial {
+        id: types.number
+        sub_thing: types.nil + types.proxy -> thing
+      }
+
+      -- describing the type should not cause stack overflow
+      print thing
+
 
   describe "metatable_is", ->
     it "describes", ->

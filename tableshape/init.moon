@@ -8,6 +8,10 @@ local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType,
 -- unique object to identify failure case for return value from _transform
 FailedTransform = {}
 
+-- weak set to track proxies currently being described, to detect recursion
+-- NOTE: not safe if _describe yields across coroutines describing the same proxy
+describing_proxies = setmetatable {}, __mode: "k"
+
 unpack = unpack or table.unpack
 
 -- make a clone of state for insertion
@@ -957,7 +961,14 @@ class Proxy extends BaseType
     assert(@.fn!, "proxy missing transformer")\_transform ...
 
   _describe: (...) =>
-    assert(@.fn!, "proxy missing transformer")\_describe ...
+    if describing_proxies[@]
+      return "recurse"
+    describing_proxies[@] = (describing_proxies[@] or 0) + 1
+    result = assert(@.fn!, "proxy missing transformer")\_describe ...
+    describing_proxies[@] -= 1
+    if describing_proxies[@] == 0
+      describing_proxies[@] = nil
+    result
 
 class AssertType extends BaseType
   assert: assert

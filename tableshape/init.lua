@@ -1,6 +1,9 @@
 local OptionalType, TaggedType, types, is_type
 local BaseType, TransformNode, SequenceNode, FirstOfNode, DescribeNode, NotType, Literal
 local FailedTransform = { }
+local describing_proxies = setmetatable({ }, {
+  __mode = "k"
+})
 local unpack = unpack or table.unpack
 local clone_state
 clone_state = function(state_obj)
@@ -1993,7 +1996,17 @@ do
       return assert(self.fn(), "proxy missing transformer"):_transform(...)
     end,
     _describe = function(self, ...)
-      return assert(self.fn(), "proxy missing transformer"):_describe(...)
+      if describing_proxies[self] then
+        return "recurse"
+      end
+      describing_proxies[self] = (describing_proxies[self] or 0) + 1
+      local result = assert(self.fn(), "proxy missing transformer"):_describe(...)
+      local _update_0 = self
+      describing_proxies[_update_0] = describing_proxies[_update_0] - 1
+      if describing_proxies[self] == 0 then
+        describing_proxies[self] = nil
+      end
+      return result
     end
   }
   _base_0.__index = _base_0
