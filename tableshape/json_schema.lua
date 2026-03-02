@@ -12,13 +12,46 @@ end
 local match_type_class
 match_type_class = function(t)
   assert(class_type(t), "expected class type")
-  return types.metatable_is(types.literal(t.__base))
+  return types.metatable_is(types.literal(t.__base)):describe("Type class: " .. tostring(t.__name))
 end
 local match_type
 match_type = function(t)
   assert(instance_type(t), "expected class type")
   return types.equivalent(t) * types.metatable_is(types.literal(getmetatable(t)))
 end
+local simplify = types.one_of({
+  types.one_of({
+    types.string,
+    types.number,
+    types.boolean
+  }),
+  match_type_class(types.literal) / function(t)
+    return t.value
+  end,
+  match_type_class(types.describe) / function(t)
+    return t.node
+  end,
+  match_type_class(types.annotate) / function(t)
+    return t.base_type
+  end,
+  match_type_class(types._tagged_type) / function(t)
+    return t.base_type
+  end,
+  match_type_class(types._tag_scope_type) / function(t)
+    return t.base_type
+  end
+})
+local json_enum = match_type_class(types.one_of) * types.scope(types.partial({
+  options = types.array_of(simplify) * types.one_of({
+    types.array_of(types.string),
+    types.array_of(types.number)
+  }):tag("option_literals")
+}) % function(t, scope)
+  return {
+    type = type(scope.option_literals[1]),
+    enum = scope.option_literals
+  }
+end)
 local to_json_schema
 to_json_schema = types.one_of({
   match_type_class(types.describe) / function(v)
@@ -29,6 +62,7 @@ to_json_schema = types.one_of({
   match_type_class(types.optional) / function(v)
     return to_json_schema:transform(v.base_type)
   end,
+  json_enum,
   match_type(types.any) / function()
     return { }
   end,
@@ -77,7 +111,7 @@ to_json_schema = types.one_of({
   end,
   match_type_class(types.literal) / function(t)
     return {
-      const = t
+      const = t.value
     }
   end,
   types.one_of({

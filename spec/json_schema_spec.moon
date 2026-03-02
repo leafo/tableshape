@@ -364,6 +364,52 @@ describe "tableshape.json_schema", ->
       }
       assert.same expected, result
 
+  describe "enum types", ->
+    it "converts one_of with string literals", ->
+      result = to_json_schema\transform types.one_of {"red", "green", "blue"}
+      assert.same {type: "string", enum: {"red", "green", "blue"}}, result
+
+    it "converts one_of with number literals", ->
+      result = to_json_schema\transform types.one_of {1, 2, 3}
+      assert.same {type: "number", enum: {1, 2, 3}}, result
+
+    it "converts one_of with types.literal string values", ->
+      result = to_json_schema\transform types.one_of {
+        types.literal "active"
+        types.literal "inactive"
+        types.literal "pending"
+      }
+      assert.same {type: "string", enum: {"active", "inactive", "pending"}}, result
+
+    it "converts one_of with types.literal number values", ->
+      result = to_json_schema\transform types.one_of {
+        types.literal 10
+        types.literal 20
+        types.literal 30
+      }
+      assert.same {type: "number", enum: {10, 20, 30}}, result
+
+    it "converts enum in shape field", ->
+      s = types.shape {
+        color: types.one_of {"red", "green", "blue"}
+        priority: types.one_of {1, 2, 3}
+      }
+      result = to_json_schema\transform s
+      expected = {
+        type: "object"
+        properties: {
+          color: {type: "string", enum: {"red", "green", "blue"}}
+          priority: {type: "number", enum: {1, 2, 3}}
+        }
+        required: {"color", "priority"}
+        additionalProperties: false
+      }
+      assert.same expected, result
+
+    it "converts described enum", ->
+      result = to_json_schema\transform types.one_of({"a", "b", "c"})\describe "pick a letter"
+      assert.same {type: "string", enum: {"a", "b", "c"}, description: "pick a letter"}, result
+
   describe "describe nodes", ->
     it "converts boolean with description", ->
       result = to_json_schema\transform types.boolean\describe "a flag"

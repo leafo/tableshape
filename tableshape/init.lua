@@ -2309,7 +2309,9 @@ types = setmetatable({
   annotate = AnnotateNode,
   describe = DescribeNode,
   optional = OptionalType,
-  metatable_is = MetatableIsType
+  metatable_is = MetatableIsType,
+  _tagged_type = TaggedType,
+  _tag_scope_type = TagScopeType
 }, {
   __index = function(self, fn_name)
     return error("Type checker does not exist: `" .. tostring(fn_name) .. "`")

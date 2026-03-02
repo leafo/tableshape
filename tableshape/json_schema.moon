@@ -9,13 +9,46 @@ import class_type, instance_type from require "tableshape.moonscript"
 
 match_type_class = (t) ->
   assert class_type(t), "expected class type"
-  types.metatable_is(types.literal t.__base)
+  types.metatable_is(types.literal t.__base)\describe "Type class: #{t.__name}"
 
 -- directly match the type
 match_type = (t) ->
   assert instance_type(t), "expected class type"
-  -- NOTE: types.literal is important, so the value of mt is tested directly instead of treating it as a pattern for the mt
+  -- NOTE: types.literal is important, so the value of mt is tested directly
+  -- instead of treating it as a pattern for the mt
   types.equivalent(t) * types.metatable_is(types.literal getmetatable t)
+
+
+-- converts node to simpler type to make pattern matching eaiser
+-- types.literal("hello") -> "hello"
+-- strips metadata nodes: describe, annotate, tagged
+-- flatten sequence of just one node
+simplify = types.one_of {
+  -- pass through literals
+  types.one_of {
+    types.string
+    types.number
+    types.boolean
+  }
+
+  match_type_class(types.literal) / (t) -> t.value
+  match_type_class(types.describe) / (t) -> t.node
+  match_type_class(types.annotate) / (t) -> t.base_type
+  match_type_class(types._tagged_type) / (t) -> t.base_type
+  match_type_class(types._tag_scope_type) / (t) -> t.base_type
+}
+
+json_enum = match_type_class(types.one_of) * types.scope types.partial({
+  -- TODO: this doesn't handle empty arrays
+  options: types.array_of(simplify) * types.one_of({
+    types.array_of(types.string)
+    types.array_of(types.number)
+  })\tag "option_literals"
+}) % (t, scope) ->
+  {
+    type: type scope.option_literals[1] -- todo: this should be more strict
+    enum: scope.option_literals
+  }
 
 local to_json_schema
 to_json_schema = types.one_of {
@@ -26,6 +59,8 @@ to_json_schema = types.one_of {
 
   match_type_class(types.optional) / (v) ->
     to_json_schema\transform v.base_type
+
+  json_enum
 
   match_type(types.any) / -> {}
   match_type(types.string) / -> { type: "string" }
@@ -39,9 +74,10 @@ to_json_schema = types.one_of {
 
   match_type(types.userdata) / -> error "userdata not supported in JSON Schema"
 
+  -- extract value from literal pattern match
   match_type_class(types.literal) / (t) -> { const: t.value }
 
-  -- literal types
+  -- actual literal types
   types.one_of({
     types.string
     types.number
@@ -84,10 +120,5 @@ to_json_schema = types.one_of {
       additionalProperties: additional_properties
     }
 }
-
--- require("moon").p to_json_schema\transform types.partial { color: types.string, height: "blue" }
--- require("moon").p to_json_schema\transform types.shape { color: types.string, height: "blue" }
-
--- tostring types.literal types.shape.__base
 
 {:to_json_schema}

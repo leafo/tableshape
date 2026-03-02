@@ -1093,6 +1093,12 @@ types = setmetatable {
   describe: DescribeNode
   optional: OptionalType
   metatable_is: MetatableIsType
+
+  -- these are not publicly documented, interfaces may change
+  -- used or meta pattern matching
+  _tagged_type: TaggedType
+  _tag_scope_type: TagScopeType
+
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
 
@@ -1103,4 +1109,6 @@ check_shape = (value, shape) ->
 is_type = (val) ->
   BaseType\is_base_type val
 
-{ :check_shape, :types, :is_type, :BaseType, :FailedTransform, VERSION: "2.6.0" }
+{
+  :check_shape, :types, :is_type, :BaseType, :FailedTransform, VERSION: "2.6.0"
+}
