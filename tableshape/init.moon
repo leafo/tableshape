@@ -1107,6 +1107,7 @@ types = setmetatable {
 
   -- these are not publicly documented, interfaces may change
   -- used or meta pattern matching
+  _transform: TransformNode
   _tagged_type: TaggedType
   _tag_scope_type: TagScopeType
   _sequence: SequenceNode

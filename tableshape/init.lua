@@ -2323,6 +2323,7 @@ types = setmetatable({
   describe = DescribeNode,
   optional = OptionalType,
   metatable_is = MetatableIsType,
+  _transform = TransformNode,
   _tagged_type = TaggedType,
   _tag_scope_type = TagScopeType,
   _sequence = SequenceNode

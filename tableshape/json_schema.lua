@@ -1,3 +1,8 @@
+local debug
+debug = function(...)
+  require("moon").p(...)
+  return ...
+end
 local json = require("cjson")
 local BaseType, types, is_type
 do
@@ -43,20 +48,27 @@ simplify = types.one_of({
   types.literal(types.integer),
   match_type_class(types.shape),
   match_type_class(types.partial),
-  match_type_class(types.one_of),
   types.one_of({
     match_type_class(types.optional):tag(function(state)
       state.optional = true
     end) / field("base_type"),
     match_type_class(types.describe):tag(function(state, v)
-      state.description = tostring(v)
+      state.description = state.description or tostring(v)
     end) / field("node"),
+    match_type_class(types._transform) / field("node"),
     match_type_class(types.annotate) / field("base_type"),
     match_type_class(types._tagged_type) / field("base_type"),
     match_type_class(types._tag_scope_type) / field("base_type")
   }) * types.proxy(function()
     return assert(simplify, "missing simplify")
   end),
+  match_type_class(types.one_of) * types.partial({
+    options = types.array_of(types.proxy(function()
+      return simplify
+    end) + types.any / nil)
+  }) / function(res)
+    return assert(res.options[1], "options do not have valid type")
+  end,
   match_type_class(types._sequence) * types.partial({
     sequence = types.array_of(types.proxy(function()
       return simplify

@@ -2,7 +2,19 @@
 -- Transforms tableshape type definitions into JSON Schema objects
 --
 -- https://tour.json-schema.org/
+--
+-- The goal of this module is to get good enough, not perflectly reproduce the
+-- shape. A shape author should then have a custom node to influence how the
+-- json schema type is generated
 
+-- TODO: add a special wrapper type that can be used to wrap types to allow
+-- author to specify their own custom logic for creating json type
+
+-- TODO: detect range structure in sequences to enhance string range support
+
+debug = (...) ->
+  require("moon").p ...
+  ...
 
 -- this works in two passes
 -- 1. simplify -> convert any complex types into their minimal type that can be serialized
@@ -62,16 +74,22 @@ simplify = types.one_of {
   -- instanced types
   match_type_class types.shape
   match_type_class types.partial
-  match_type_class types.one_of
 
   types.one_of({
     match_type_class(types.optional)\tag((state) -> state.optional = true) / field "base_type"
-    match_type_class(types.describe)\tag((state, v) -> state.description = tostring v) / field "node"
+    match_type_class(types.describe)\tag((state, v) -> state.description or= tostring v) / field "node"
+
+    match_type_class(types._transform) / field("node")
 
     match_type_class(types.annotate) / field("base_type")
     match_type_class(types._tagged_type) / field("base_type")
     match_type_class(types._tag_scope_type) / field("base_type")
   }) * types.proxy -> assert simplify, "missing simplify"
+
+  -- TODO: this is very basic, just take the first valid type
+  match_type_class(types.one_of) * types.partial({
+    options: types.array_of types.proxy(-> simplify) + types.any / nil
+  }) / (res) -> assert res.options[1], "options do not have valid type"
 
   -- TODO: this doesn't handle state merging very well
   match_type_class(types._sequence) * types.partial({
