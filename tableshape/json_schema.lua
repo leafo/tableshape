@@ -1,8 +1,8 @@
 local json = require("cjson")
-local BaseType, types
+local BaseType, types, is_type
 do
   local _obj_0 = require("tableshape.init")
-  BaseType, types = _obj_0.BaseType, _obj_0.types
+  BaseType, types, is_type = _obj_0.BaseType, _obj_0.types, _obj_0.is_type
 end
 local class_type, instance_type
 do
@@ -19,26 +19,46 @@ match_type = function(t)
   assert(instance_type(t), "expected class type")
   return types.equivalent(t) * types.metatable_is(types.literal(getmetatable(t)))
 end
-local simplify = types.one_of({
+local field
+field = function(f)
+  return function(t)
+    return t[f]
+  end
+end
+local extract_flags
+extract_flags = types.one_of({
+  match_type_class(types.optional):tag(function(state)
+    state.optional = true
+  end) / field("base_type"),
+  match_type_class(types.describe):tag(function(state, v)
+    state.description = tostring(v)
+  end) / field("node"),
+  match_type_class(types.annotate) / field("base_type"),
+  match_type_class(types._tagged_type) / field("base_type"),
+  match_type_class(types._tag_scope_type) / field("base_type")
+}) * (types.proxy(function()
+  return extract_flags
+end) + types.any)
+local simplify
+simplify = types.one_of({
+  types.string,
+  types.number,
+  types.boolean,
+  match_type_class(types.literal) / field("value"),
   types.one_of({
-    types.string,
-    types.number,
-    types.boolean
-  }),
-  match_type_class(types.literal) / function(t)
-    return t.value
-  end,
-  match_type_class(types.describe) / function(t)
-    return t.node
-  end,
-  match_type_class(types.annotate) / function(t)
-    return t.base_type
-  end,
-  match_type_class(types._tagged_type) / function(t)
-    return t.base_type
-  end,
-  match_type_class(types._tag_scope_type) / function(t)
-    return t.base_type
+    match_type_class(types.describe) / field("node"),
+    match_type_class(types.annotate) / field("base_type"),
+    match_type_class(types._tagged_type) / field("base_type"),
+    match_type_class(types._tag_scope_type) / field("base_type")
+  }) * types.proxy(function()
+    return assert(simplify, "missing simplify")
+  end),
+  match_type_class(types._sequence) * types.partial({
+    sequence = types.array_of(types.proxy(function()
+      return simplify
+    end) + types.any / nil)
+  }) / function(res)
+    return assert(res.sequence[1], "sequence does not have valid type")
   end
 })
 local json_enum = match_type_class(types.one_of) * types.scope(types.partial({
@@ -49,19 +69,17 @@ local json_enum = match_type_class(types.one_of) * types.scope(types.partial({
 }) % function(t, scope)
   return {
     type = type(scope.option_literals[1]),
-    enum = scope.option_literals
+    enum = setmetatable(scope.option_literals, json.array_mt)
   }
 end)
 local to_json_schema
 to_json_schema = types.one_of({
-  match_type_class(types.describe) / function(v)
-    local inner = to_json_schema:transform(v.node)
-    inner.description = v._describe()
-    return inner
-  end,
-  match_type_class(types.optional) / function(v)
-    return to_json_schema:transform(v.base_type)
-  end,
+  types.scope(extract_flags * types.proxy(function()
+    return to_json_schema
+  end) % function(v, flags)
+    v.description = flags.description
+    return v
+  end),
   json_enum,
   match_type(types.any) / function()
     return { }
@@ -126,38 +144,34 @@ to_json_schema = types.one_of({
   types.one_of({
     match_type_class(types.partial),
     match_type_class(types.shape)
+  }) * types.shape({
+    open = types.any,
+    shape = types.shape({ }, {
+      extra_fields = types.scope(types.map_of(types.string, types.scope((extract_flags + types.any) * types.proxy(function()
+        return to_json_schema
+      end):tag("_type") % function(v, state)
+        if state.description then
+          state._type.description = state.description
+        end
+        return state
+      end)))
+    })
   }) / function(t)
-    if t.extra_fields_type then
-      error("extra fields not supported in JSON Schema")
-    end
     local additional_properties
     if t.open then
       additional_properties = nil
     else
       additional_properties = false
     end
-    local is_optional_type = match_type_class(types.optional)
-    local check_optional
-    check_optional = function(node)
-      if is_optional_type(node) then
-        return true
-      end
-      if node.node then
-        return check_optional(node.node)
-      end
-      if node.base_type then
-        return check_optional(node.base_type)
-      end
-      return false
-    end
     local properties = { }
     local required = { }
     for k, v in pairs(t.shape) do
-      properties[k] = to_json_schema:transform(v)
-      if not (check_optional(v)) then
+      if not (v.optional) then
         table.insert(required, k)
       end
+      properties[k] = v._type
     end
+    table.sort(required)
     return {
       type = "object",
       properties = properties,
@@ -167,5 +181,7 @@ to_json_schema = types.one_of({
   end
 })
 return {
-  to_json_schema = to_json_schema
+  to_json_schema = to_json_schema,
+  simplify = simplify,
+  extract_flags = extract_flags
 }

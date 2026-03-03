@@ -1,7 +1,78 @@
-import to_json_schema from require "tableshape.json_schema"
+import to_json_schema, simplify from require "tableshape.json_schema"
 import types from require "tableshape"
 
 describe "tableshape.json_schema", ->
+
+  describe "simplify", ->
+    it "passes through plain string", ->
+      result = simplify\transform "hello"
+      assert.same "hello", result
+
+    it "passes through plain number", ->
+      result = simplify\transform 42
+      assert.same 42, result
+
+    it "passes through plain boolean", ->
+      result = simplify\transform true
+      assert.same true, result
+
+    it "extracts value from types.literal string", ->
+      result = simplify\transform types.literal "hello"
+      assert.same "hello", result
+
+    it "extracts value from types.literal number", ->
+      result = simplify\transform types.literal 99
+      assert.same 99, result
+
+    it "extracts value from types.literal boolean", ->
+      result = simplify\transform types.literal false
+      assert.same false, result
+
+    it "strips describe node", ->
+      input = types.string\describe "a name"
+      result = simplify\transform input
+      assert.same types.string, result
+
+    it "strips annotate node", ->
+      input = types.annotate types.string
+      result = simplify\transform input
+      assert.same types.string, result
+
+    it "strips tagged type node", ->
+      input = types.string\tag "my_tag"
+      result = simplify\transform input
+      assert.same types.string, result
+
+    it "strips scope node", ->
+      input = types.scope types.string
+      result = simplify\transform input
+      assert.same types.string, result
+
+    it "strips nested describe and tag", ->
+      input = types.string\describe("a name")\tag "my_tag"
+      result = simplify\transform input
+      assert.same types.string, result
+
+    it "strips annotate wrapping describe wrapping tag", ->
+      input = types.annotate types.string\describe("my string")\tag "fart"
+      result = simplify\transform input
+      assert.same types.string, result
+
+    it "strips describe wrapping annotate", ->
+      input = types.annotate(types.number)\describe "count"
+      result = simplify\transform input
+      assert.same types.number, result
+
+    it "extracts literal value through wrapper nodes", ->
+      input = types.literal("yes")\describe("a flag")\tag "answer"
+      result = simplify\transform input
+      assert.same "yes", result
+
+    it "returns nil for unsupported type", ->
+      input = types.shape { name: types.string }
+      result = simplify\transform input
+      assert.is_nil result
+
   describe "basic types", ->
     it "converts string type", ->
       result = to_json_schema\transform types.string
@@ -32,7 +103,7 @@ describe "tableshape.json_schema", ->
       assert.same {}, result
 
   describe "shape types", ->
-    it "converts basic shape #ddd", ->
+    it "converts basic shape", ->
       user_shape = types.shape {
         name: types.string
         age: types.number
@@ -45,7 +116,7 @@ describe "tableshape.json_schema", ->
           name: {type: "string"}
           age: {type: "number"}
         }
-        required: {"name", "age"}
+        required: {"age", "name"}
         additionalProperties: false
       }
       assert.same expected, result
@@ -94,14 +165,44 @@ describe "tableshape.json_schema", ->
       }
       result = to_json_schema\transform open_shape
 
-      expected = {
+      assert.same {
         type: "object"
         properties: {
           name: {type: "string"}
         }
         required: {"name"}
-      }
-      assert.same expected, result
+      }, result
+
+    it "converts a shape with description", ->
+      some_shape = types.shape({
+        hello: types.string\describe "poop"
+        zone: types.annotate types.number\is_optional!
+        status: types.one_of({"cool", "bad"})\describe "please pick"
+      })\describe "my dodo"
+
+      result = to_json_schema\transform some_shape
+
+      assert.same {
+        type: "object"
+        additionalProperties: false
+        description: "my dodo"
+        properties: {
+          hello: {
+            description: "poop"
+            type: "string"
+          }
+          zone: {
+            type: "number"
+          }
+          status: {
+            type: "string"
+            enum: {"cool", "bad"}
+            description: "please pick"
+          }
+        }
+        required: {"hello", "status"}
+      }, result
+
 
   -- describe "array types", ->
   --   it "converts array_of string", ->
@@ -359,7 +460,7 @@ describe "tableshape.json_schema", ->
           status: {const: "active"}
           count: {const: 5}
         }
-        required: {"status", "count"}
+        required: {"count", "status"}
         additionalProperties: false
       }
       assert.same expected, result

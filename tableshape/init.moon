@@ -1109,6 +1109,7 @@ types = setmetatable {
   -- used or meta pattern matching
   _tagged_type: TaggedType
   _tag_scope_type: TagScopeType
+  _sequence: SequenceNode
 
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"

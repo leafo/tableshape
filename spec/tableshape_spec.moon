@@ -1029,8 +1029,7 @@ describe "tableshape.describe", ->
       }
 
       -- describing the type should not cause stack overflow
-      print thing
-
+      tostring thing
 
   describe "metatable_is", ->
     it "describes", ->
