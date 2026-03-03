@@ -69,7 +69,7 @@ describe "tableshape.json_schema", ->
       assert.same "yes", result
 
     it "returns nil for unsupported type", ->
-      input = types.shape { name: types.string }
+      input = types.userdata
       result = simplify\transform input
       assert.is_nil result
 

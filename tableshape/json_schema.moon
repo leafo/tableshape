@@ -33,36 +33,47 @@ field = (f) -> (t) -> t[f]
 -- strips metadata nodes: describe, annotate, tagged
 -- flatten sequence of just one node
 
--- get field metadata from the type and store it into the state
-local extract_flags
-extract_flags = types.one_of({
-  match_type_class(types.optional)\tag((state) -> state.optional = true) / field "base_type"
-  match_type_class(types.describe)\tag((state, v) -> state.description = tostring v) / field "node"
-
-  -- annotate is just dropped, means nothing to json schema
-  match_type_class(types.annotate) / field("base_type")
-
-  match_type_class(types._tagged_type) / field("base_type")
-  match_type_class(types._tag_scope_type) / field("base_type")
-}) * (types.proxy(-> extract_flags) + types.any)
-
+-- simplifies a terminal tableshape pattern, extracting metadata about the type
+-- into the state, and returns a new tableshape type that can be serialized
+-- state: pushes {description:, optional:}
+-- This should reject any type that can't be handled
 local simplify
 simplify = types.one_of {
+  -- literal values
   types.string
   types.number
   types.boolean
+  types.nil
 
+  -- literal wrapped value
   match_type_class(types.literal) / field("value")
 
+  -- basic types
+  types.literal types.any
+  types.literal types.string
+  types.literal types.number
+  types.literal types.boolean
+  types.literal types.nil
+  types.literal types.function
+  types.literal types.table
+  types.literal types.array
+  types.literal types.integer
+
+  -- instanced types
+  match_type_class types.shape
+  match_type_class types.partial
+  match_type_class types.one_of
+
   types.one_of({
-    match_type_class(types.describe) / field("node")
+    match_type_class(types.optional)\tag((state) -> state.optional = true) / field "base_type"
+    match_type_class(types.describe)\tag((state, v) -> state.description = tostring v) / field "node"
+
     match_type_class(types.annotate) / field("base_type")
     match_type_class(types._tagged_type) / field("base_type")
     match_type_class(types._tag_scope_type) / field("base_type")
   }) * types.proxy -> assert simplify, "missing simplify"
 
-  -- TODO: not yet
-  -- need to match out the front of the sequence
+  -- TODO: this doesn't handle state merging very well
   match_type_class(types._sequence) * types.partial({
     sequence: types.array_of types.proxy(-> simplify) + types.any / nil
   }) / (res) -> assert res.sequence[1], "sequence does not have valid type"
@@ -80,13 +91,18 @@ json_enum = match_type_class(types.one_of) * types.scope types.partial({
     enum: setmetatable scope.option_literals, json.array_mt
   }
 
-local to_json_schema
-to_json_schema = types.one_of {
-  -- description extraction
-  types.scope extract_flags * types.proxy(-> to_json_schema) % (v, flags) ->
-    v.description = flags.description
+-- inserts the description into the type from the state
+with_description = (t) ->
+  types.scope t % (v, state) ->
+    if state
+      if state.optional
+        error "unhandled optional state on type"
+
+      v.description = state.description
     v
 
+local json_schema_value
+json_schema_value = simplify * types.one_of {
   json_enum
 
   match_type(types.any) / -> {}
@@ -117,12 +133,13 @@ to_json_schema = types.one_of {
   }) * types.shape({
     open: types.any
     shape: types.shape {}, {
-      extra_fields: types.scope types.map_of(
+      -- we need a way to extract optional from simplify, so we have to double some work
+      extra_fields: types.map_of(
         types.string,
-        types.scope (extract_flags + types.any) * types.proxy(-> to_json_schema)\tag("_type") % (v, state) ->
-          -- this is a hack since we don't have general purpose visitors
-          if state.description
-            state._type.description = state.description
+        types.scope types.proxy(-> json_schema_value) % (v, state) ->
+          state or= {}
+          v.description = state.description
+          state._type = v
           state
       )
     }
@@ -151,12 +168,6 @@ to_json_schema = types.one_of {
     }
 }
 
+to_json_schema = with_description json_schema_value
 
--- t = types.string * types.custom -> true
-
--- require("moon").p to_json_schema\transform types.shape({
---   hello: types.string\describe "poop"
---   zone: types.number\is_optional!
--- })\describe "my dodo"
-
-{:to_json_schema, :simplify, :extract_flags}
+{:to_json_schema, :simplify}

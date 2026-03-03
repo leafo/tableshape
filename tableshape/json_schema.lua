@@ -25,28 +25,32 @@ field = function(f)
     return t[f]
   end
 end
-local extract_flags
-extract_flags = types.one_of({
-  match_type_class(types.optional):tag(function(state)
-    state.optional = true
-  end) / field("base_type"),
-  match_type_class(types.describe):tag(function(state, v)
-    state.description = tostring(v)
-  end) / field("node"),
-  match_type_class(types.annotate) / field("base_type"),
-  match_type_class(types._tagged_type) / field("base_type"),
-  match_type_class(types._tag_scope_type) / field("base_type")
-}) * (types.proxy(function()
-  return extract_flags
-end) + types.any)
 local simplify
 simplify = types.one_of({
   types.string,
   types.number,
   types.boolean,
+  types["nil"],
   match_type_class(types.literal) / field("value"),
+  types.literal(types.any),
+  types.literal(types.string),
+  types.literal(types.number),
+  types.literal(types.boolean),
+  types.literal(types["nil"]),
+  types.literal(types["function"]),
+  types.literal(types.table),
+  types.literal(types.array),
+  types.literal(types.integer),
+  match_type_class(types.shape),
+  match_type_class(types.partial),
+  match_type_class(types.one_of),
   types.one_of({
-    match_type_class(types.describe) / field("node"),
+    match_type_class(types.optional):tag(function(state)
+      state.optional = true
+    end) / field("base_type"),
+    match_type_class(types.describe):tag(function(state, v)
+      state.description = tostring(v)
+    end) / field("node"),
     match_type_class(types.annotate) / field("base_type"),
     match_type_class(types._tagged_type) / field("base_type"),
     match_type_class(types._tag_scope_type) / field("base_type")
@@ -72,14 +76,20 @@ local json_enum = match_type_class(types.one_of) * types.scope(types.partial({
     enum = setmetatable(scope.option_literals, json.array_mt)
   }
 end)
-local to_json_schema
-to_json_schema = types.one_of({
-  types.scope(extract_flags * types.proxy(function()
-    return to_json_schema
-  end) % function(v, flags)
-    v.description = flags.description
+local with_description
+with_description = function(t)
+  return types.scope(t % function(v, state)
+    if state then
+      if state.optional then
+        error("unhandled optional state on type")
+      end
+      v.description = state.description
+    end
     return v
-  end),
+  end)
+end
+local json_schema_value
+json_schema_value = simplify * types.one_of({
   json_enum,
   match_type(types.any) / function()
     return { }
@@ -147,14 +157,14 @@ to_json_schema = types.one_of({
   }) * types.shape({
     open = types.any,
     shape = types.shape({ }, {
-      extra_fields = types.scope(types.map_of(types.string, types.scope((extract_flags + types.any) * types.proxy(function()
-        return to_json_schema
-      end):tag("_type") % function(v, state)
-        if state.description then
-          state._type.description = state.description
-        end
+      extra_fields = types.map_of(types.string, types.scope(types.proxy(function()
+        return json_schema_value
+      end) % function(v, state)
+        state = state or { }
+        v.description = state.description
+        state._type = v
         return state
-      end)))
+      end))
     })
   }) / function(t)
     local additional_properties
@@ -180,8 +190,8 @@ to_json_schema = types.one_of({
     }
   end
 })
+local to_json_schema = with_description(json_schema_value)
 return {
   to_json_schema = to_json_schema,
-  simplify = simplify,
-  extract_flags = extract_flags
+  simplify = simplify
 }
