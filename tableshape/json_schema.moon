@@ -39,14 +39,8 @@ match_type = (t) ->
 field = (f) -> (t) -> t[f]
 
 
--- converts node to simpler type to make pattern matching eaiser
--- TODO: this needs to recurse until it stabalizes or fails
--- types.literal("hello") -> "hello"
--- strips metadata nodes: describe, annotate, tagged
--- flatten sequence of just one node
-
--- simplifies a terminal tableshape pattern, extracting metadata about the type
--- into the state, and returns a new tableshape type that can be serialized
+-- simplifies a tableshape pattern, extracting metadata about the type into the
+-- state, and returns a new tableshape type that can be serialized by json_schema_value
 -- state: pushes {description:, optional:}
 -- This should reject any type that can't be handled
 local simplify
@@ -86,10 +80,23 @@ simplify = types.one_of {
     match_type_class(types._tag_scope_type) / field("base_type")
   }) * types.proxy -> assert simplify, "missing simplify"
 
-  -- TODO: this is very basic, just take the first valid type
-  match_type_class(types.one_of) * types.partial({
-    options: types.array_of types.proxy(-> simplify) + types.any / nil
-  }) / (res) -> assert res.options[1], "options do not have valid type"
+  match_type_class(types.one_of) * types.one_of {
+    -- enum pattern, a list of simple terminals of all the same type
+    types.partial({
+      options: types.array_of(types.proxy -> simplify) * types.one_of {
+        types.array_of types.string
+        types.array_of types.number
+      }
+    }) / (v) ->
+      -- rebuild it so it can be matched
+      types.one_of v.options
+
+    -- generic pattern, just take the first thing that shows up that is valid type
+    -- TODO: this is very basic, are there any common patterns to be extracted here?
+    types.partial({
+      options: types.array_of types.proxy(-> simplify) + types.any / nil
+    }) / (res) -> assert res.options[1], "options do not have valid type"
+  }
 
   -- TODO: this doesn't handle state merging very well
   match_type_class(types._sequence) * types.partial({
@@ -97,17 +104,6 @@ simplify = types.one_of {
   }) / (res) -> assert res.sequence[1], "sequence does not have valid type"
 }
 
-json_enum = match_type_class(types.one_of) * types.scope types.partial({
--- TODO: this doesn't handle empty arrays
-  options: types.array_of(simplify) * types.one_of({
-    types.array_of(types.string)
-    types.array_of(types.number)
-  })\tag "option_literals"
-}) % (t, scope) ->
-  {
-    type: type scope.option_literals[1] -- todo: this should be more strict
-    enum: setmetatable scope.option_literals, json.array_mt
-  }
 
 -- inserts the description into the type from the state
 with_description = (t) ->
@@ -121,8 +117,6 @@ with_description = (t) ->
 
 local json_schema_value
 json_schema_value = simplify * types.one_of {
-  json_enum
-
   match_type(types.any) / -> {}
   match_type(types.string) / -> { type: "string" }
   match_type(types.number) / -> { type: "number" }
@@ -145,13 +139,27 @@ json_schema_value = simplify * types.one_of {
     types.boolean
   }) / (value) -> { const: value }
 
+  -- enum schema
+  match_type_class(types.one_of) * types.partial({
+    -- TODO: this doesn't handle empty arrays
+    options: types.one_of {
+      types.array_of(types.string)
+      types.array_of(types.number)
+    }
+  }) / (v) ->
+    {
+      type: type v.options[1] -- todo: this should be more strict
+      enum: setmetatable v.options, json.array_mt
+    }
+
+  -- object schema
   types.one_of({
     match_type_class types.partial
     match_type_class types.shape
   }) * types.shape({
     open: types.any
     shape: types.shape {}, {
-      -- we need a way to extract optional from simplify, so we have to double some work
+      -- have to extract optional, so we have to double some work
       extra_fields: types.map_of(
         types.string,
         types.scope types.proxy(-> json_schema_value) % (v, state) ->

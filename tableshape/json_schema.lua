@@ -62,13 +62,25 @@ simplify = types.one_of({
   }) * types.proxy(function()
     return assert(simplify, "missing simplify")
   end),
-  match_type_class(types.one_of) * types.partial({
-    options = types.array_of(types.proxy(function()
-      return simplify
-    end) + types.any / nil)
-  }) / function(res)
-    return assert(res.options[1], "options do not have valid type")
-  end,
+  match_type_class(types.one_of) * types.one_of({
+    types.partial({
+      options = types.array_of(types.proxy(function()
+        return simplify
+      end)) * types.one_of({
+        types.array_of(types.string),
+        types.array_of(types.number)
+      })
+    }) / function(v)
+      return types.one_of(v.options)
+    end,
+    types.partial({
+      options = types.array_of(types.proxy(function()
+        return simplify
+      end) + types.any / nil)
+    }) / function(res)
+      return assert(res.options[1], "options do not have valid type")
+    end
+  }),
   match_type_class(types._sequence) * types.partial({
     sequence = types.array_of(types.proxy(function()
       return simplify
@@ -77,17 +89,6 @@ simplify = types.one_of({
     return assert(res.sequence[1], "sequence does not have valid type")
   end
 })
-local json_enum = match_type_class(types.one_of) * types.scope(types.partial({
-  options = types.array_of(simplify) * types.one_of({
-    types.array_of(types.string),
-    types.array_of(types.number)
-  }):tag("option_literals")
-}) % function(t, scope)
-  return {
-    type = type(scope.option_literals[1]),
-    enum = setmetatable(scope.option_literals, json.array_mt)
-  }
-end)
 local with_description
 with_description = function(t)
   return types.scope(t % function(v, state)
@@ -102,7 +103,6 @@ with_description = function(t)
 end
 local json_schema_value
 json_schema_value = simplify * types.one_of({
-  json_enum,
   match_type(types.any) / function()
     return { }
   end,
@@ -161,6 +161,17 @@ json_schema_value = simplify * types.one_of({
   }) / function(value)
     return {
       const = value
+    }
+  end,
+  match_type_class(types.one_of) * types.partial({
+    options = types.one_of({
+      types.array_of(types.string),
+      types.array_of(types.number)
+    })
+  }) / function(v)
+    return {
+      type = type(v.options[1]),
+      enum = setmetatable(v.options, json.array_mt)
     }
   end,
   types.one_of({
