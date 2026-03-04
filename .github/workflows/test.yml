@@ -24,6 +24,7 @@ jobs:
       run: |
         luarocks install busted
         luarocks install moonscript
+        luarocks install lua-cjson
         luarocks make
 
     - name: test
