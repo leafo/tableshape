@@ -22,7 +22,7 @@ debug = (...) ->
 
 
 json = require "cjson"
-import BaseType, types, is_type from require "tableshape.init"
+import BaseType, types, is_type from require "tableshape"
 import class_type, instance_type from require "tableshape.moonscript"
 
 match_type_class = (t) ->

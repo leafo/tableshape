@@ -6,7 +6,7 @@ end
 local json = require("cjson")
 local BaseType, types, is_type
 do
-  local _obj_0 = require("tableshape.init")
+  local _obj_0 = require("tableshape")
   BaseType, types, is_type = _obj_0.BaseType, _obj_0.types, _obj_0.is_type
 end
 local class_type, instance_type
