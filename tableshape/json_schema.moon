@@ -68,6 +68,7 @@ simplify = types.one_of {
   -- instanced types
   match_type_class types.shape
   match_type_class types.partial
+  match_type_class types.array_of
 
   types.one_of({
     match_type_class(types.optional)\tag((state) -> state.optional = true) / field "base_type"
@@ -191,6 +192,15 @@ json_schema_value = simplify * types.one_of {
       properties: properties
       required: setmetatable required, json.array_mt
       additionalProperties: additional_properties
+    }
+
+  -- array schema
+  match_type_class(types.array_of) * types.partial({
+    expected: types.proxy(-> json_schema_value)
+  }) / (v) ->
+    {
+      type: "array"
+      items: v.expected
     }
 }
 

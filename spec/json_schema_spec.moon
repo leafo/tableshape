@@ -204,6 +204,36 @@ describe "tableshape.json_schema", ->
       }, result
 
 
+  describe "array types", ->
+    it "converts array_of string", ->
+      array_type = types.array_of types.string
+      result = to_json_schema\transform array_type
+
+      assert.same {
+        type: "array"
+        items: {type: "string"}
+      }, result
+
+    it "converts a shape with array_of string field", ->
+      shape_type = types.shape {
+        name: types.string
+        tags: types.array_of types.string
+      }
+      result = to_json_schema\transform shape_type
+
+      assert.same {
+        type: "object"
+        properties: {
+          name: {type: "string"}
+          tags: {
+            type: "array"
+            items: {type: "string"}
+          }
+        }
+        required: {"name", "tags"}
+        additionalProperties: false
+      }, result
+
   -- describe "array types", ->
   --   it "converts array_of string", ->
   --     array_type = types.array_of types.string
@@ -286,27 +316,6 @@ describe "tableshape.json_schema", ->
   --     expected = {
   --       type: "string"
   --       pattern: "^[a-z]+$"
-  --     }
-  --     assert.same expected, result
-
-  -- describe "literal types", ->
-  --   it "converts string literal", ->
-  --     literal_type = types.literal "hello"
-  --     schema = json_schema literal_type
-  --     result = schema\transform!
-  --     
-  --     expected = {
-  --       const: "hello"
-  --     }
-  --     assert.same expected, result
-
-  --   it "converts number literal", ->
-  --     literal_type = types.literal 42
-  --     schema = json_schema literal_type
-  --     result = schema\transform!
-  --     
-  --     expected = {
-  --       const: 42
   --     }
   --     assert.same expected, result
 
@@ -523,4 +532,3 @@ describe "tableshape.json_schema", ->
     it "converts number with description", ->
       result = to_json_schema\transform types.number\describe "the count"
       assert.same {type: "number", description: "the count"}, result
-

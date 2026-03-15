@@ -48,6 +48,7 @@ simplify = types.one_of({
   types.literal(types.integer),
   match_type_class(types.shape),
   match_type_class(types.partial),
+  match_type_class(types.array_of),
   types.one_of({
     match_type_class(types.optional):tag(function(state)
       state.optional = true
@@ -210,6 +211,16 @@ json_schema_value = simplify * types.one_of({
       properties = properties,
       required = setmetatable(required, json.array_mt),
       additionalProperties = additional_properties
+    }
+  end,
+  match_type_class(types.array_of) * types.partial({
+    expected = types.proxy(function()
+      return json_schema_value
+    end)
+  }) / function(v)
+    return {
+      type = "array",
+      items = v.expected
     }
   end
 })
