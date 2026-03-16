@@ -2,7 +2,6 @@ import to_json_schema, simplify, JsonSchema from require "tableshape.json_schema
 import types from require "tableshape"
 
 describe "tableshape.json_schema", ->
-
   describe "simplify", ->
     it "passes through plain string", ->
       result = simplify\transform "hello"
@@ -740,3 +739,75 @@ describe "tableshape.json_schema", ->
     it "converts number with description", ->
       result = to_json_schema\transform types.number\describe "the count"
       assert.same {type: "number", description: "the count"}, result
+
+  describe "lapis", ->
+    local model, types
+    before_each ->
+      model = require "lapis.db.base_model"
+      types = require "lapis.validate.types"
+
+    it "converts db_id to json schema", ->
+      assert.same {
+        type: "number"
+        description: "database ID integer"
+      }, to_json_schema\transform types.db_id
+
+    it "converts enum to json schema", ->
+      statuses = model.enum {
+        default: 1
+        banned: 2
+        deleted: 3
+      }
+
+      statuses_t = types.db_enum statuses
+      assert.same {
+        type: "string"
+        description: "enum(default, banned, deleted)"
+        enum: {
+          "default"
+          "banned"
+          "deleted"
+        }
+      }, to_json_schema\transform statuses_t
+
+    it "converts valid_text to json schema", ->
+      assert.same {
+        type: "string"
+        description: "valid text"
+      }, to_json_schema\transform types.valid_text
+
+    it "converts cleaned_text to json schema", ->
+      assert.same {
+        type: "string"
+        description: "text"
+      }, to_json_schema\transform types.cleaned_text
+
+    it "converts empty to json schema", ->
+      assert.same {
+        type: "null"
+        description: "empty"
+      }, to_json_schema\transform types.empty
+
+    it "converts trimmed_text to json schema", ->
+      assert.same {
+        type: "string"
+        description: "valid text"
+      }, to_json_schema\transform types.trimmed_text
+
+    it "converts truncated_text to json schema", ->
+      assert.same {
+        type: "string"
+        description: "valid text"
+      }, to_json_schema\transform types.truncated_text 10
+
+    it "converts limited_text to json schema", ->
+      assert.same {
+        type: "string"
+        description: "text between 1 and 20 characters"
+      }, to_json_schema\transform types.limited_text 20
+
+    it "converts limited_text with minimum length to json schema", ->
+      assert.same {
+        type: "string"
+        description: "text between 5 and 20 characters"
+      }, to_json_schema\transform types.limited_text 20, 5
