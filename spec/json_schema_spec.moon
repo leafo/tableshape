@@ -236,6 +236,26 @@ describe "tableshape.json_schema", ->
         maxItems: 2
       }, result
 
+    it "converts array_of shape", ->
+      array_type = types.array_of types.shape {
+        id: types.number
+        name: types.string
+      }
+      result = to_json_schema\transform array_type
+
+      assert.same {
+        type: "array"
+        items: {
+          type: "object"
+          properties: {
+            id: {type: "number"}
+            name: {type: "string"}
+          }
+          required: {"id", "name"}
+          additionalProperties: false
+        }
+      }, result
+
     it "converts a shape with array_of string field", ->
       shape_type = types.shape {
         name: types.string
@@ -285,29 +305,6 @@ describe "tableshape.json_schema", ->
   --     expected = {
   --       type: "array"
   --       items: {type: "string"}
-  --     }
-  --     assert.same expected, result
-
-  --   it "converts array_of shape", ->
-  --     item_shape = types.shape {
-  --       id: types.number
-  --       name: types.string
-  --     }
-  --     array_type = types.array_of item_shape
-  --     schema = json_schema array_type
-  --     result = schema\transform!
-  --     
-  --     expected = {
-  --       type: "array"
-  --       items: {
-  --         type: "object"
-  --         properties: {
-  --           id: {type: "number"}
-  --           name: {type: "string"}
-  --         }
-  --         required: {"id", "name"}
-  --         additionalProperties: false
-  --       }
   --     }
   --     assert.same expected, result
 
