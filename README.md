@@ -664,7 +664,7 @@ function was added because open shape objects are common when using tableshape.
 local types = require("tableshape").types
 
 local t = types.partial {
-  name = types.string\tag "player_name"
+  name = types.string:tag("player_name")
 }
 
 t({
@@ -767,8 +767,8 @@ assert(t("jello world") == false)
 #### `types.custom(fn)`
 
 Returns a type checker that calls the function provided to verify the value.
-The function will receive the value being tested as the first argument, and the
-type checker as the second.
+The function will receive the value being tested as the first argument, and any
+existing state object as the second.
 
 The function should return true if the value passes, or `nil` and an error
 message if it fails.

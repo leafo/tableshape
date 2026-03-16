@@ -372,16 +372,41 @@ describe "tableshape.json_schema", ->
   --     assert.same expected, result
 
   -- describe "map types", ->
-  --   it "converts map_of", ->
-  --     map_type = types.map_of types.string, types.number
-  --     schema = json_schema map_type
-  --     result = schema\transform!
-  --     
-  --     expected = {
-  --       type: "object"
-  --       additionalProperties: {type: "number"}
-  --     }
-  --     assert.same expected, result
+  describe "map types", ->
+    it "converts map_of with string keys", ->
+      result = to_json_schema\transform types.map_of types.string, types.number
+
+      assert.same {
+        type: "object"
+        additionalProperties: {type: "number"}
+      }, result
+
+    it "converts map_of with wrapped string keys", ->
+      map_type = types.map_of types.string\describe("a key"), types.number
+      result = to_json_schema\transform map_type
+
+      assert.same {
+        type: "object"
+        additionalProperties: {type: "number"}
+      }, result
+
+    it "converts map_of in shape field", ->
+      shape_type = types.shape {
+        metadata: types.map_of types.string, types.number
+      }
+      result = to_json_schema\transform shape_type
+
+      assert.same {
+        type: "object"
+        properties: {
+          metadata: {
+            type: "object"
+            additionalProperties: {type: "number"}
+          }
+        }
+        required: {"metadata"}
+        additionalProperties: false
+      }, result
 
   -- describe "transform types", ->
   --   it "handles transform nodes", ->

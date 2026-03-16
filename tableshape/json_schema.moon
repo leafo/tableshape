@@ -70,6 +70,7 @@ simplify = types.one_of {
   match_type_class types.shape
   match_type_class types.partial
   match_type_class types.array_of
+  match_type_class types.map_of
 
   types.one_of({
     match_type_class(types.optional)\tag((state) -> state.optional = true) / field "base_type"
@@ -106,6 +107,12 @@ simplify = types.one_of {
   }) / (res) -> assert res.sequence[1], "sequence does not have valid type"
 }
 
+-- simplify a value and assert it's not optional, pushes no state
+not_optional_simplified = types.scope simplify * types.custom (val, state) ->
+  if state and state.optional
+    return nil, "expected non-optional type"
+
+  true
 
 -- inserts the description into the type from the state
 with_description = (t) ->
@@ -198,14 +205,14 @@ json_schema_value = simplify * types.one_of {
   match_type_class(types.array_of) * types.partial({
     expected: types.proxy -> json_schema_value
     length_type: types.one_of {
-      simplify * types.number / (v) -> {
+      not_optional_simplified * types.number / (v) -> {
         min_items: v
         max_items: v
       }
 
       match_type_class(types.range) * types.partial({
-        left: simplify * types.number
-        right: simplify * types.number
+        left: not_optional_simplified * types.number
+        right: not_optional_simplified * types.number
       }) / (v) -> {
         min_items: v.left
         max_items: v.right
@@ -219,6 +226,16 @@ json_schema_value = simplify * types.one_of {
       items: v.expected
       minItems: v.length_type and v.length_type.min_items
       maxItems: v.length_type and v.length_type.max_items
+    }
+
+  -- map_of(string, T)
+  match_type_class(types.map_of) * types.partial({
+    expected_key: not_optional_simplified * match_type(types.string)
+    expected_value: types.proxy -> json_schema_value
+  }) / (v) ->
+    {
+      type: "object"
+      additionalProperties: v.expected_value
     }
 }
 
