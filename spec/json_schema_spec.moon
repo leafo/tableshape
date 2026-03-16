@@ -782,6 +782,21 @@ describe "tableshape.ext.json_schema", ->
         description: "text"
       }, to_json_schema\transform types.cleaned_text
 
+    it "converts empty shape to json schema", ->
+      assert.same {
+        type: "object"
+        additionalProperties: false
+        properties: {}
+        required: {}
+      }, to_json_schema\transform types.shape {}
+
+    it "converts empty partial to json schema", ->
+      assert.same {
+        type: "object"
+        properties: {}
+        required: {}
+      }, to_json_schema\transform types.partial {}
+
     it "converts empty to json schema", ->
       assert.same {
         type: "null"
