@@ -1,3 +1,4 @@
+local unpack = unpack or table.unpack
 local types, BaseType
 do
   local _obj_0 = require("tableshape")

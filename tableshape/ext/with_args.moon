@@ -1,4 +1,6 @@
 
+unpack = unpack or table.unpack
+
 import types, BaseType from require "tableshape"
 
 with_args = (arg_types, fn) ->
