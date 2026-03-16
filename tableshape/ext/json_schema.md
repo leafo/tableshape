@@ -1,10 +1,15 @@
 # `tableshape.ext.json_schema`
 
-`tableshape.ext.json_schema` is an extension for generating JSON Schema from a useful subset of tableshape types.
+`tableshape.ext.json_schema` is an extension for generating JSON Schema from a
+useful subset of tableshape types. Note that extension modules are not fully
+finalized and may have breaking changes in future updates.
 
-It is intended for cases where a tableshape type should be exposed to another system, such as a JavaScript interface that wants argument metadata.
+It is intended for cases where a tableshape type should be exposed to another
+system, such as a JavaScript interface that wants argument metadata.
 
-This module does not try to provide a complete 1:1 mapping between tableshape and JSON Schema. The goal is to communicate the high-level intent of common types in a form that is useful to downstream consumers.
+This module does not try to provide a complete 1:1 mapping between tableshape
+and JSON Schema. The goal is to communicate the high-level intent of common
+types in a form that is useful to downstream consumers.
 
 ## Requiring The Module
 
