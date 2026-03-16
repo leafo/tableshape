@@ -30,6 +30,53 @@ field = function(f)
     return t[f]
   end
 end
+local JsonSchema
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    _transform = function(self, ...)
+      return self.base_type:_transform(...)
+    end,
+    _describe = function(self)
+      return self.base_type:_describe()
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, base_type, schema)
+      self.base_type, self.schema = base_type, schema
+      assert(BaseType:is_base_type(self.base_type), "expected a type checker")
+      return assert(type(self.schema) == "table", "expected table for schema")
+    end,
+    __base = _base_0,
+    __name = "JsonSchema",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  JsonSchema = _class_0
+end
 local simplify
 simplify = types.one_of({
   types.string,
@@ -50,6 +97,7 @@ simplify = types.one_of({
   match_type_class(types.partial),
   match_type_class(types.array_of),
   match_type_class(types.map_of),
+  match_type_class(JsonSchema),
   types.one_of({
     match_type_class(types.optional):tag(function(state)
       state.optional = true
@@ -112,6 +160,7 @@ with_description = function(t)
 end
 local json_schema_value
 json_schema_value = simplify * types.one_of({
+  match_type_class(JsonSchema) / field("schema") * types.clone,
   match_type(types.any) / function()
     return { }
   end,
@@ -266,5 +315,6 @@ json_schema_value = simplify * types.one_of({
 local to_json_schema = with_description(json_schema_value)
 return {
   to_json_schema = to_json_schema,
-  simplify = simplify
+  simplify = simplify,
+  JsonSchema = JsonSchema
 }

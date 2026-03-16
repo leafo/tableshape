@@ -1,4 +1,4 @@
-import to_json_schema, simplify from require "tableshape.json_schema"
+import to_json_schema, simplify, JsonSchema from require "tableshape.json_schema"
 import types from require "tableshape"
 
 describe "tableshape.json_schema", ->
@@ -101,6 +101,101 @@ describe "tableshape.json_schema", ->
     it "converts any type", ->
       result = to_json_schema\transform types.any
       assert.same {}, result
+
+  describe "JsonSchema wrapper", ->
+    it "emits the provided schema directly", ->
+      result = to_json_schema\transform JsonSchema types.string, {
+        type: "string"
+        format: "email"
+      }
+
+      assert.same {
+        type: "string"
+        format: "email"
+      }, result
+
+    it "does not recurse into the wrapped type for schema generation", ->
+      result = to_json_schema\transform JsonSchema types.userdata, {
+        type: "string"
+      }
+
+      assert.same {
+        type: "string"
+      }, result
+
+    it "still validates like the wrapped type", ->
+      wrapped = JsonSchema types.number, {
+        type: "integer"
+      }
+
+      assert.same 42, wrapped\transform 42
+      assert.is_nil wrapped\transform "nope"
+
+    it "works in shape fields", ->
+      result = to_json_schema\transform types.shape {
+        email: JsonSchema types.string, {
+          type: "string"
+          format: "email"
+        }
+      }
+
+      assert.same {
+        type: "object"
+        properties: {
+          email: {
+            type: "string"
+            format: "email"
+          }
+        }
+        required: {"email"}
+        additionalProperties: false
+      }, result
+
+    it "works in optional shape fields", ->
+      result = to_json_schema\transform types.shape {
+        email: JsonSchema(types.string, {
+          type: "string"
+          format: "email"
+        })\is_optional!
+      }
+
+      assert.same {
+        type: "object"
+        properties: {
+          email: {
+            type: "string"
+            format: "email"
+          }
+        }
+        required: {}
+        additionalProperties: false
+      }, result
+
+    it "applies outer description to the emitted schema", ->
+      result = to_json_schema\transform JsonSchema(types.string, {
+        type: "string"
+      })\describe "some text"
+
+      assert.same {
+        type: "string"
+        description: "some text"
+      }, result
+
+    it "does not mutate the provided schema table", ->
+      schema = {
+        type: "string"
+      }
+
+      result = to_json_schema\transform JsonSchema(types.string, schema)\describe "some text"
+
+      assert.same {
+        type: "string"
+        description: "some text"
+      }, result
+
+      assert.same {
+        type: "string"
+      }, schema
 
   describe "shape types", ->
     it "converts basic shape", ->

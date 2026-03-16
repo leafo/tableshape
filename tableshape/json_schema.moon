@@ -38,6 +38,17 @@ match_type = (t) ->
 
 field = (f) -> (t) -> t[f]
 
+class JsonSchema extends BaseType
+  new: (@base_type, @schema) =>
+    assert BaseType\is_base_type(@base_type), "expected a type checker"
+    assert type(@schema) == "table", "expected table for schema"
+
+  _transform: (...) =>
+    @base_type\_transform ...
+
+  _describe: =>
+    @base_type\_describe!
+
 
 -- simplifies a tableshape pattern, extracting metadata about the type into the
 -- state, and returns a new tableshape type that can be serialized by json_schema_value
@@ -70,6 +81,7 @@ simplify = types.one_of {
   match_type_class types.partial
   match_type_class types.array_of
   match_type_class types.map_of
+  match_type_class JsonSchema
 
   types.one_of({
     match_type_class(types.optional)\tag((state) -> state.optional = true) / field "base_type"
@@ -128,6 +140,8 @@ with_description = (t) ->
 -- NOTE: since this calls simplify, it also pushes state about the wrapped type (description, optional)
 local json_schema_value
 json_schema_value = simplify * types.one_of {
+  match_type_class(JsonSchema) / field("schema") * types.clone
+
   match_type(types.any) / -> {}
   match_type(types.string) / -> { type: "string" }
   match_type(types.number) / -> { type: "number" }
@@ -244,4 +258,4 @@ json_schema_value = simplify * types.one_of {
 
 to_json_schema = with_description json_schema_value
 
-{:to_json_schema, :simplify}
+{:to_json_schema, :simplify, :JsonSchema}
