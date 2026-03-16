@@ -19,7 +19,7 @@ build = {
   type = "builtin",
   modules = {
     ["tableshape"] = "tableshape/init.lua",
-    ["tableshape.luassert"] = "tableshape/luassert.lua",
+    ["tableshape.ext.luassert"] = "tableshape/ext/luassert.lua",
     ["tableshape.moonscript"] = "tableshape/moonscript.lua",
     ["tableshape.ext.json_schema"] = "tableshape/ext/json_schema.lua",
   }
