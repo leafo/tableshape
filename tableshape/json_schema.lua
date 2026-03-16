@@ -30,7 +30,6 @@ field = function(f)
     return t[f]
   end
 end
-local json_schema_value
 local simplify
 simplify = types.one_of({
   types.string,
@@ -92,12 +91,13 @@ simplify = types.one_of({
     return assert(res.sequence[1], "sequence does not have valid type")
   end
 })
-local not_optional_simplified = types.scope(simplify * types.custom(function(val, state)
+local not_optional = types.custom(function(val, state)
   if state and state.optional then
     return nil, "expected non-optional type"
   end
   return true
-end))
+end)
+local not_optional_simplified = types.scope(simplify * not_optional)
 local with_description
 with_description = function(t)
   return types.scope(t % function(v, state)
@@ -110,6 +110,7 @@ with_description = function(t)
     return v
   end)
 end
+local json_schema_value
 json_schema_value = simplify * types.one_of({
   match_type(types.any) / function()
     return { }
@@ -221,9 +222,9 @@ json_schema_value = simplify * types.one_of({
     }
   end,
   match_type_class(types.array_of) * types.partial({
-    expected = types.proxy(function()
+    expected = types.scope(types.proxy(function()
       return json_schema_value
-    end),
+    end) * not_optional),
     length_type = types.one_of({
       not_optional_simplified * types.number / function(v)
         return {
@@ -252,9 +253,9 @@ json_schema_value = simplify * types.one_of({
   end,
   match_type_class(types.map_of) * types.partial({
     expected_key = not_optional_simplified * match_type(types.string),
-    expected_value = types.proxy(function()
+    expected_value = types.scope(types.proxy(function()
       return json_schema_value
-    end)
+    end) * not_optional)
   }) / function(v)
     return {
       type = "object",

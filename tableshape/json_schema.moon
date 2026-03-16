@@ -37,7 +37,6 @@ match_type = (t) ->
   types.equivalent(t) * types.metatable_is(types.literal getmetatable t)
 
 field = (f) -> (t) -> t[f]
-local json_schema_value
 
 
 -- simplifies a tableshape pattern, extracting metadata about the type into the
@@ -107,12 +106,14 @@ simplify = types.one_of {
   }) / (res) -> assert res.sequence[1], "sequence does not have valid type"
 }
 
--- simplify a value and assert it's not optional, pushes no state
-not_optional_simplified = types.scope simplify * types.custom (val, state) ->
+not_optional = types.custom (val, state) ->
   if state and state.optional
     return nil, "expected non-optional type"
 
   true
+
+-- simplify a value and assert it's not optional, pushes no state
+not_optional_simplified = types.scope simplify * not_optional
 
 -- inserts the description into the type from the state
 with_description = (t) ->
@@ -124,6 +125,8 @@ with_description = (t) ->
       v.description = state.description
     v
 
+-- NOTE: since this calls simplify, it also pushes state about the wrapped type (description, optional)
+local json_schema_value
 json_schema_value = simplify * types.one_of {
   match_type(types.any) / -> {}
   match_type(types.string) / -> { type: "string" }
@@ -203,7 +206,7 @@ json_schema_value = simplify * types.one_of {
 
   -- array_of
   match_type_class(types.array_of) * types.partial({
-    expected: types.proxy -> json_schema_value
+    expected: types.scope types.proxy(-> json_schema_value) * not_optional
     length_type: types.one_of {
       not_optional_simplified * types.number / (v) -> {
         min_items: v
@@ -231,7 +234,7 @@ json_schema_value = simplify * types.one_of {
   -- map_of(string, T)
   match_type_class(types.map_of) * types.partial({
     expected_key: not_optional_simplified * match_type(types.string)
-    expected_value: types.proxy -> json_schema_value
+    expected_value: types.scope types.proxy(-> json_schema_value) * not_optional
   }) / (v) ->
     {
       type: "object"
