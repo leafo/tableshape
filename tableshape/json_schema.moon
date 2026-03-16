@@ -38,6 +38,7 @@ match_type = (t) ->
 
 field = (f) -> (t) -> t[f]
 
+-- TODO: consider using this type to wrap description/optional metadata instead of trying to pass it through state
 class JsonSchema extends BaseType
   new: (@base_type, @schema) =>
     assert BaseType\is_base_type(@base_type), "expected a type checker"
@@ -55,6 +56,7 @@ class JsonSchema extends BaseType
 -- state: pushes {description:, optional:}
 -- This should reject any type that can't be handled
 local simplify
+simplify_proxy = types.proxy -> simplify
 simplify = types.one_of {
   -- literal values
   types.string
@@ -92,12 +94,12 @@ simplify = types.one_of {
     match_type_class(types.annotate) / field("base_type")
     match_type_class(types._tagged_type) / field("base_type")
     match_type_class(types._tag_scope_type) / field("base_type")
-  }) * types.proxy -> assert simplify, "missing simplify"
+  }) * simplify_proxy
 
   match_type_class(types.one_of) * types.one_of {
     -- enum pattern, a list of simple terminals of all the same type
     types.partial({
-      options: types.array_of(types.proxy -> simplify) * types.one_of {
+      options: types.array_of(simplify_proxy) * types.one_of {
         types.array_of types.string
         types.array_of types.number
       }
@@ -107,15 +109,24 @@ simplify = types.one_of {
 
     -- generic pattern, just take the first thing that shows up that is valid type
     -- TODO: this is very basic, are there any common patterns to be extracted here?
+    -- TODO: warning, this will override description/optional state with right most array item
     types.partial({
-      options: types.array_of types.proxy(-> simplify) + types.any / nil
+      options: types.array_of simplify_proxy + types.any / nil
     }) / (res) -> assert res.options[1], "options do not have valid type"
   }
 
   -- TODO: this doesn't handle state merging very well
   match_type_class(types._sequence) * types.partial({
-    sequence: types.array_of types.proxy(-> simplify) + types.any / nil
+    sequence: types.array_of simplify_proxy + types.any / nil
   }) / (res) -> assert res.sequence[1], "sequence does not have valid type"
+
+  -- special case empty + value for optional wrapping
+  match_type_class(types._first_of) * types.partial({
+    options: types.shape {
+      types.scope(simplify_proxy) * match_type(types.nil)
+      types.scope simplify_proxy
+    }
+  }) / ((v) -> v.options[2]\is_optional!) * simplify_proxy
 }
 
 not_optional = types.custom (val, state) ->

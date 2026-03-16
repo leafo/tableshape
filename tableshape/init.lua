@@ -2326,7 +2326,8 @@ types = setmetatable({
   _transform = TransformNode,
   _tagged_type = TaggedType,
   _tag_scope_type = TagScopeType,
-  _sequence = SequenceNode
+  _sequence = SequenceNode,
+  _first_of = FirstOfNode
 }, {
   __index = function(self, fn_name)
     return error("Type checker does not exist: `" .. tostring(fn_name) .. "`")

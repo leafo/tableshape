@@ -788,6 +788,20 @@ describe "tableshape.json_schema", ->
         description: "empty"
       }, to_json_schema\transform types.empty
 
+    it "converts empty + valid_text to optional pattern", ->
+      assert.same {
+        type: "object"
+        additionalProperties: false
+        required: {}
+        properties: {
+          blurb: {
+            type: "string"
+          }
+        }
+      }, to_json_schema\transform types.shape {
+        blurb: types.empty + types.valid_text
+      }
+
     it "converts trimmed_text to json schema", ->
       assert.same {
         type: "string"

@@ -78,6 +78,9 @@ do
   JsonSchema = _class_0
 end
 local simplify
+local simplify_proxy = types.proxy(function()
+  return simplify
+end)
 simplify = types.one_of({
   types.string,
   types.number,
@@ -109,14 +112,10 @@ simplify = types.one_of({
     match_type_class(types.annotate) / field("base_type"),
     match_type_class(types._tagged_type) / field("base_type"),
     match_type_class(types._tag_scope_type) / field("base_type")
-  }) * types.proxy(function()
-    return assert(simplify, "missing simplify")
-  end),
+  }) * simplify_proxy,
   match_type_class(types.one_of) * types.one_of({
     types.partial({
-      options = types.array_of(types.proxy(function()
-        return simplify
-      end)) * types.one_of({
+      options = types.array_of(simplify_proxy) * types.one_of({
         types.array_of(types.string),
         types.array_of(types.number)
       })
@@ -124,20 +123,24 @@ simplify = types.one_of({
       return types.one_of(v.options)
     end,
     types.partial({
-      options = types.array_of(types.proxy(function()
-        return simplify
-      end) + types.any / nil)
+      options = types.array_of(simplify_proxy + types.any / nil)
     }) / function(res)
       return assert(res.options[1], "options do not have valid type")
     end
   }),
   match_type_class(types._sequence) * types.partial({
-    sequence = types.array_of(types.proxy(function()
-      return simplify
-    end) + types.any / nil)
+    sequence = types.array_of(simplify_proxy + types.any / nil)
   }) / function(res)
     return assert(res.sequence[1], "sequence does not have valid type")
-  end
+  end,
+  match_type_class(types._first_of) * types.partial({
+    options = types.shape({
+      types.scope(simplify_proxy) * match_type(types["nil"]),
+      types.scope(simplify_proxy)
+    })
+  }) / (function(v)
+    return v.options[2]:is_optional()
+  end) * simplify_proxy
 })
 local not_optional = types.custom(function(val, state)
   if state and state.optional then

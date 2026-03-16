@@ -1112,6 +1112,8 @@ types = setmetatable {
   _tag_scope_type: TagScopeType
   _sequence: SequenceNode
 
+  _first_of: FirstOfNode
+
 }, __index: (fn_name) =>
   error "Type checker does not exist: `#{fn_name}`"
 
