@@ -1,7 +1,7 @@
-import to_json_schema, simplify, JsonSchema from require "tableshape.json_schema"
+import to_json_schema, simplify, JsonSchema from require "tableshape.ext.json_schema"
 import types from require "tableshape"
 
-describe "tableshape.json_schema", ->
+describe "tableshape.ext.json_schema", ->
   describe "simplify", ->
     it "passes through plain string", ->
       result = simplify\transform "hello"
