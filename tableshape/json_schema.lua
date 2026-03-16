@@ -48,7 +48,7 @@ do
     __init = function(self, base_type, schema)
       self.base_type, self.schema = base_type, schema
       assert(BaseType:is_base_type(self.base_type), "expected a type checker")
-      return assert(type(self.schema) == "table", "expected table for schema")
+      return assert(type(self.schema) == "table" or type(self.schema) == "function", "expected table or function for schema")
     end,
     __base = _base_0,
     __name = "JsonSchema",
@@ -160,7 +160,17 @@ with_description = function(t)
 end
 local json_schema_value
 json_schema_value = simplify * types.one_of({
-  match_type_class(JsonSchema) / field("schema") * types.clone,
+  match_type_class(JsonSchema) / (function(t)
+    local schema
+    local _exp_0 = type(t.schema)
+    if "function" == _exp_0 then
+      schema = t.schema(t.base_type)
+    else
+      schema = t.schema
+    end
+    assert(type(schema) == "table", "expected table for schema")
+    return schema
+  end) * types.clone,
   match_type(types.any) / function()
     return { }
   end,

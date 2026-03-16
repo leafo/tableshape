@@ -114,6 +114,36 @@ describe "tableshape.json_schema", ->
         format: "email"
       }, result
 
+    it "emits the schema returned from a function", ->
+      result = to_json_schema\transform JsonSchema types.string, (base_type) ->
+        assert.same types.string, base_type
+        {
+          type: "string"
+          format: "email"
+        }
+
+      assert.same {
+        type: "string"
+        format: "email"
+      }, result
+
+    it "passes the wrapped type to the schema function", ->
+      wrapped_type = types.shape {
+        id: types.number
+      }
+
+      result = to_json_schema\transform JsonSchema wrapped_type, (base_type) ->
+        assert.same wrapped_type, base_type
+        {
+          type: "object"
+          title: "wrapped"
+        }
+
+      assert.same {
+        type: "object"
+        title: "wrapped"
+      }, result
+
     it "does not recurse into the wrapped type for schema generation", ->
       result = to_json_schema\transform JsonSchema types.userdata, {
         type: "string"
@@ -187,6 +217,25 @@ describe "tableshape.json_schema", ->
       }
 
       result = to_json_schema\transform JsonSchema(types.string, schema)\describe "some text"
+
+      assert.same {
+        type: "string"
+        description: "some text"
+      }, result
+
+      assert.same {
+        type: "string"
+      }, schema
+
+    it "does not mutate the schema returned from a function", ->
+      schema = {
+        type: "string"
+      }
+
+      result = to_json_schema\transform JsonSchema(types.string, (base_type) ->
+        assert.same types.string, base_type
+        schema
+      )\describe "some text"
 
       assert.same {
         type: "string"

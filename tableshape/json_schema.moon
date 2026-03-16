@@ -41,7 +41,7 @@ field = (f) -> (t) -> t[f]
 class JsonSchema extends BaseType
   new: (@base_type, @schema) =>
     assert BaseType\is_base_type(@base_type), "expected a type checker"
-    assert type(@schema) == "table", "expected table for schema"
+    assert type(@schema) == "table" or type(@schema) == "function", "expected table or function for schema"
 
   _transform: (...) =>
     @base_type\_transform ...
@@ -140,7 +140,16 @@ with_description = (t) ->
 -- NOTE: since this calls simplify, it also pushes state about the wrapped type (description, optional)
 local json_schema_value
 json_schema_value = simplify * types.one_of {
-  match_type_class(JsonSchema) / field("schema") * types.clone
+  match_type_class(JsonSchema) / ((t) ->
+    schema = switch type t.schema
+      when "function"
+        t.schema t.base_type
+      else
+        t.schema
+
+    assert type(schema) == "table", "expected table for schema"
+    schema
+  ) * types.clone
 
   match_type(types.any) / -> {}
   match_type(types.string) / -> { type: "string" }
