@@ -30,6 +30,7 @@ field = function(f)
     return t[f]
   end
 end
+local json_schema_value
 local simplify
 simplify = types.one_of({
   types.string,
@@ -102,7 +103,6 @@ with_description = function(t)
     return v
   end)
 end
-local json_schema_value
 json_schema_value = simplify * types.one_of({
   match_type(types.any) / function()
     return { }
@@ -216,11 +216,31 @@ json_schema_value = simplify * types.one_of({
   match_type_class(types.array_of) * types.partial({
     expected = types.proxy(function()
       return json_schema_value
-    end)
+    end),
+    length_type = types.one_of({
+      simplify * types.number / function(v)
+        return {
+          min_items = v,
+          max_items = v
+        }
+      end,
+      match_type_class(types.range) * types.partial({
+        left = simplify * types.number,
+        right = simplify * types.number
+      }) / function(v)
+        return {
+          min_items = v.left,
+          max_items = v.right
+        }
+      end,
+      types.any / nil
+    })
   }) / function(v)
     return {
       type = "array",
-      items = v.expected
+      items = v.expected,
+      minItems = v.length_type and v.length_type.min_items,
+      maxItems = v.length_type and v.length_type.max_items
     }
   end
 })

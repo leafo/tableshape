@@ -37,6 +37,7 @@ match_type = (t) ->
   types.equivalent(t) * types.metatable_is(types.literal getmetatable t)
 
 field = (f) -> (t) -> t[f]
+local json_schema_value
 
 
 -- simplifies a tableshape pattern, extracting metadata about the type into the
@@ -116,7 +117,6 @@ with_description = (t) ->
       v.description = state.description
     v
 
-local json_schema_value
 json_schema_value = simplify * types.one_of {
   match_type(types.any) / -> {}
   match_type(types.string) / -> { type: "string" }
@@ -194,13 +194,31 @@ json_schema_value = simplify * types.one_of {
       additionalProperties: additional_properties
     }
 
-  -- array schema
+  -- array_of
   match_type_class(types.array_of) * types.partial({
-    expected: types.proxy(-> json_schema_value)
+    expected: types.proxy -> json_schema_value
+    length_type: types.one_of {
+      simplify * types.number / (v) -> {
+        min_items: v
+        max_items: v
+      }
+
+      match_type_class(types.range) * types.partial({
+        left: simplify * types.number
+        right: simplify * types.number
+      }) / (v) -> {
+        min_items: v.left
+        max_items: v.right
+      }
+
+      types.any / nil -- ignore
+    }
   }) / (v) ->
     {
       type: "array"
       items: v.expected
+      minItems: v.length_type and v.length_type.min_items
+      maxItems: v.length_type and v.length_type.max_items
     }
 }
 

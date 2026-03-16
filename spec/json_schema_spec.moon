@@ -214,6 +214,28 @@ describe "tableshape.json_schema", ->
         items: {type: "string"}
       }, result
 
+    it "converts array_of string with ranged length", ->
+      array_type = types.array_of types.string, length: types.range 1, 3
+      result = to_json_schema\transform array_type
+
+      assert.same {
+        type: "array"
+        items: {type: "string"}
+        minItems: 1
+        maxItems: 3
+      }, result
+
+    it "converts array_of string with fixed length", ->
+      array_type = types.array_of types.string, length: 2
+      result = to_json_schema\transform array_type
+
+      assert.same {
+        type: "array"
+        items: {type: "string"}
+        minItems: 2
+        maxItems: 2
+      }, result
+
     it "converts a shape with array_of string field", ->
       shape_type = types.shape {
         name: types.string
@@ -231,6 +253,26 @@ describe "tableshape.json_schema", ->
           }
         }
         required: {"name", "tags"}
+        additionalProperties: false
+      }, result
+
+    it "converts a shape with ranged array_of string field", ->
+      shape_type = types.shape {
+        tags: types.array_of types.string, length: types.range 1, 3
+      }
+      result = to_json_schema\transform shape_type
+
+      assert.same {
+        type: "object"
+        properties: {
+          tags: {
+            type: "array"
+            items: {type: "string"}
+            minItems: 1
+            maxItems: 3
+          }
+        }
+        required: {"tags"}
         additionalProperties: false
       }, result
 
