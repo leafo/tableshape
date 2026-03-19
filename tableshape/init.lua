@@ -159,9 +159,13 @@ do
       return self:transform(...)
     end,
     on_repair = function(self, fn)
-      return (self + types.any / fn * self):describe(function()
-        return self:_describe()
-      end)
+      if BaseType:is_base_type(fn) then
+        return self + fn * self
+      else
+        return (self + types.any / fn * self):describe(function()
+          return self:_describe()
+        end)
+      end
     end,
     is_optional = function(self)
       return OptionalType(self)

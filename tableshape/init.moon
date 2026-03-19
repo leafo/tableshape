@@ -189,7 +189,10 @@ class BaseType
   repair: (...) => @transform ...
 
   on_repair: (fn) =>
-    (@ + types.any / fn * @)\describe -> @_describe!
+    if BaseType\is_base_type fn
+      @ + fn * @
+    else
+      (@ + types.any / fn * @)\describe -> @_describe!
 
   is_optional: =>
     OptionalType @

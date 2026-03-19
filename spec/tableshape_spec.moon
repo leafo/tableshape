@@ -868,6 +868,29 @@ describe "tableshape.repair", ->
       t\repair {"one", 2, "nullify", true, "last"}
     }
 
+  it "on_repair with base type", ->
+    -- types.number\on_repair(types.string / tonumber) should be equivalent to
+    -- types.number + types.string / tonumber * types.number
+    t = types.number\on_repair types.string / tonumber
+
+    -- passes number directly
+    assert.same { 5 }, { t\transform 5 }
+
+    -- repairs string to number via tonumber
+    assert.same { 42 }, { t\transform "42" }
+
+    -- fails: string that doesn't convert to number (tonumber returns nil, which fails number check)
+    assert.same {
+      nil
+      'expected type "number", or type "string" then type "number"'
+    }, { t\transform "hello" }
+
+    -- fails: boolean can't be repaired
+    assert.same {
+      nil
+      'expected type "number", or type "string" then type "number"'
+    }, { t\transform true }
+
 describe "tableshape.describe", ->
   it "describes a compound type with function", ->
     s = types.nil + types.literal("hello world")
