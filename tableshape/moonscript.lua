@@ -3,11 +3,100 @@ do
   local _obj_0 = require("tableshape")
   BaseType, FailedTransform = _obj_0.BaseType, _obj_0.FailedTransform
 end
+local is_class
+is_class = function(value)
+  if not (type(value) == "table") then
+    return false
+  end
+  if rawget(value, "__base") == nil then
+    return false
+  end
+  local mt = getmetatable(value)
+  if not (mt and rawget(mt, "__call") ~= nil) then
+    return false
+  end
+  return true
+end
+local is_instance
+is_instance = function(value)
+  if not (type(value) == "table") then
+    return false
+  end
+  local mt = getmetatable(value)
+  if not (mt) then
+    return false
+  end
+  if not (rawget(mt, "__index") == mt) then
+    return false
+  end
+  if rawget(value, "__index") == value then
+    return false
+  end
+  if value.__index == value then
+    return false
+  end
+  return true
+end
+local is_subclass_of
+is_subclass_of = function(value, class_identifier, allow_same)
+  if not (is_class(value)) then
+    return false
+  end
+  local current_class
+  if allow_same then
+    current_class = value
+  else
+    current_class = value.__parent
+  end
+  if type(class_identifier) == "string" then
+    while current_class do
+      if current_class.__name == class_identifier then
+        return true
+      end
+      current_class = current_class.__parent
+    end
+  else
+    while current_class do
+      if current_class == class_identifier then
+        return true
+      end
+      current_class = current_class.__parent
+    end
+  end
+  return false
+end
+local is_instance_of
+is_instance_of = function(value, class_identifier)
+  if not (is_instance(value)) then
+    return false
+  end
+  local current_cls = value.__class
+  if type(class_identifier) == "string" then
+    while current_cls do
+      if current_cls.__name == class_identifier then
+        return true
+      end
+      current_cls = current_cls.__parent
+    end
+  else
+    while current_cls do
+      if current_cls == class_identifier then
+        return true
+      end
+      current_cls = current_cls.__parent
+    end
+  end
+  return false
+end
 local ClassType
 do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    _compile_pure = true,
+    _compile_predicate = function(self, compiler, v, s)
+      return tostring(compiler:ref(is_class)) .. "(" .. tostring(v) .. ")"
+    end,
     _transform = function(self, value, state)
       if not (type(value) == "table") then
         return FailedTransform, "expecting table"
@@ -63,6 +152,10 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    _compile_pure = true,
+    _compile_predicate = function(self, compiler, v, s)
+      return tostring(compiler:ref(is_instance)) .. "(" .. tostring(v) .. ")"
+    end,
     _transform = function(self, value, state)
       if not (type(value) == "table") then
         return FailedTransform, "expecting table"
@@ -124,6 +217,10 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    _compile_pure = true,
+    _compile_predicate = function(self, compiler, v, s)
+      return tostring(compiler:ref(is_subclass_of)) .. "(" .. tostring(v) .. ", " .. tostring(compiler:value_expr(self.class_identifier)) .. ", " .. tostring(tostring(self.allow_same)) .. ")"
+    end,
     _transform = function(self, value, state)
       local out, err = ClassType._transform(nil, value, state)
       if out == FailedTransform then
@@ -206,6 +303,10 @@ do
   local _class_0
   local _parent_0 = BaseType
   local _base_0 = {
+    _compile_pure = true,
+    _compile_predicate = function(self, compiler, v, s)
+      return tostring(compiler:ref(is_instance_of)) .. "(" .. tostring(v) .. ", " .. tostring(compiler:value_expr(self.class_identifier)) .. ")"
+    end,
     _transform = function(self, value, state)
       local out, err = InstanceType._transform(nil, value, state)
       if out == FailedTransform then

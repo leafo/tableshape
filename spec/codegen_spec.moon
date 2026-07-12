@@ -276,6 +276,63 @@ describe "tableshape.codegen", ->
       assert.same { x: 10 }, (compiled\transform { x: 5 })
       assert.is_nil (compiled\transform { x: "no" })
 
+  describe "moonscript types", ->
+    mtypes = require "tableshape.moonscript"
+
+    class Animal
+    class Dog extends Animal
+    class Cat extends Animal
+    class Poodle extends Dog
+
+    -- classes, instances, base tables, and impostors
+    ms_inputs = {
+      Animal, Dog, Cat, Poodle
+      Animal!, Dog!, Cat!, Poodle!
+      Animal.__base
+      {}, {__base: {}}, setmetatable({}, {})
+      "hello", 5, true, print
+    }
+
+    check_ms_parity = (t) ->
+      compiled = compile t
+      assert_parity t, compiled, nil
+      for input in *ms_inputs
+        assert_parity t, compiled, input
+      compiled
+
+    it "class_type parity", ->
+      check_ms_parity mtypes.class_type
+
+    it "instance_type parity", ->
+      check_ms_parity mtypes.instance_type
+
+    it "instance_of parity", ->
+      check_ms_parity mtypes.instance_of Animal
+      check_ms_parity mtypes.instance_of Dog
+      check_ms_parity mtypes.instance_of "Animal"
+      check_ms_parity mtypes.instance_of "Dog"
+      check_ms_parity mtypes.instance_of "Missing"
+
+    it "subclass_of parity", ->
+      check_ms_parity mtypes.subclass_of Animal
+      check_ms_parity mtypes.subclass_of Dog
+      check_ms_parity mtypes.subclass_of "Animal"
+      check_ms_parity mtypes.subclass_of Animal, allow_same: true
+      check_ms_parity mtypes.subclass_of "Dog", allow_same: true
+
+    it "compiles as pure inline predicates", ->
+      compiled = compile types.shape { pet: mtypes.instance_of Animal }
+
+      -- no fallback to the interpreted type, and the containing shape stays
+      -- on the pure fast path
+      assert.is_nil compiled.code\find(":_transform", 1, true)
+      assert.is_nil compiled.code\find("local out", 1, true)
+
+      assert.is_true compiled\check_value { pet: Dog! }
+      assert.is_true compiled\check_value { pet: Poodle! }
+      assert.is_nil (compiled\check_value { pet: Animal })
+      assert.is_nil (compiled\check_value { pet: {} })
+
   describe "codegen protocol", ->
     it "inlines custom types that provide a predicate", ->
       class Even extends BaseType
