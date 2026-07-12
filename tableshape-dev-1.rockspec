@@ -19,6 +19,7 @@ build = {
   type = "builtin",
   modules = {
     ["tableshape"] = "tableshape/init.lua",
+    ["tableshape.codegen"] = "tableshape/codegen.lua",
     ["tableshape.ext.json_schema"] = "tableshape/ext/json_schema.lua",
     ["tableshape.ext.luassert"] = "tableshape/ext/luassert.lua",
     ["tableshape.ext.with_args"] = "tableshape/ext/with_args.lua",
