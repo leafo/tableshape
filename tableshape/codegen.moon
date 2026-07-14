@@ -16,9 +16,13 @@
 -- Every node in the type tree becomes a local function in the generated
 -- chunk: `tN = function(value, state) ... end`. Nodes are memoized by object
 -- identity, and a node's function name is registered before its body is
--- generated so recursive types compile into direct recursive calls. Runtime
--- values that can't be serialized into source (functions, tables) are passed
--- into the chunk through the `refs` table. Any type without a code generator
+-- generated so recursive types compile into direct recursive calls. Constant
+-- data tables built by the compiler (one_of hashes, shape key sets) are
+-- serialized directly into the source as chunk locals. Runtime values that
+-- can't be serialized are passed into the chunk through the `refs` table:
+-- functions, and tables that the type matches by identity (eg. a table passed
+-- to types.literal), whose identity is part of their semantics. Any type
+-- without a code generator
 -- falls back to calling _transform on the original type object, so arbitrary
 -- types can always be compiled.
 --
@@ -60,6 +64,8 @@
 --
 --  compiler\ref(val) -> name           close over a runtime value
 --  compiler\value_expr(val) -> expr    serialize a primitive (or ref it)
+--  compiler\const(val) -> name         serialize a data table into a chunk
+--                                      local (or ref it)
 --  compiler\compile_node(t) -> name    compile a child type, get its fn name
 --  compiler\predicate_expr(t, v, s)    boolean expression for a child type
 --  compiler\is_pure(t) -> bool         purity of a child type
@@ -144,6 +150,8 @@ class Compiler
     @lines = {}
     @refs = {}
     @ref_ids = {}
+    @consts = {}
+    @const_ids = {}
     @fn_ids = {}
     @fn_count = 0
     @pure_cache = {}
@@ -163,8 +171,32 @@ class Compiler
 
     name
 
+  -- serialize a number into a lua expression that reproduces it exactly,
+  -- returns nil if one can't be found
+  number_expr: (val) =>
+    if val != val -- nan
+      return "(0/0)"
+
+    if val == math.huge
+      return "math.huge"
+
+    if val == -math.huge
+      return "-math.huge"
+
+    s = tostring val
+    if tonumber(s) == val
+      return s
+
+    -- tostring truncates precision on some floats, 17 significant digits
+    -- always round trips a double
+    s = ("%.17g")\format val
+    if tonumber(s) == val
+      return s
+
   -- serialize a value into a lua expression, falling back to a reference for
-  -- values that can't be represented in source
+  -- values that can't be represented in source. NOTE: tables always become
+  -- references, never constructors: type checkers match table values by
+  -- identity, which a fresh table built in source could never satisfy
   value_expr: (val) =>
     switch type val
       when "string"
@@ -172,18 +204,68 @@ class Compiler
       when "boolean", "nil"
         tostring val
       when "number"
-        if val != val -- nan
-          "(0/0)"
-        elseif val == math.huge
-          "math.huge"
-        elseif val == -math.huge
-          "-math.huge"
-        elseif tonumber(tostring val) == val
-          tostring val
-        else
-          @ref val
+        @number_expr(val) or @ref val
       else
         @ref val
+
+  -- serialize a plain data table (no metatable, acyclic, only primitive or
+  -- nested data table keys & values) into a table constructor expression.
+  -- Returns nil for tables that can't be fully represented in source
+  data_expr: (val, seen={}) =>
+    return nil if getmetatable val
+    return nil if seen[val]
+    seen[val] = true
+
+    parts = {}
+
+    array_len = 0
+    for i, item in ipairs val
+      expr = @data_item_expr item, seen
+      return nil unless expr
+      table.insert parts, expr
+      array_len = i
+
+    for k, v in pairs val
+      continue if type(k) == "number" and k >= 1 and k <= array_len and k % 1 == 0
+
+      key = @data_item_expr k, seen
+      return nil unless key
+
+      item = @data_item_expr v, seen
+      return nil unless item
+
+      table.insert parts, "[#{key}] = #{item}"
+
+    seen[val] = nil
+    "{#{table.concat parts, ", "}}"
+
+  data_item_expr: (val, seen) =>
+    switch type val
+      when "string"
+        ("%q")\format val
+      when "boolean"
+        tostring val
+      when "number"
+        @number_expr val
+      when "table"
+        @data_expr val, seen
+
+  -- register a constant data table to be emitted as a local in the generated
+  -- chunk, returns the name of the local. Only for tables whose identity
+  -- doesn't matter (lookup tables built by the compiler). Falls back to a
+  -- runtime reference when the table can't be serialized
+  const: (val) =>
+    name = @const_ids[val]
+    unless name
+      expr = @data_expr val
+      unless expr
+        return @ref val
+
+      table.insert @consts, expr
+      name = "c#{#@consts}"
+      @const_ids[val] = name
+
+    name
 
   resolve_proxy: (node) =>
     inner = @proxy_cache[node]
@@ -336,7 +418,7 @@ class Compiler
         "(#{@ref node.fn}(#{v}, #{s}))"
       when OneOf
         if node.options_hash
-          "#{@ref node.options_hash}[#{v}] ~= nil"
+          "#{@const node.options_hash}[#{v}] ~= nil"
         else
           if #node.options == 0
             return "false"
@@ -464,6 +546,9 @@ class Compiler
       exprs = table.concat ["refs[#{i}]" for i=1,#@refs], ", "
       table.insert buf, "local #{names} = #{exprs}"
 
+    for i, expr in ipairs @consts
+      table.insert buf, "local c#{i} = #{expr}"
+
     if @fn_count > 0
       table.insert buf, "local " .. table.concat ["t#{i}" for i=1,@fn_count], ", "
 
@@ -506,7 +591,7 @@ class Compiler
 
   compile_one_of: (node, emit) =>
     if node.options_hash
-      emit "if #{@ref node.options_hash}[value] then return value, state end"
+      emit "if #{@const node.options_hash}[value] then return value, state end"
       emit "return FailedTransform"
       return
 
@@ -656,7 +741,7 @@ class Compiler
         emit "end"
 
       unless node.open
-        keys_ref = @ref shape_keys
+        keys_ref = @const shape_keys
         if node.extra_fields_type
           emit "for rk in pairs(value) do"
           emit "if #{keys_ref}[rk] == nil then"

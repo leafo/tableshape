@@ -142,6 +142,41 @@ describe "tableshape.codegen", ->
       assert.is_nil code\find("local out", 1, true), "pure shape should not build an output table"
       assert.is_nil code\find("dirty", 1, true), "pure shape should not track dirty state"
 
+    it "serializes compiler lookup tables instead of passing refs", ->
+      -- the one_of options hash and the shape's key set are constant data,
+      -- so this type needs no runtime values at all
+      code, refs = generate_code types.shape {
+        name: types.string
+        role: types.one_of {"admin", "user", 5}
+      }
+
+      assert.same {}, refs
+
+    it "serializes floats that tostring truncates", ->
+      value = 0.1 + 0.2
+
+      code, refs = generate_code types.literal value
+      assert.same {}, refs
+
+      compiled = compile types.literal value
+      assert.is_true compiled\check_value value
+      assert.is_nil (compiled\check_value 0.3)
+
+    it "passes table literals as refs to preserve identity matching", ->
+      tbl = {1, 2}
+      t = types.literal tbl
+      compiled = compile t
+
+      code, refs = generate_code t
+      assert.same {tbl}, refs
+
+      -- interpreted literal matches tables by identity, so a structurally
+      -- equal table must not match
+      assert.is_true compiled\check_value tbl
+      assert.is_nil (compiled\check_value {1, 2})
+      assert_parity t, compiled, tbl
+      assert_parity t, compiled, {1, 2}
+
   describe "transforms", ->
     it "transforms values", ->
       compiled = compile types.string / (s) -> "--#{s}--"

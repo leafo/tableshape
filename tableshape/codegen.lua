@@ -91,6 +91,25 @@ do
       end
       return name
     end,
+    number_expr = function(self, val)
+      if val ~= val then
+        return "(0/0)"
+      end
+      if val == math.huge then
+        return "math.huge"
+      end
+      if val == -math.huge then
+        return "-math.huge"
+      end
+      local s = tostring(val)
+      if tonumber(s) == val then
+        return s
+      end
+      s = ("%.17g"):format(val)
+      if tonumber(s) == val then
+        return s
+      end
+    end,
     value_expr = function(self, val)
       local _exp_0 = type(val)
       if "string" == _exp_0 then
@@ -98,20 +117,81 @@ do
       elseif "boolean" == _exp_0 or "nil" == _exp_0 then
         return tostring(val)
       elseif "number" == _exp_0 then
-        if val ~= val then
-          return "(0/0)"
-        elseif val == math.huge then
-          return "math.huge"
-        elseif val == -math.huge then
-          return "-math.huge"
-        elseif tonumber(tostring(val)) == val then
-          return tostring(val)
-        else
-          return self:ref(val)
-        end
+        return self:number_expr(val) or self:ref(val)
       else
         return self:ref(val)
       end
+    end,
+    data_expr = function(self, val, seen)
+      if seen == nil then
+        seen = { }
+      end
+      if getmetatable(val) then
+        return nil
+      end
+      if seen[val] then
+        return nil
+      end
+      seen[val] = true
+      local parts = { }
+      local array_len = 0
+      for i, item in ipairs(val) do
+        local expr = self:data_item_expr(item, seen)
+        if not (expr) then
+          return nil
+        end
+        table.insert(parts, expr)
+        array_len = i
+      end
+      for k, v in pairs(val) do
+        local _continue_0 = false
+        repeat
+          if type(k) == "number" and k >= 1 and k <= array_len and k % 1 == 0 then
+            _continue_0 = true
+            break
+          end
+          local key = self:data_item_expr(k, seen)
+          if not (key) then
+            return nil
+          end
+          local item = self:data_item_expr(v, seen)
+          if not (item) then
+            return nil
+          end
+          table.insert(parts, "[" .. tostring(key) .. "] = " .. tostring(item))
+          _continue_0 = true
+        until true
+        if not _continue_0 then
+          break
+        end
+      end
+      seen[val] = nil
+      return "{" .. tostring(table.concat(parts, ", ")) .. "}"
+    end,
+    data_item_expr = function(self, val, seen)
+      local _exp_0 = type(val)
+      if "string" == _exp_0 then
+        return ("%q"):format(val)
+      elseif "boolean" == _exp_0 then
+        return tostring(val)
+      elseif "number" == _exp_0 then
+        return self:number_expr(val)
+      elseif "table" == _exp_0 then
+        return self:data_expr(val, seen)
+      end
+    end,
+    const = function(self, val)
+      local name = self.const_ids[val]
+      if not (name) then
+        local expr = self:data_expr(val)
+        if not (expr) then
+          return self:ref(val)
+        end
+        table.insert(self.consts, expr)
+        name = "c" .. tostring(#self.consts)
+        self.const_ids[val] = name
+      end
+      return name
     end,
     resolve_proxy = function(self, node)
       local inner = self.proxy_cache[node]
@@ -279,7 +359,7 @@ do
         return "(" .. tostring(self:ref(node.fn)) .. "(" .. tostring(v) .. ", " .. tostring(s) .. "))"
       elseif OneOf == _exp_0 then
         if node.options_hash then
-          return tostring(self:ref(node.options_hash)) .. "[" .. tostring(v) .. "] ~= nil"
+          return tostring(self:const(node.options_hash)) .. "[" .. tostring(v) .. "] ~= nil"
         else
           if #node.options == 0 then
             return "false"
@@ -462,6 +542,9 @@ do
         end)(), ", ")
         table.insert(buf, "local " .. tostring(names) .. " = " .. tostring(exprs))
       end
+      for i, expr in ipairs(self.consts) do
+        table.insert(buf, "local c" .. tostring(i) .. " = " .. tostring(expr))
+      end
       if self.fn_count > 0 then
         table.insert(buf, "local " .. table.concat((function()
           local _accum_0 = { }
@@ -506,7 +589,7 @@ do
     end,
     compile_one_of = function(self, node, emit)
       if node.options_hash then
-        emit("if " .. tostring(self:ref(node.options_hash)) .. "[value] then return value, state end")
+        emit("if " .. tostring(self:const(node.options_hash)) .. "[value] then return value, state end")
         emit("return FailedTransform")
         return 
       end
@@ -663,7 +746,7 @@ do
           emit("end")
         end
         if not (node.open) then
-          local keys_ref = self:ref(shape_keys)
+          local keys_ref = self:const(shape_keys)
           if node.extra_fields_type then
             emit("for rk in pairs(value) do")
             emit("if " .. tostring(keys_ref) .. "[rk] == nil then")
@@ -961,6 +1044,8 @@ do
       self.lines = { }
       self.refs = { }
       self.ref_ids = { }
+      self.consts = { }
+      self.const_ids = { }
       self.fn_ids = { }
       self.fn_count = 0
       self.pure_cache = { }
