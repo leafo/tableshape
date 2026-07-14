@@ -1,5 +1,5 @@
 import types, BaseType, FailedTransform from require "tableshape"
-import compile, generate_code, CompiledType from require "tableshape.codegen"
+import compile, generate_code, generate_module, CompiledType from require "tableshape.codegen"
 
 -- runs both the interpreted and compiled type on input and asserts the same
 -- outcome. Error messages are not compared since compiled types don't
@@ -238,6 +238,63 @@ describe "tableshape.codegen", ->
       ok, err = pcall generate_code, t, static: true
       assert.is_false ok
       assert err\find("custom checker", 1, true), err
+
+  describe "generate_module", ->
+    load_module = (code) ->
+      loader = loadstring or load
+      chunk = assert loader code
+      chunk!
+
+    it "generates a standalone module", ->
+      t = types.shape {
+        name: types.string
+        age: types.range 0, 150
+        role: types.one_of {"admin", "user"}
+        id: types.number\tag "id"
+      }
+
+      code = generate_module t
+
+      -- self contained: no imports, no runtime references
+      assert.is_nil code\find("require", 1, true)
+      assert.is_nil code\find("%.%.%."), "module should not expect chunk arguments"
+
+      m = load_module code
+
+      input = { name: "lee", age: 7, role: "admin", id: 5 }
+      assert.same { id: 5 }, m.check_value input
+      assert.same t\check_value(input), m.check_value input
+
+      v, err = m.check_value { name: 5 }
+      assert.is_nil v
+      assert.is_string err
+      assert err\find("expected", 1, true), err
+
+    it "transforms values with state", ->
+      t = types.shape {
+        title: types.string / "renamed"
+        id: types.number\tag "id"
+      }
+
+      m = load_module generate_module t
+
+      out, state = m.transform { title: "original", id: 9 }
+      assert.same { title: "renamed", id: 9 }, out
+      assert.same { id: 9 }, state
+
+      -- repair is an alias for transform
+      assert.equal m.transform, m.repair
+
+    it "omits clone_state when the type has no tags", ->
+      code = generate_module types.shape { name: types.string }
+      assert.is_nil code\find("clone_state", 1, true)
+
+      tagged = generate_module types.shape { name: types.string\tag "n" }
+      assert tagged\find("clone_state", 1, true), "tagged module should include clone_state"
+
+    it "rejects types that can't compile statically", ->
+      assert.has_error ->
+        generate_module types.custom (v) -> true
 
   describe "transforms", ->
     it "transforms values", ->
