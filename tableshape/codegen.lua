@@ -25,6 +25,42 @@ clone_state = function(state_obj)
   end
   return out
 end
+local sorted_pairs
+sorted_pairs = function(t)
+  local keys
+  do
+    local _accum_0 = { }
+    local _len_0 = 1
+    for k in pairs(t) do
+      _accum_0[_len_0] = k
+      _len_0 = _len_0 + 1
+    end
+    keys = _accum_0
+  end
+  table.sort(keys, function(a, b)
+    local ta, tb = type(a), type(b)
+    if ta ~= tb then
+      return ta < tb
+    else
+      local _exp_0 = ta
+      if "number" == _exp_0 or "string" == _exp_0 then
+        return a < b
+      elseif "boolean" == _exp_0 then
+        return not a and b
+      else
+        return tostring(a) < tostring(b)
+      end
+    end
+  end)
+  local i = 0
+  return function()
+    i = i + 1
+    local k = keys[i]
+    if not (k == nil) then
+      return k, t[k]
+    end
+  end
+end
 local Type = types.string.__class
 local AnyType = types.any.__class
 local ArrayType = types.array.__class
@@ -82,7 +118,24 @@ do
     push = function(self, line)
       return table.insert(self.lines, line)
     end,
+    current_node_description = function(self)
+      local node = self.node_stack[#self.node_stack]
+      if not (node) then
+        return "<unknown type>"
+      end
+      local ok, description = pcall(function()
+        return node:_describe()
+      end)
+      if ok and description then
+        return description
+      else
+        return tostring(node)
+      end
+    end,
     ref = function(self, val)
+      if self.static then
+        error("static compile: " .. tostring(self:current_node_description()) .. " requires a runtime reference (" .. tostring(tostring(val)) .. ")")
+      end
       local name = self.ref_ids[val]
       if not (name) then
         table.insert(self.refs, val)
@@ -143,7 +196,7 @@ do
         table.insert(parts, expr)
         array_len = i
       end
-      for k, v in pairs(val) do
+      for k, v in sorted_pairs(val) do
         local _continue_0 = false
         repeat
           if type(k) == "number" and k >= 1 and k <= array_len and k % 1 == 0 then
@@ -325,6 +378,12 @@ do
       end
     end,
     inline_predicate = function(self, node, v, s)
+      table.insert(self.node_stack, node)
+      local result = self:build_inline_predicate(node, v, s)
+      table.remove(self.node_stack)
+      return result
+    end,
+    build_inline_predicate = function(self, node, v, s)
       if node._compile_inner then
         return self:inline_predicate(node:_compile_inner(), v, s)
       end
@@ -484,6 +543,7 @@ do
       emit = function(line)
         return table.insert(buffer, line)
       end
+      table.insert(self.node_stack, node)
       local inline
       if self:is_pure(node) then
         inline = self:inline_predicate(node, "value", "state")
@@ -506,6 +566,7 @@ do
         end
         handler(self, node, emit)
       end
+      table.remove(self.node_stack)
       self:push(tostring(name) .. " = function(value, state)")
       for _index_0 = 1, #buffer do
         local line = buffer[_index_0]
@@ -734,7 +795,7 @@ do
         shape_keys = _tbl_0
       end
       if self:is_pure(node) then
-        for shape_key, shape_val in pairs(node.shape) do
+        for shape_key, shape_val in sorted_pairs(node.shape) do
           local key = self:value_expr(shape_key)
           emit("do")
           emit("local item = value[" .. tostring(key) .. "]")
@@ -765,7 +826,7 @@ do
       end
       emit("local dirty = false")
       emit("local out = {}")
-      for shape_key, shape_val in pairs(node.shape) do
+      for shape_key, shape_val in sorted_pairs(node.shape) do
         local key = self:value_expr(shape_key)
         emit("do")
         emit("local item = value[" .. tostring(key) .. "]")
@@ -787,7 +848,7 @@ do
         end
         emit("end")
       end
-      local keys_ref = self:ref(shape_keys)
+      local keys_ref = self:const(shape_keys)
       if node.open then
         emit("for rk in pairs(value) do")
         emit("if " .. tostring(keys_ref) .. "[rk] == nil then out[rk] = value[rk] end")
@@ -1040,7 +1101,7 @@ do
   }
   _base_0.__index = _base_0
   _class_0 = setmetatable({
-    __init = function(self)
+    __init = function(self, opts)
       self.lines = { }
       self.refs = { }
       self.ref_ids = { }
@@ -1051,6 +1112,10 @@ do
       self.pure_cache = { }
       self.pure_active = { }
       self.proxy_cache = { }
+      self.node_stack = { }
+      if opts then
+        self.static = opts.static and true
+      end
     end,
     __base = _base_0,
     __name = "Compiler"
@@ -1165,15 +1230,15 @@ do
   CompiledType = _class_0
 end
 local generate_code
-generate_code = function(node)
+generate_code = function(node, opts)
   assert(BaseType:is_base_type(node), "expected type checker to compile")
-  local compiler = Compiler()
+  local compiler = Compiler(opts)
   local main_name = compiler:compile_node(node)
   return compiler:assemble(main_name), compiler.refs
 end
 local compile
 compile = function(node, opts)
-  local code, refs = generate_code(node)
+  local code, refs = generate_code(node, opts)
   local chunk = assert(load_code(code, "tableshape.codegen"))
   local fn = chunk(FailedTransform, clone_state, refs)
   return CompiledType(node, fn, code, opts)

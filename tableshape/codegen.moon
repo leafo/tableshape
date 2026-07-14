@@ -87,6 +87,33 @@ clone_state = (state_obj) ->
 
   out
 
+-- iterate a table in a deterministic order (sorted by key type, then key
+-- value) so the same schema always generates identical source
+sorted_pairs = (t) ->
+  keys = [k for k in pairs t]
+
+  table.sort keys, (a, b) ->
+    ta, tb = type(a), type(b)
+    if ta != tb
+      ta < tb
+    else
+      switch ta
+        when "number", "string"
+          a < b
+        when "boolean"
+          not a and b
+        else
+          -- no cross-run order exists for these (eg. table keys), but at
+          -- least keep the order consistent within this process
+          tostring(a) < tostring(b)
+
+  i = 0
+  ->
+    i += 1
+    k = keys[i]
+    unless k == nil
+      k, t[k]
+
 -- many of the classes are not exported from tableshape.init, so they are
 -- extracted from the instances & constructors held in the types table
 Type = types.string.__class
@@ -146,7 +173,7 @@ class Compiler
     [Proxy]: "compile_proxy"
   }
 
-  new: =>
+  new: (opts) =>
     @lines = {}
     @refs = {}
     @ref_ids = {}
@@ -157,12 +184,33 @@ class Compiler
     @pure_cache = {}
     @pure_active = {}
     @proxy_cache = {}
+    @node_stack = {}
+
+    if opts
+      @static = opts.static and true
 
   push: (line) => table.insert @lines, line
 
+  -- the description of the node currently being compiled, for diagnostics
+  current_node_description: =>
+    node = @node_stack[#@node_stack]
+    unless node
+      return "<unknown type>"
+
+    ok, description = pcall -> node\_describe!
+    if ok and description
+      description
+    else
+      tostring node
+
   -- register a runtime value to be passed into the generated chunk, returns
-  -- the name of the local that will hold it
+  -- the name of the local that will hold it. In static mode this is a
+  -- compile error: the generated code would depend on a value that can't be
+  -- represented in source
   ref: (val) =>
+    if @static
+      error "static compile: #{@current_node_description!} requires a runtime reference (#{tostring val})"
+
     name = @ref_ids[val]
     unless name
       table.insert @refs, val
@@ -225,7 +273,7 @@ class Compiler
       table.insert parts, expr
       array_len = i
 
-    for k, v in pairs val
+    for k, v in sorted_pairs val
       continue if type(k) == "number" and k >= 1 and k <= array_len and k % 1 == 0
 
       key = @data_item_expr k, seen
@@ -386,6 +434,12 @@ class Compiler
   -- expression v (with current state in variable s). Returns nil when the
   -- node has no inline representation. Only valid for pure nodes
   inline_predicate: (node, v, s) =>
+    table.insert @node_stack, node
+    result = @build_inline_predicate node, v, s
+    table.remove @node_stack
+    result
+
+  build_inline_predicate: (node, v, s) =>
     if node._compile_inner
       return @inline_predicate node\_compile_inner!, v, s
 
@@ -504,6 +558,8 @@ class Compiler
     buffer = {}
     emit = (line) -> table.insert buffer, line
 
+    table.insert @node_stack, node
+
     inline = if @is_pure node
       @inline_predicate node, "value", "state"
 
@@ -525,6 +581,8 @@ class Compiler
         @compile_fallback
 
       handler @, node, emit
+
+    table.remove @node_stack
 
     @push "#{name} = function(value, state)"
     for line in *buffer
@@ -728,7 +786,7 @@ class Compiler
     if @is_pure node
       -- nothing can transform: check fields in place, never build an output
       -- table
-      for shape_key, shape_val in pairs node.shape
+      for shape_key, shape_val in sorted_pairs node.shape
         key = @value_expr shape_key
         emit "do"
         emit "local item = value[#{key}]"
@@ -760,7 +818,7 @@ class Compiler
     emit "local dirty = false"
     emit "local out = {}"
 
-    for shape_key, shape_val in pairs node.shape
+    for shape_key, shape_val in sorted_pairs node.shape
       key = @value_expr shape_key
       emit "do"
       emit "local item = value[#{key}]"
@@ -782,7 +840,7 @@ class Compiler
 
       emit "end"
 
-    keys_ref = @ref shape_keys
+    keys_ref = @const shape_keys
     if node.open
       emit "for rk in pairs(value) do"
       emit "if #{keys_ref}[rk] == nil then out[rk] = value[rk] end"
@@ -1113,17 +1171,21 @@ class CompiledType extends BaseType
 
 -- generate the lua source for a type checker, returns the code string and
 -- the array of refs that must be passed into the loaded chunk
-generate_code = (node) ->
+-- opts:
+--  static: error instead of creating a runtime reference, guaranteeing the
+--    generated code is self-contained source (refs is always empty)
+generate_code = (node, opts) ->
   assert BaseType\is_base_type(node), "expected type checker to compile"
-  compiler = Compiler!
+  compiler = Compiler opts
   main_name = compiler\compile_node node
   compiler\assemble(main_name), compiler.refs
 
 -- opts:
 --  rerun_errors: on failure, run the original interpreted type to produce
 --    its full error message or errors object instead of a generic one
+--  static: see generate_code
 compile = (node, opts) ->
-  code, refs = generate_code node
+  code, refs = generate_code node, opts
   chunk = assert load_code code, "tableshape.codegen"
   fn = chunk FailedTransform, clone_state, refs
   CompiledType node, fn, code, opts

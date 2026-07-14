@@ -162,6 +162,28 @@ describe "tableshape.codegen", ->
       assert.is_true compiled\check_value value
       assert.is_nil (compiled\check_value 0.3)
 
+    it "generates deterministic output", ->
+      -- separately constructed but equal schemas must generate byte
+      -- identical source, so generated files can be committed without churn
+      build = -> types.shape {
+        gamma: types.string / "x"
+        alpha: types.number\tag "a"
+        beta: types.boolean
+        delta: types.one_of {"on", "off"}
+        [1]: types.string
+        [true]: types.string
+      }
+
+      assert.same (generate_code build!), (generate_code build!)
+
+      -- fields are emitted in sorted key order
+      code = generate_code build!
+      positions = for key in *{"alpha", "beta", "delta", "gamma"}
+        (assert code\find('value["' .. key .. '"]', 1, true), "missing field #{key}")
+
+      for i = 2, #positions
+        assert positions[i - 1] < positions[i], "fields not emitted in sorted order"
+
     it "passes table literals as refs to preserve identity matching", ->
       tbl = {1, 2}
       t = types.literal tbl
@@ -176,6 +198,46 @@ describe "tableshape.codegen", ->
       assert.is_nil (compiled\check_value {1, 2})
       assert_parity t, compiled, tbl
       assert_parity t, compiled, {1, 2}
+
+  describe "static mode", ->
+    it "generates self-contained code", ->
+      code, refs = generate_code types.shape({
+        name: types.string
+        role: types.one_of {"admin", "user"}
+        age: types.range 0, 150
+        email: types.pattern "^[^@]+@[^@]+$"
+        title: types.string / "CONST"
+      }), static: true
+
+      assert.same {}, refs
+
+      compiled = compile types.shape({ name: types.string }), static: true
+      assert.is_true compiled\check_value { name: "lee" }
+
+    it "rejects types that need runtime references", ->
+      cases = {
+        "custom checker": types.custom (v) -> true
+        "transform function": types.string / (s) -> s
+        "function tag": types.string\tag (state, v) -> nil
+        "table literal": types.literal {1, 2}
+        "fallback type": types.equivalent {1, 2}
+      }
+
+      for name, t in pairs cases
+        ok, err = pcall generate_code, t, static: true
+        assert.is_false ok, "#{name} should fail static compile"
+        assert err\find("requires a runtime reference", 1, true), "#{name}: #{err}"
+
+    it "names the offending type in the error", ->
+      -- the custom checker is pure and inlined into the shape, but the
+      -- error should point at the checker, not the whole shape
+      t = types.shape {
+        count: types.custom (v) -> type(v) == "number"
+      }
+
+      ok, err = pcall generate_code, t, static: true
+      assert.is_false ok
+      assert err\find("custom checker", 1, true), err
 
   describe "transforms", ->
     it "transforms values", ->
