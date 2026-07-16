@@ -26,6 +26,58 @@ clone_state = function(state_obj)
   end
   return out
 end
+local sorted_keys
+sorted_keys = function(t)
+  local keys
+  do
+    local _accum_0 = { }
+    local _len_0 = 1
+    for k in pairs(t) do
+      _accum_0[_len_0] = k
+      _len_0 = _len_0 + 1
+    end
+    keys = _accum_0
+  end
+  table.sort(keys, function(a, b)
+    local ta, tb = type(a), type(b)
+    if ta ~= tb then
+      return ta < tb
+    else
+      local _exp_0 = ta
+      if "number" == _exp_0 or "string" == _exp_0 then
+        return a < b
+      elseif "boolean" == _exp_0 then
+        return not a and b
+      else
+        return tostring(a) < tostring(b)
+      end
+    end
+  end)
+  return keys
+end
+local sorted_pairs
+sorted_pairs = function(t)
+  local keys = sorted_keys(t)
+  local i = 0
+  return function()
+    i = i + 1
+    local k = keys[i]
+    if not (k == nil) then
+      return k, t[k]
+    end
+  end
+end
+local shape_keys_cache = setmetatable({ }, {
+  __mode = "k"
+})
+local shape_keys
+shape_keys = function(shape_type)
+  do
+    local keys = shape_keys_cache[shape_type] or sorted_keys(shape_type.shape)
+    shape_keys_cache[shape_type] = keys
+    return keys
+  end
+end
 local describe_type
 describe_type = function(val)
   if type(val) == "string" then
@@ -1361,7 +1413,7 @@ do
       local value_literal = not BaseType:is_base_type(self.expected_value)
       local transformed = false
       local out = { }
-      for k, v in pairs(value) do
+      for k, v in sorted_pairs(value) do
         local _continue_0 = false
         repeat
           local new_k = k
@@ -1455,8 +1507,10 @@ do
       do
         local _accum_0 = { }
         local _len_0 = 1
-        for k, v in pairs(self.shape) do
-          _accum_0[_len_0] = tostring(describe_type(k)) .. " = " .. tostring(describe_type(v))
+        local _list_0 = shape_keys(self)
+        for _index_0 = 1, #_list_0 do
+          local k = _list_0[_index_0]
+          _accum_0[_len_0] = tostring(describe_type(k)) .. " = " .. tostring(describe_type(self.shape[k]))
           _len_0 = _len_0 + 1
         end
         parts = _accum_0
@@ -1480,7 +1534,10 @@ do
       local errors
       local dirty = false
       local out = { }
-      for shape_key, shape_val in pairs(self.shape) do
+      local _list_0 = shape_keys(self)
+      for _index_0 = 1, #_list_0 do
+        local shape_key = _list_0[_index_0]
+        local shape_val = self.shape[shape_key]
         local item_value = value[shape_key]
         if remaining_keys then
           remaining_keys[shape_key] = nil
@@ -1521,7 +1578,7 @@ do
             out[k] = value[k]
           end
         elseif self.extra_fields_type then
-          for k in pairs(remaining_keys) do
+          for k in sorted_pairs(remaining_keys) do
             local item_value = value[k]
             local tuple
             tuple, state = self.extra_fields_type:_transform({
@@ -1561,7 +1618,7 @@ do
           do
             local _accum_0 = { }
             local _len_0 = 1
-            for key in pairs(remaining_keys) do
+            for key in sorted_pairs(remaining_keys) do
               _accum_0[_len_0] = describe_type(key)
               _len_0 = _len_0 + 1
             end
@@ -1593,6 +1650,7 @@ do
     __init = function(self, shape, opts)
       self.shape = shape
       assert(type(self.shape) == "table", "expected table for shape")
+      shape_keys(self)
       if opts then
         if opts.extra_fields then
           assert(BaseType:is_base_type(opts.extra_fields), "extra_fields_type must be type checker")

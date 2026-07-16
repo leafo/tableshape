@@ -297,6 +297,60 @@ describe "tableshape.codegen", ->
         generate_module types.custom (v) -> true
 
   describe "transforms", ->
+    it "matches deterministic shape transform order", ->
+      counter = types.any % (value, state) ->
+        state.count += 1
+        state.count
+
+      t = types.shape {
+        zeta: counter
+        alpha: counter
+        gamma: counter
+      }
+
+      input = { zeta: 0, alpha: 0, gamma: 0 }
+      expected_value, expected_state = t\transform input, count: 0
+      value, state = (compile t)\transform input, count: 0
+
+      assert.same { alpha: 1, gamma: 2, zeta: 3 }, value
+      assert.same expected_value, value
+      assert.same expected_state, state
+
+    it "matches deterministic extra field order", ->
+      t = types.shape {}, extra_fields: types.map_of(types.any, types.any\tag "values[]")
+      input = { zeta: "z", alpha: "a", middle: "m" }
+
+      assert_parity t, compile(t), input
+      assert.same { values: { "a", "m", "z" } }, (compile(t))\check_value input
+
+    it "matches deterministic map_of order", ->
+      t = types.map_of types.any, types.any\tag "values[]"
+      input = { zeta: "z", alpha: "a", middle: "m" }
+
+      assert_parity t, compile(t), input
+      assert.same { values: { "a", "m", "z" } }, (compile(t))\check_value input
+
+    it "visits pure types in interpreted order for map_of and extra fields", ->
+      -- a pure type (custom) still has an observable body, so the compiled
+      -- loop must visit keys in the same order the interpreter does
+      order = {}
+      rec = types.custom (v) ->
+        table.insert order, v
+        true
+
+      input = { zeta: "z", alpha: "a", middle: "m" }
+
+      record_order = (t) ->
+        order = {}
+        t\check_value input
+        [v for v in *order]
+
+      for t in *{
+        types.map_of types.string, rec
+        types.shape {}, extra_fields: types.map_of types.string, rec
+      }
+        assert.same (record_order t), (record_order compile t)
+
     it "transforms values", ->
       compiled = compile types.string / (s) -> "--#{s}--"
       assert.same "--hello--", (compiled\transform "hello")

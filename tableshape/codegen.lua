@@ -33,6 +33,23 @@ local mt = getmetatable(state_obj)
 if mt then setmetatable(out, mt) end
 return out
 end]]
+local SORTED_PAIRS_SOURCE = [[local sorted_pairs = function(t)
+local keys = {}
+for k in pairs(t) do keys[#keys + 1] = k end
+table.sort(keys, function(a, b)
+local ta, tb = type(a), type(b)
+if ta ~= tb then return ta < tb end
+if ta == "number" or ta == "string" then return a < b end
+if ta == "boolean" then return not a and b end
+return tostring(a) < tostring(b)
+end)
+local i = 0
+return function()
+i = i + 1
+local k = keys[i]
+if k ~= nil then return k, t[k] end
+end
+end]]
 local sorted_pairs
 sorted_pairs = function(t)
   local keys
@@ -604,6 +621,16 @@ do
         table.insert(buf, line)
       end
     end,
+    uses_helper = function(self, name)
+      local _list_0 = self.lines
+      for _index_0 = 1, #_list_0 do
+        local line = _list_0[_index_0]
+        if line:find(name, 1, true) then
+          return true
+        end
+      end
+      return false
+    end,
     assemble = function(self, main_name)
       local buf = {
         "local FailedTransform, clone_state, refs = ...",
@@ -632,6 +659,9 @@ do
         end)(), ", ")
         table.insert(buf, "local " .. tostring(names) .. " = " .. tostring(exprs))
       end
+      if self:uses_helper("sorted_pairs(") then
+        table.insert(buf, SORTED_PAIRS_SOURCE)
+      end
       self:assemble_definitions(buf)
       table.insert(buf, "return " .. tostring(main_name))
       return table.concat(buf, "\n") .. "\n"
@@ -645,13 +675,11 @@ do
         "local string_match = string.match",
         "local FailedTransform = {}"
       }
-      local _list_0 = self.lines
-      for _index_0 = 1, #_list_0 do
-        local line = _list_0[_index_0]
-        if line:find("clone_state(", 1, true) then
-          table.insert(buf, CLONE_STATE_SOURCE)
-          break
-        end
+      if self:uses_helper("clone_state(") then
+        table.insert(buf, CLONE_STATE_SOURCE)
+      end
+      if self:uses_helper("sorted_pairs(") then
+        table.insert(buf, SORTED_PAIRS_SOURCE)
       end
       self:assemble_definitions(buf)
       local err_expr = ("%q"):format(error_message)
@@ -864,7 +892,7 @@ do
         if not (node.open) then
           local keys_ref = self:const(shape_keys)
           if node.extra_fields_type then
-            emit("for rk in pairs(value) do")
+            emit("for rk in sorted_pairs(value) do")
             emit("if " .. tostring(keys_ref) .. "[rk] == nil then")
             emit("local tuple_in = {[rk] = value[rk]}")
             emit("if not (" .. tostring(self:predicate_expr(node.extra_fields_type, "tuple_in", "state")) .. ") then return FailedTransform end")
@@ -910,7 +938,7 @@ do
         emit("end")
       elseif node.extra_fields_type then
         local fn = self:compile_node(node.extra_fields_type)
-        emit("for rk in pairs(value) do")
+        emit("for rk in sorted_pairs(value) do")
         emit("if " .. tostring(keys_ref) .. "[rk] == nil then")
         emit("local item = value[rk]")
         emit("local tuple, s = " .. tostring(fn) .. "({[rk] = item}, state)")
@@ -1092,7 +1120,7 @@ do
         end
       end
       if self:is_pure(node) then
-        emit("for mk, mv in pairs(value) do")
+        emit("for mk, mv in sorted_pairs(value) do")
         emit_pair_check(node.expected_key, "mk")
         emit_pair_check(node.expected_value, "mv")
         emit("end")
@@ -1101,7 +1129,7 @@ do
       end
       emit("local transformed = false")
       emit("local out = {}")
-      emit("for mk, mv in pairs(value) do")
+      emit("for mk, mv in sorted_pairs(value) do")
       emit("local new_mk, new_mv = mk, mv")
       emit_pair_check(node.expected_key, "mk")
       emit_pair_check(node.expected_value, "mv")

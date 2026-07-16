@@ -27,6 +27,54 @@ clone_state = (state_obj) ->
 
   out
 
+-- a table's keys in a stable order. Types that thread state through their
+-- fields (transforms, tags) would otherwise produce results that depend on the
+-- hash layout of the table, which varies across lua versions & processes
+sorted_keys = (t) ->
+  keys = [k for k in pairs t]
+
+  table.sort keys, (a, b) ->
+    ta, tb = type(a), type(b)
+    if ta != tb
+      ta < tb
+    else
+      switch ta
+        when "number", "string"
+          a < b
+        when "boolean"
+          not a and b
+        else
+          -- identity-based keys have no cross-process ordering, but tostring
+          -- keeps traversal stable for the lifetime of the objects
+          tostring(a) < tostring(b)
+
+  keys
+
+-- pairs, but in sorted_keys order. Only for tables that aren't known until
+-- check time -- when the keys are fixed (eg. a shape's fields) use shape_keys
+-- to sort them once instead
+sorted_pairs = (t) ->
+  keys = sorted_keys t
+
+  i = 0
+  ->
+    i += 1
+    k = keys[i]
+    unless k == nil
+      k, t[k]
+
+-- a shape's fields are fixed for the lifetime of the type, so their sorted
+-- order is computed once and memoized. Keyed by the type instance (not @shape)
+-- so two shapes built from the same table -- eg. when the caller mutates it
+-- between constructions -- each snapshot their own fields. NOTE: deliberately
+-- kept off the type object; types are introspected by matching them against
+-- closed shapes (see ext.json_schema), so an extra field would fail that match
+shape_keys_cache = setmetatable {}, __mode: "k"
+
+shape_keys = (shape_type) ->
+  with keys = shape_keys_cache[shape_type] or sorted_keys shape_type.shape
+    shape_keys_cache[shape_type] = keys
+
 -- Either use the describe method of the type, or print the literal value
 describe_type = (val) ->
   if type(val) == "string"
@@ -681,7 +729,10 @@ class MapOf extends BaseType
     transformed = false
 
     out = {}
-    for k,v in pairs value
+    -- the key & value types thread state, so they must see a stable order. The
+    -- keys aren't known until now, so unlike a shape this can't be sorted ahead
+    -- of time
+    for k,v in sorted_pairs value
       new_k = k
       new_v = v
 
@@ -716,6 +767,11 @@ class Shape extends BaseType
 
   new: (@shape, opts) =>
     assert type(@shape) == "table", "expected table for shape"
+
+    -- warm the memo: the fields are sorted once here rather than on every check.
+    -- (mutating @shape after construction is not supported)
+    shape_keys @
+
     if opts
       if opts.extra_fields
         assert BaseType\is_base_type(opts.extra_fields), "extra_fields_type must be type checker"
@@ -738,8 +794,8 @@ class Shape extends BaseType
     }
 
   _describe: =>
-    parts = for k, v in pairs @shape
-      "#{describe_type k} = #{describe_type v}"
+    parts = for k in *shape_keys @
+      "#{describe_type k} = #{describe_type @shape[k]}"
 
     "{ #{table.concat parts, ", "} }"
 
@@ -755,7 +811,10 @@ class Shape extends BaseType
     dirty = false
     out = {}
 
-    for shape_key, shape_val in pairs @shape
+    -- fields are checked in a stable order so that shape_vals which thread
+    -- state (transforms, tags) behave deterministically
+    for shape_key in *shape_keys @
+      shape_val = @shape[shape_key]
       item_value = value[shape_key]
 
       if remaining_keys
@@ -786,11 +845,12 @@ class Shape extends BaseType
 
     if remaining_keys and next remaining_keys
       if @open
-        -- copy the remaining keys to out
+        -- copy the remaining keys to out. Nothing here depends on the order
         for k in pairs remaining_keys
           out[k] = value[k]
       elseif @extra_fields_type
-        for k in pairs remaining_keys
+        -- the extra fields type threads state, so it must see a stable order
+        for k in sorted_pairs remaining_keys
           item_value = value[k]
           tuple, state = @extra_fields_type\_transform {[k]: item_value}, state
           if tuple == FailedTransform
@@ -816,7 +876,7 @@ class Shape extends BaseType
               -- value was removed, dirty
               dirty = true
       else
-        names = for key in pairs remaining_keys
+        names = for key in sorted_pairs remaining_keys
           describe_type key
 
         err = "extra fields: #{table.concat names, ", "}"
