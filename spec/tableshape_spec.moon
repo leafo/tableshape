@@ -306,17 +306,6 @@ describe "tableshape.types", ->
       }, value
       assert.same { count: 3 }, state
 
-    it "checks extra fields in deterministic order", ->
-      t = types.shape {}, extra_fields: types.map_of(types.any, types.any\tag "values[]")
-
-      assert.same {
-        values: { "a", "m", "z" }
-      }, t\check_value {
-        zeta: "z"
-        alpha: "a"
-        middle: "m"
-      }
-
     it "gets errors for multiple fields", ->
       t = types.shape {
         "blue"
@@ -514,37 +503,6 @@ describe "tableshape.types", ->
 
     assert.same nil, (static { helloz: "world" })
     assert.same nil, (static { hello: "worldz" })
-
-  it "checks map_of pairs in deterministic order", ->
-    t = types.map_of types.any, types.any\tag "values[]"
-
-    assert.same {
-      values: { "a", "m", "z" }
-    }, t\check_value {
-      zeta: "z"
-      alpha: "a"
-      middle: "m"
-    }
-
-  it "transforms map_of pairs in deterministic order", ->
-    counter = types.any % (value, state) ->
-      state.count += 1
-      state.count
-
-    t = types.map_of types.any, counter
-
-    value, state = t\transform {
-      zeta: 0
-      alpha: 0
-      gamma: 0
-    }, count: 0
-
-    assert.same {
-      alpha: 1
-      gamma: 2
-      zeta: 3
-    }, value
-    assert.same { count: 3 }, state
 
   describe "array_contains", ->
     it "contains number type", ->

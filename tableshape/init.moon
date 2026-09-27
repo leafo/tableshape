@@ -27,9 +27,9 @@ clone_state = (state_obj) ->
 
   out
 
--- a table's keys in a stable order. Types that thread state through their
--- fields (transforms, tags) would otherwise produce results that depend on the
--- hash layout of the table, which varies across lua versions & processes
+-- a table's keys in a stable order, used for a shape's fields so types that
+-- thread state through them (transforms, tags) behave the same across lua
+-- versions & processes, and for listing keys in error messages
 sorted_keys = (t) ->
   keys = [k for k in pairs t]
 
@@ -49,19 +49,6 @@ sorted_keys = (t) ->
           tostring(a) < tostring(b)
 
   keys
-
--- pairs, but in sorted_keys order. Only for tables that aren't known until
--- check time -- when the keys are fixed (eg. a shape's fields) use shape_keys
--- to sort them once instead
-sorted_pairs = (t) ->
-  keys = sorted_keys t
-
-  i = 0
-  ->
-    i += 1
-    k = keys[i]
-    unless k == nil
-      k, t[k]
 
 -- a shape's fields are fixed for the lifetime of the type, so their sorted
 -- order is computed once and memoized. Keyed by the type instance (not @shape)
@@ -729,10 +716,7 @@ class MapOf extends BaseType
     transformed = false
 
     out = {}
-    -- the key & value types thread state, so they must see a stable order. The
-    -- keys aren't known until now, so unlike a shape this can't be sorted ahead
-    -- of time
-    for k,v in sorted_pairs value
+    for k,v in pairs value
       new_k = k
       new_v = v
 
@@ -849,8 +833,10 @@ class Shape extends BaseType
         for k in pairs remaining_keys
           out[k] = value[k]
       elseif @extra_fields_type
-        -- the extra fields type threads state, so it must see a stable order
-        for k in sorted_pairs remaining_keys
+        -- visits value's keys rather than remaining_keys so the order matches
+        -- compiled types, which iterate the input table directly
+        for k in pairs value
+          continue unless remaining_keys[k]
           item_value = value[k]
           tuple, state = @extra_fields_type\_transform {[k]: item_value}, state
           if tuple == FailedTransform
@@ -876,7 +862,7 @@ class Shape extends BaseType
               -- value was removed, dirty
               dirty = true
       else
-        names = for key in sorted_pairs remaining_keys
+        names = for key in *sorted_keys remaining_keys
           describe_type key
 
         err = "extra fields: #{table.concat names, ", "}"

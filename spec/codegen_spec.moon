@@ -316,19 +316,28 @@ describe "tableshape.codegen", ->
       assert.same expected_value, value
       assert.same expected_state, state
 
-    it "matches deterministic extra field order", ->
-      t = types.shape {}, extra_fields: types.map_of(types.any, types.any\tag "values[]")
-      input = { zeta: "z", alpha: "a", middle: "m" }
+    -- built by insertion rather than a constructor: a copy of this table
+    -- iterates in a different order than the table itself on some lua
+    -- versions, which catches an interpreter that visits a copy of the keys
+    many_keys = ->
+      with t = { id: 1 }
+        for k in *{"zeta", "alpha", "middle", "omega", "beta", "gamma", "delta", "kappa", "sigma", "theta", "lambda"}
+          t[k] = k
 
-      assert_parity t, compile(t), input
-      assert.same { values: { "a", "m", "z" } }, (compile(t))\check_value input
+    it "matches interpreted extra field order", ->
+      input = many_keys!
 
-    it "matches deterministic map_of order", ->
+      for t in *{
+        types.shape {}, extra_fields: types.map_of(types.any, types.any\tag "values[]")
+        types.shape { id: types.number }, extra_fields: types.map_of(types.any, types.any\tag "values[]")
+      }
+        assert_parity t, compile(t), input
+
+    it "matches interpreted map_of order", ->
       t = types.map_of types.any, types.any\tag "values[]"
-      input = { zeta: "z", alpha: "a", middle: "m" }
+      input = many_keys!
 
       assert_parity t, compile(t), input
-      assert.same { values: { "a", "m", "z" } }, (compile(t))\check_value input
 
     it "visits pure types in interpreted order for map_of and extra fields", ->
       -- a pure type (custom) still has an observable body, so the compiled
@@ -338,7 +347,7 @@ describe "tableshape.codegen", ->
         table.insert order, v
         true
 
-      input = { zeta: "z", alpha: "a", middle: "m" }
+      input = many_keys!
 
       record_order = (t) ->
         order = {}
@@ -348,6 +357,7 @@ describe "tableshape.codegen", ->
       for t in *{
         types.map_of types.string, rec
         types.shape {}, extra_fields: types.map_of types.string, rec
+        types.shape { id: types.number }, extra_fields: types.map_of types.string, rec
       }
         assert.same (record_order t), (record_order compile t)
 

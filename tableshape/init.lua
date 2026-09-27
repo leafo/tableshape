@@ -55,18 +55,6 @@ sorted_keys = function(t)
   end)
   return keys
 end
-local sorted_pairs
-sorted_pairs = function(t)
-  local keys = sorted_keys(t)
-  local i = 0
-  return function()
-    i = i + 1
-    local k = keys[i]
-    if not (k == nil) then
-      return k, t[k]
-    end
-  end
-end
 local shape_keys_cache = setmetatable({ }, {
   __mode = "k"
 })
@@ -1413,7 +1401,7 @@ do
       local value_literal = not BaseType:is_base_type(self.expected_value)
       local transformed = false
       local out = { }
-      for k, v in sorted_pairs(value) do
+      for k, v in pairs(value) do
         local _continue_0 = false
         repeat
           local new_k = k
@@ -1578,39 +1566,50 @@ do
             out[k] = value[k]
           end
         elseif self.extra_fields_type then
-          for k in sorted_pairs(remaining_keys) do
-            local item_value = value[k]
-            local tuple
-            tuple, state = self.extra_fields_type:_transform({
-              [k] = item_value
-            }, state)
-            if tuple == FailedTransform then
-              err = "field " .. tostring(describe_type(k)) .. ": " .. tostring(state)
-              if check_all then
-                if errors then
-                  table.insert(errors, err)
+          for k in pairs(value) do
+            local _continue_0 = false
+            repeat
+              if not (remaining_keys[k]) then
+                _continue_0 = true
+                break
+              end
+              local item_value = value[k]
+              local tuple
+              tuple, state = self.extra_fields_type:_transform({
+                [k] = item_value
+              }, state)
+              if tuple == FailedTransform then
+                err = "field " .. tostring(describe_type(k)) .. ": " .. tostring(state)
+                if check_all then
+                  if errors then
+                    table.insert(errors, err)
+                  else
+                    errors = {
+                      err
+                    }
+                  end
                 else
-                  errors = {
-                    err
-                  }
+                  return FailedTransform, err
                 end
               else
-                return FailedTransform, err
-              end
-            else
-              do
-                local nk = tuple and next(tuple)
-                if nk then
-                  if nk ~= k then
-                    dirty = true
-                  elseif tuple[nk] ~= item_value then
+                do
+                  local nk = tuple and next(tuple)
+                  if nk then
+                    if nk ~= k then
+                      dirty = true
+                    elseif tuple[nk] ~= item_value then
+                      dirty = true
+                    end
+                    out[nk] = tuple[nk]
+                  else
                     dirty = true
                   end
-                  out[nk] = tuple[nk]
-                else
-                  dirty = true
                 end
               end
+              _continue_0 = true
+            until true
+            if not _continue_0 then
+              break
             end
           end
         else
@@ -1618,7 +1617,9 @@ do
           do
             local _accum_0 = { }
             local _len_0 = 1
-            for key in sorted_pairs(remaining_keys) do
+            local _list_1 = sorted_keys(remaining_keys)
+            for _index_0 = 1, #_list_1 do
+              local key = _list_1[_index_0]
               _accum_0[_len_0] = describe_type(key)
               _len_0 = _len_0 + 1
             end
@@ -1910,8 +1911,8 @@ end
 local Equivalent
 do
   local _class_0
-  local values_equivalent
   local _parent_0 = BaseType
+  local values_equivalent
   local _base_0 = {
     _describe = function(self)
       return "equivalent to " .. tostring(describe_type(self.val))

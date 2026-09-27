@@ -11,23 +11,6 @@ local mt = getmetatable(state_obj)
 if mt then setmetatable(out, mt) end
 return out
 end
-local sorted_pairs = function(t)
-local keys = {}
-for k in pairs(t) do keys[#keys + 1] = k end
-table.sort(keys, function(a, b)
-local ta, tb = type(a), type(b)
-if ta ~= tb then return ta < tb end
-if ta == "number" or ta == "string" then return a < b end
-if ta == "boolean" then return not a and b end
-return tostring(a) < tostring(b)
-end)
-local i = 0
-return function()
-i = i + 1
-local k = keys[i]
-if k ~= nil then return k, t[k] end
-end
-end
 local t1, t2
 t2 = function(value, state)
 if not (true) then return FailedTransform end
@@ -47,7 +30,7 @@ t1 = function(value, state)
 if type(value) ~= 'table' then return FailedTransform end
 local transformed = false
 local out = {}
-for mk, mv in sorted_pairs(value) do
+for mk, mv in pairs(value) do
 local new_mk, new_mv = mk, mv
 if not (type(mk) == "string") then return FailedTransform end
 do

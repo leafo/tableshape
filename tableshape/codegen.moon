@@ -98,29 +98,6 @@ if mt then setmetatable(out, mt) end
 return out
 end]]
 
--- lua source of sorted_pairs, emitted only for the generated loops that run a
--- type over each entry of a table whose keys aren't known until check time (a
--- shape's extra fields, and map_of). The type's evaluation is observable, so
--- the order must match the interpreter. Keep in sync with sorted_pairs below
--- and in tableshape.init
-SORTED_PAIRS_SOURCE = [[local sorted_pairs = function(t)
-local keys = {}
-for k in pairs(t) do keys[#keys + 1] = k end
-table.sort(keys, function(a, b)
-local ta, tb = type(a), type(b)
-if ta ~= tb then return ta < tb end
-if ta == "number" or ta == "string" then return a < b end
-if ta == "boolean" then return not a and b end
-return tostring(a) < tostring(b)
-end)
-local i = 0
-return function()
-i = i + 1
-local k = keys[i]
-if k ~= nil then return k, t[k] end
-end
-end]]
-
 -- iterate a table in a deterministic order (sorted by key type, then key
 -- value) so the same schema always generates identical source
 sorted_pairs = (t) ->
@@ -655,9 +632,6 @@ class Compiler
       exprs = table.concat ["refs[#{i}]" for i=1,#@refs], ", "
       table.insert buf, "local #{names} = #{exprs}"
 
-    if @uses_helper "sorted_pairs("
-      table.insert buf, SORTED_PAIRS_SOURCE
-
     @assemble_definitions buf
 
     table.insert buf, "return #{main_name}"
@@ -679,9 +653,6 @@ class Compiler
 
     if @uses_helper "clone_state("
       table.insert buf, CLONE_STATE_SOURCE
-
-    if @uses_helper "sorted_pairs("
-      table.insert buf, SORTED_PAIRS_SOURCE
 
     @assemble_definitions buf
 
@@ -897,9 +868,10 @@ class Compiler
       unless node.open
         keys_ref = @const shape_keys
         if node.extra_fields_type
-          -- the extra fields predicate has an observable body (eg.
-          -- types.custom), so match the interpreter's stable visit order
-          emit "for rk in sorted_pairs(value) do"
+          -- the extra fields predicate may have an observable body (eg.
+          -- types.custom): iterating value directly matches the interpreter's
+          -- visit order
+          emit "for rk in pairs(value) do"
           emit "if #{keys_ref}[rk] == nil then"
           emit "local tuple_in = {[rk] = value[rk]}"
           emit "if not (#{@predicate_expr node.extra_fields_type, "tuple_in", "state"}) then return FailedTransform end"
@@ -946,9 +918,10 @@ class Compiler
       emit "if #{keys_ref}[rk] == nil then out[rk] = value[rk] end"
       emit "end"
     elseif node.extra_fields_type
-      -- the extra fields type threads state, so it must see a stable order
+      -- the extra fields type may thread state: iterating value directly
+      -- matches the interpreter's visit order
       fn = @compile_node node.extra_fields_type
-      emit "for rk in sorted_pairs(value) do"
+      emit "for rk in pairs(value) do"
       emit "if #{keys_ref}[rk] == nil then"
       emit "local item = value[rk]"
       emit "local tuple, s = #{fn}({[rk] = item}, state)"
@@ -1135,9 +1108,7 @@ class Compiler
         return false
 
     if @is_pure node
-      -- a pure type still has an observable body (eg. types.custom), so the
-      -- keys are visited in the same stable order as the interpreter
-      emit "for mk, mv in sorted_pairs(value) do"
+      emit "for mk, mv in pairs(value) do"
       emit_pair_check node.expected_key, "mk"
       emit_pair_check node.expected_value, "mv"
       emit "end"
@@ -1146,8 +1117,7 @@ class Compiler
 
     emit "local transformed = false"
     emit "local out = {}"
-    -- the key & value types thread state here, so they must see a stable order
-    emit "for mk, mv in sorted_pairs(value) do"
+    emit "for mk, mv in pairs(value) do"
     emit "local new_mk, new_mv = mk, mv"
     emit_pair_check node.expected_key, "mk"
     emit_pair_check node.expected_value, "mv"

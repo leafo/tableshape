@@ -3,28 +3,11 @@ local type, pairs, ipairs, next, tostring = type, pairs, ipairs, next, tostring
 local getmetatable, setmetatable = getmetatable, setmetatable
 local string_match = string.match
 local FailedTransform = {}
-local sorted_pairs = function(t)
-local keys = {}
-for k in pairs(t) do keys[#keys + 1] = k end
-table.sort(keys, function(a, b)
-local ta, tb = type(a), type(b)
-if ta ~= tb then return ta < tb end
-if ta == "number" or ta == "string" then return a < b end
-if ta == "boolean" then return not a and b end
-return tostring(a) < tostring(b)
-end)
-local i = 0
-return function()
-i = i + 1
-local k = keys[i]
-if k ~= nil then return k, t[k] end
-end
-end
 local c1 = {}
 local t1, t2
 t2 = function(value, state)
 if type(value) ~= 'table' then return FailedTransform end
-for mk, mv in sorted_pairs(value) do
+for mk, mv in pairs(value) do
 if not (type(mk) == "string") then return FailedTransform end
 if not (type(mv) == "string") then return FailedTransform end
 end
@@ -32,7 +15,7 @@ return value, state
 end
 t1 = function(value, state)
 if type(value) ~= 'table' then return FailedTransform end
-for rk in sorted_pairs(value) do
+for rk in pairs(value) do
 if c1[rk] == nil then
 local tuple_in = {[rk] = value[rk]}
 if not ((t2(tuple_in, state)) ~= FailedTransform) then return FailedTransform end
