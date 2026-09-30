@@ -267,9 +267,10 @@ class Compiler
       else
         @ref val
 
-  -- serialize a plain data table (no metatable, acyclic, only primitive or
-  -- nested data table keys & values) into a table constructor expression.
-  -- Returns nil for tables that can't be fully represented in source
+  -- serialize a plain data table (no metatable, acyclic, primitive keys, only
+  -- primitive or nested data table values) into a table constructor
+  -- expression. Returns nil for tables that can't be fully represented in
+  -- source
   data_expr: (val, seen={}) =>
     return nil if getmetatable val
     return nil if seen[val]
@@ -286,6 +287,10 @@ class Compiler
 
     for k, v in sorted_pairs val
       continue if type(k) == "number" and k >= 1 and k <= array_len and k % 1 == 0
+
+      -- a table key is looked up by identity, which a table constructed in
+      -- source could never match
+      return nil if type(k) == "table"
 
       key = @data_item_expr k, seen
       return nil unless key

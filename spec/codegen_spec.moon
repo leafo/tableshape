@@ -199,6 +199,28 @@ describe "tableshape.codegen", ->
       assert_parity t, compiled, tbl
       assert_parity t, compiled, {1, 2}
 
+    it "matches shapes with table keys by identity", ->
+      key = {}
+      t = types.shape { [key]: types.string, name: types.string }
+      compiled = compile t
+
+      assert.is_true compiled\check_value { [key]: "x", name: "y" }
+      assert.is_nil (compiled\check_value { [{}]: "x", name: "y" })
+
+      for input in *{
+        { [key]: "x", name: "y" }
+        { [key]: "x", name: "y", extra: 1 }
+        { [key]: 1, name: "y" }
+        { [{}]: "x", name: "y" }
+      }
+        assert_parity t, compiled, input
+
+      -- same for a shape that has to build an output table
+      t = types.shape { [key]: types.string / (s) -> s\upper!, name: types.string }
+      compiled = compile t
+      assert_parity t, compiled, { [key]: "x", name: "y" }
+      assert_parity t, compiled, { [key]: "x", name: "y", extra: 1 }
+
   describe "static mode", ->
     it "generates self-contained code", ->
       code, refs = generate_code types.shape({

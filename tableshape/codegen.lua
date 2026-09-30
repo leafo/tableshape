@@ -211,6 +211,9 @@ do
             _continue_0 = true
             break
           end
+          if type(k) == "table" then
+            return nil
+          end
           local key = self:data_item_expr(k, seen)
           if not (key) then
             return nil
