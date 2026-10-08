@@ -751,3 +751,29 @@ describe "tableshape.codegen", ->
       compiled = compile compile types.number
       assert.is_true compiled 5
       assert.is_nil (compiled "no")
+
+describe "tableshape.codegen large types", ->
+  -- tagged fields are impure so each gets its own function, and the custom
+  -- checkers each add a ref
+  make_fields = (n) ->
+    {"f#{i}", types.string\tag("f#{i}") * types.custom((v) -> true) for i=1,n}
+
+  it "compiles a type with more than 200 nodes", ->
+    t = types.shape make_fields 250
+    compiled = compile t
+
+    input = {"f#{i}", "v#{i}" for i=1,250}
+    assert_parity t, compiled, input
+
+    value, state = compiled\transform input
+    assert.same "v250", state.f250
+
+  it "generates a standalone module with more than 200 nodes", ->
+    t = types.shape {"f#{i}", types.string\tag("f#{i}") for i=1,250}
+    code = generate_module t
+    mod = assert(loadstring(code))!
+
+    input = {"f#{i}", "v#{i}" for i=1,250}
+    value, state = mod.transform input
+    assert.same "v1", state.f1
+    assert.same "v250", state.f250

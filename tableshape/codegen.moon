@@ -127,6 +127,14 @@ sorted_pairs = (t) ->
 
 -- many of the classes are not exported from tableshape.init, so they are
 -- extracted from the instances & constructors held in the types table
+-- Lua 5.1 limits a function to 200 locals and 60 upvalues. Generated
+-- functions, consts and refs are chunk locals that the generated functions
+-- capture, so a chunk that exceeds either budget is regenerated with them
+-- stored in tables instead (see generate_code). The budgets leave room for
+-- the helper locals in the chunk header
+LOCAL_BUDGET = 180
+UPVALUE_BUDGET = 45
+
 Type = types.string.__class
 AnyType = types.any.__class
 ArrayType = types.array.__class
@@ -192,6 +200,8 @@ class Compiler
     @const_ids = {}
     @fn_ids = {}
     @fn_count = 0
+    @local_count = 0
+    @max_upvalues = 0
     @pure_cache = {}
     @pure_active = {}
     @proxy_cache = {}
@@ -199,6 +209,7 @@ class Compiler
 
     if opts
       @static = opts.static and true
+      @spill = opts.spill and true
 
   push: (line) => table.insert @lines, line
 
@@ -225,10 +236,35 @@ class Compiler
     name = @ref_ids[val]
     unless name
       table.insert @refs, val
-      name = "r#{#@refs}"
+      name = @chunk_name "r", #@refs
       @ref_ids[val] = name
 
     name
+
+  chunk_name: (prefix, idx) =>
+    @local_count += 1
+
+    unless @spill
+      return "#{prefix}#{idx}"
+
+    if prefix == "r"
+      "refs[#{idx}]"
+    else
+      "#{prefix\upper!}[#{idx}]"
+
+  needs_spill: =>
+    not @spill and (@local_count > LOCAL_BUDGET or @max_upvalues > UPVALUE_BUDGET)
+
+  -- distinct chunk level names in a function body, each one an upvalue
+  count_upvalues: (lines) =>
+    seen = {}
+    count = 0
+    for line in *lines
+      for name in line\gmatch "%f[%w_][tcr]%d+%f[^%w_]"
+        unless seen[name]
+          seen[name] = true
+          count += 1
+    count
 
   -- serialize a number into a lua expression that reproduces it exactly,
   -- returns nil if one can't be found
@@ -326,7 +362,7 @@ class Compiler
         return @ref val
 
       table.insert @consts, expr
-      name = "c#{#@consts}"
+      name = @chunk_name "c", #@consts
       @const_ids[val] = name
 
     name
@@ -565,7 +601,7 @@ class Compiler
       return name
 
     @fn_count += 1
-    name = "t#{@fn_count}"
+    name = @chunk_name "t", @fn_count
 
     -- registered before generating the body so recursive references resolve
     -- to this function
@@ -600,6 +636,10 @@ class Compiler
 
     table.remove @node_stack
 
+    unless @spill
+      upvalues = @count_upvalues buffer
+      @max_upvalues = upvalues if upvalues > @max_upvalues
+
     @push "#{name} = function(value, state)"
     for line in *buffer
       @push line
@@ -610,11 +650,16 @@ class Compiler
   -- append the constant tables, function declarations, and generated
   -- function definitions shared by both output formats
   assemble_definitions: (buf) =>
-    for i, expr in ipairs @consts
-      table.insert buf, "local c#{i} = #{expr}"
+    if @spill
+      table.insert buf, "local C, T = {}, {}"
+      for i, expr in ipairs @consts
+        table.insert buf, "C[#{i}] = #{expr}"
+    else
+      for i, expr in ipairs @consts
+        table.insert buf, "local c#{i} = #{expr}"
 
-    if @fn_count > 0
-      table.insert buf, "local " .. table.concat ["t#{i}" for i=1,@fn_count], ", "
+      if @fn_count > 0
+        table.insert buf, "local " .. table.concat ["t#{i}" for i=1,@fn_count], ", "
 
     for line in *@lines
       table.insert buf, line
@@ -632,7 +677,7 @@ class Compiler
       "local string_match = string.match"
     }
 
-    if #@refs > 0
+    if #@refs > 0 and not @spill
       names = table.concat ["r#{i}" for i=1,#@refs], ", "
       exprs = table.concat ["refs[#{i}]" for i=1,#@refs], ", "
       table.insert buf, "local #{names} = #{exprs}"
@@ -1257,6 +1302,11 @@ generate_code = (node, opts) ->
   assert BaseType\is_base_type(node), "expected type checker to compile"
   compiler = Compiler opts
   main_name = compiler\compile_node node
+
+  if compiler\needs_spill!
+    compiler = Compiler setmetatable {spill: true}, __index: opts
+    main_name = compiler\compile_node node
+
   compiler\assemble(main_name), compiler.refs
 
 -- generate the source of a standalone lua module for a type checker. The
@@ -1269,6 +1319,10 @@ generate_module = (node) ->
 
   compiler = Compiler static: true
   main_name = compiler\compile_node node
+
+  if compiler\needs_spill!
+    compiler = Compiler static: true, spill: true
+    main_name = compiler\compile_node node
 
   ok, description = pcall -> node\_describe!
   error_message = if ok

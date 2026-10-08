@@ -69,6 +69,8 @@ sorted_pairs = function(t)
     end
   end
 end
+local LOCAL_BUDGET = 180
+local UPVALUE_BUDGET = 45
 local Type = types.string.__class
 local AnyType = types.any.__class
 local ArrayType = types.array.__class
@@ -147,10 +149,38 @@ do
       local name = self.ref_ids[val]
       if not (name) then
         table.insert(self.refs, val)
-        name = "r" .. tostring(#self.refs)
+        name = self:chunk_name("r", #self.refs)
         self.ref_ids[val] = name
       end
       return name
+    end,
+    chunk_name = function(self, prefix, idx)
+      self.local_count = self.local_count + 1
+      if not (self.spill) then
+        return tostring(prefix) .. tostring(idx)
+      end
+      if prefix == "r" then
+        return "refs[" .. tostring(idx) .. "]"
+      else
+        return tostring(prefix:upper()) .. "[" .. tostring(idx) .. "]"
+      end
+    end,
+    needs_spill = function(self)
+      return not self.spill and (self.local_count > LOCAL_BUDGET or self.max_upvalues > UPVALUE_BUDGET)
+    end,
+    count_upvalues = function(self, lines)
+      local seen = { }
+      local count = 0
+      for _index_0 = 1, #lines do
+        local line = lines[_index_0]
+        for name in line:gmatch("%f[%w_][tcr]%d+%f[^%w_]") do
+          if not (seen[name]) then
+            seen[name] = true
+            count = count + 1
+          end
+        end
+      end
+      return count
     end,
     number_expr = function(self, val)
       if val ~= val then
@@ -252,7 +282,7 @@ do
           return self:ref(val)
         end
         table.insert(self.consts, expr)
-        name = "c" .. tostring(#self.consts)
+        name = self:chunk_name("c", #self.consts)
         self.const_ids[val] = name
       end
       return name
@@ -547,7 +577,7 @@ do
         return name
       end
       self.fn_count = self.fn_count + 1
-      local name = "t" .. tostring(self.fn_count)
+      local name = self:chunk_name("t", self.fn_count)
       self.fn_ids[node] = name
       local buffer = { }
       local emit
@@ -578,6 +608,12 @@ do
         handler(self, node, emit)
       end
       table.remove(self.node_stack)
+      if not (self.spill) then
+        local upvalues = self:count_upvalues(buffer)
+        if upvalues > self.max_upvalues then
+          self.max_upvalues = upvalues
+        end
+      end
       self:push(tostring(name) .. " = function(value, state)")
       for _index_0 = 1, #buffer do
         local line = buffer[_index_0]
@@ -587,19 +623,26 @@ do
       return name
     end,
     assemble_definitions = function(self, buf)
-      for i, expr in ipairs(self.consts) do
-        table.insert(buf, "local c" .. tostring(i) .. " = " .. tostring(expr))
-      end
-      if self.fn_count > 0 then
-        table.insert(buf, "local " .. table.concat((function()
-          local _accum_0 = { }
-          local _len_0 = 1
-          for i = 1, self.fn_count do
-            _accum_0[_len_0] = "t" .. tostring(i)
-            _len_0 = _len_0 + 1
-          end
-          return _accum_0
-        end)(), ", "))
+      if self.spill then
+        table.insert(buf, "local C, T = {}, {}")
+        for i, expr in ipairs(self.consts) do
+          table.insert(buf, "C[" .. tostring(i) .. "] = " .. tostring(expr))
+        end
+      else
+        for i, expr in ipairs(self.consts) do
+          table.insert(buf, "local c" .. tostring(i) .. " = " .. tostring(expr))
+        end
+        if self.fn_count > 0 then
+          table.insert(buf, "local " .. table.concat((function()
+            local _accum_0 = { }
+            local _len_0 = 1
+            for i = 1, self.fn_count do
+              _accum_0[_len_0] = "t" .. tostring(i)
+              _len_0 = _len_0 + 1
+            end
+            return _accum_0
+          end)(), ", "))
+        end
       end
       local _list_0 = self.lines
       for _index_0 = 1, #_list_0 do
@@ -624,7 +667,7 @@ do
         "local getmetatable, setmetatable = getmetatable, setmetatable",
         "local string_match = string.match"
       }
-      if #self.refs > 0 then
+      if #self.refs > 0 and not self.spill then
         local names = table.concat((function()
           local _accum_0 = { }
           local _len_0 = 1
@@ -1172,12 +1215,15 @@ do
       self.const_ids = { }
       self.fn_ids = { }
       self.fn_count = 0
+      self.local_count = 0
+      self.max_upvalues = 0
       self.pure_cache = { }
       self.pure_active = { }
       self.proxy_cache = { }
       self.node_stack = { }
       if opts then
         self.static = opts.static and true
+        self.spill = opts.spill and true
       end
     end,
     __base = _base_0,
@@ -1297,6 +1343,14 @@ generate_code = function(node, opts)
   assert(BaseType:is_base_type(node), "expected type checker to compile")
   local compiler = Compiler(opts)
   local main_name = compiler:compile_node(node)
+  if compiler:needs_spill() then
+    compiler = Compiler(setmetatable({
+      spill = true
+    }, {
+      __index = opts
+    }))
+    main_name = compiler:compile_node(node)
+  end
   return compiler:assemble(main_name), compiler.refs
 end
 local generate_module
@@ -1306,6 +1360,13 @@ generate_module = function(node)
     static = true
   })
   local main_name = compiler:compile_node(node)
+  if compiler:needs_spill() then
+    compiler = Compiler({
+      static = true,
+      spill = true
+    })
+    main_name = compiler:compile_node(node)
+  end
   local ok, description = pcall(function()
     return node:_describe()
   end)
