@@ -1,35 +1,24 @@
-local debug
-debug = function(...)
-  require("moon").p(...)
-  return ...
-end
 local json = require("cjson")
-local BaseType, types, is_type
+local BaseType, types, FailedTransform
 do
   local _obj_0 = require("tableshape")
-  BaseType, types, is_type = _obj_0.BaseType, _obj_0.types, _obj_0.is_type
+  BaseType, types, FailedTransform = _obj_0.BaseType, _obj_0.types, _obj_0.FailedTransform
 end
-local class_type, instance_type
-do
-  local _obj_0 = require("tableshape.moonscript")
-  class_type, instance_type = _obj_0.class_type, _obj_0.instance_type
-end
-local match_type_class
-match_type_class = function(t)
-  assert(class_type(t), "expected class type")
-  return types.metatable_is(types.literal(t.__base)):describe("Type class: " .. tostring(t.__name))
-end
-local match_type
-match_type = function(t)
-  assert(instance_type(t), "expected class type")
-  return types.equivalent(t) * types.metatable_is(types.literal(getmetatable(t)))
-end
-local field
-field = function(f)
-  return function(t)
-    return t[f]
-  end
-end
+local Literal = types.literal
+local Shape = types.shape
+local Partial = types.partial
+local ArrayOf = types.array_of
+local MapOf = types.map_of
+local OneOf = types.one_of
+local Range = types.range
+local OptionalType = types.optional
+local DescribeNode = types.describe
+local TransformNode = types._transform
+local AnnotateNode = types.annotate
+local TaggedType = types._tagged_type
+local TagScopeType = types._tag_scope_type
+local SequenceNode = types._sequence
+local FirstOfNode = types._first_of
 local JsonSchema
 do
   local _class_0
@@ -77,257 +66,403 @@ do
   end
   JsonSchema = _class_0
 end
+local basic_types = {
+  [types.any] = "any",
+  [types.string] = "string",
+  [types.number] = "number",
+  [types.boolean] = "boolean",
+  [types["nil"]] = "null",
+  [types["function"]] = "function",
+  [types.table] = "object",
+  [types.array] = "array",
+  [types.integer] = "integer"
+}
+local passthrough_classes = {
+  [Shape] = true,
+  [Partial] = true,
+  [ArrayOf] = true,
+  [MapOf] = true,
+  [JsonSchema] = true
+}
+local unwrap_classes = {
+  [TransformNode] = "node",
+  [AnnotateNode] = "base_type",
+  [TaggedType] = "base_type",
+  [TagScopeType] = "base_type"
+}
+local class_of
+class_of = function(t)
+  local mt = getmetatable(t)
+  return mt and mt.__class
+end
 local simplify
-local simplify_proxy = types.proxy(function()
-  return simplify
-end)
-simplify = types.one_of({
-  types.string,
-  types.number,
-  types.boolean,
-  types["nil"],
-  match_type_class(types.literal) / field("value"),
-  types.literal(types.any),
-  types.literal(types.string),
-  types.literal(types.number),
-  types.literal(types.boolean),
-  types.literal(types["nil"]),
-  types.literal(types["function"]),
-  types.literal(types.table),
-  types.literal(types.array),
-  types.literal(types.integer),
-  match_type_class(types.shape),
-  match_type_class(types.partial),
-  match_type_class(types.array_of),
-  match_type_class(types.map_of),
-  match_type_class(JsonSchema),
-  types.one_of({
-    match_type_class(types.optional):tag(function(state)
-      state.optional = true
-    end) / field("base_type"),
-    match_type_class(types.describe):tag(function(state, v)
-      state.description = state.description or tostring(v)
-    end) / field("node"),
-    match_type_class(types._transform) / field("node"),
-    match_type_class(types.annotate) / field("base_type"),
-    match_type_class(types._tagged_type) / field("base_type"),
-    match_type_class(types._tag_scope_type) / field("base_type")
-  }) * simplify_proxy,
-  match_type_class(types.one_of) * types.one_of({
-    types.partial({
-      options = types.array_of(simplify_proxy) * types.one_of({
-        types.array_of(types.string),
-        types.array_of(types.number)
-      })
-    }) / function(v)
-      return types.one_of(v.options)
-    end,
-    types.partial({
-      options = types.array_of(simplify_proxy + types.any / nil)
-    }) / function(res)
-      return assert(res.options[1], "options do not have valid type")
-    end
-  }),
-  match_type_class(types._sequence) * types.partial({
-    sequence = types.array_of(simplify_proxy + types.any / nil)
-  }) / function(res)
-    return assert(res.sequence[1], "sequence does not have valid type")
-  end,
-  match_type_class(types._first_of) * types.partial({
-    options = types.shape({
-      types.scope(simplify_proxy) * match_type(types["nil"]),
-      types.scope(simplify_proxy)
-    })
-  }) / (function(v)
-    return v.options[2]:is_optional()
-  end) * simplify_proxy
-})
-local not_optional = types.custom(function(val, state)
-  if state and state.optional then
-    return nil, "expected non-optional type"
+simplify = function(t, state)
+  local _exp_0 = type(t)
+  if "string" == _exp_0 or "number" == _exp_0 or "boolean" == _exp_0 or "nil" == _exp_0 then
+    return t, true
+  elseif "table" == _exp_0 then
+    local _scrap_0 = nil
+  else
+    return nil, false
   end
-  return true
-end)
-local not_optional_simplified = types.scope(simplify * not_optional)
-local with_description
-with_description = function(t)
-  return types.scope(t % function(v, state)
-    if state then
-      if state.optional then
-        error("unhandled optional state on type")
-      end
-      v.description = state.description
+  if basic_types[t] then
+    return t, true
+  end
+  local cls = class_of(t)
+  if not (cls) then
+    return nil, false
+  end
+  if cls == Literal then
+    return t.value, true
+  end
+  if passthrough_classes[cls] then
+    return t, true
+  end
+  if cls == OptionalType then
+    state.optional = true
+    return simplify(t.base_type, state)
+  end
+  if cls == DescribeNode then
+    state.description = state.description or tostring(t)
+    return simplify(t.node, state)
+  end
+  do
+    local field = unwrap_classes[cls]
+    if field then
+      return simplify(t[field], state)
     end
-    return v
-  end)
+  end
+  if cls == OneOf then
+    local simplified = { }
+    local all_strings, all_numbers = true, true
+    local all_ok = true
+    local _list_0 = t.options
+    for _index_0 = 1, #_list_0 do
+      local opt = _list_0[_index_0]
+      local v, ok = simplify(opt, state)
+      if ok then
+        if v ~= nil then
+          table.insert(simplified, v)
+        end
+        if type(v) ~= "string" then
+          all_strings = false
+        end
+        if type(v) ~= "number" then
+          all_numbers = false
+        end
+      else
+        all_ok = false
+      end
+    end
+    if all_ok and #simplified == #t.options and (all_strings or all_numbers) then
+      return OneOf(simplified), true
+    end
+    return (assert(simplified[1], "options do not have valid type")), true
+  end
+  if cls == SequenceNode then
+    local first = nil
+    local _list_0 = t.sequence
+    for _index_0 = 1, #_list_0 do
+      local item = _list_0[_index_0]
+      local v, ok = simplify(item, state)
+      if ok and v ~= nil and first == nil then
+        first = v
+      end
+    end
+    return (assert(first, "sequence does not have valid type")), true
+  end
+  if cls == FirstOfNode then
+    if not (#t.options == 2) then
+      return nil, false
+    end
+    local a, ok = simplify(t.options[1], { })
+    if not (ok and a == types["nil"]) then
+      return nil, false
+    end
+    local b
+    b, ok = simplify(t.options[2], { })
+    if not (ok) then
+      return nil, false
+    end
+    state.optional = true
+    return simplify(b, state)
+  end
+  return nil, false
 end
 local json_schema_value
-json_schema_value = simplify * types.one_of({
-  match_type_class(JsonSchema) / (function(t)
+json_schema_value = function(t, state)
+  local v, ok = simplify(t, state)
+  if not (ok) then
+    return nil, "unsupported type"
+  end
+  local _exp_0 = type(v)
+  if "string" == _exp_0 or "number" == _exp_0 or "boolean" == _exp_0 then
+    return {
+      const = v
+    }, true
+  elseif "table" == _exp_0 then
+    local _scrap_0 = nil
+  else
+    return nil, "unsupported value"
+  end
+  do
+    local name = basic_types[v]
+    if name then
+      return ((function()
+        if name == "any" then
+          return { }
+        else
+          return {
+            type = name
+          }
+        end
+      end)()), true
+    end
+  end
+  local cls = class_of(v)
+  if cls == JsonSchema then
     local schema
-    local _exp_0 = type(t.schema)
-    if "function" == _exp_0 then
-      schema = t.schema(t.base_type)
+    local _exp_1 = type(v.schema)
+    if "function" == _exp_1 then
+      schema = v.schema(v.base_type)
     else
-      schema = t.schema
+      schema = v.schema
     end
     assert(type(schema) == "table", "expected table for schema")
-    return schema
-  end) * types.clone,
-  match_type(types.any) / function()
-    return { }
-  end,
-  match_type(types.string) / function()
-    return {
-      type = "string"
-    }
-  end,
-  match_type(types.number) / function()
-    return {
-      type = "number"
-    }
-  end,
-  match_type(types.boolean) / function()
-    return {
-      type = "boolean"
-    }
-  end,
-  match_type(types["nil"]) / function()
-    return {
-      type = "null"
-    }
-  end,
-  match_type(types["function"]) / function()
-    return {
-      type = "function"
-    }
-  end,
-  match_type(types.table) / function()
-    return {
-      type = "object"
-    }
-  end,
-  match_type(types.array) / function()
-    return {
-      type = "array"
-    }
-  end,
-  match_type(types.integer) / function()
-    return {
-      type = "integer"
-    }
-  end,
-  match_type(types.userdata) / function()
-    return error("userdata not supported in JSON Schema")
-  end,
-  match_type_class(types.literal) / function(t)
-    return {
-      const = t.value
-    }
-  end,
-  types.one_of({
-    types.string,
-    types.number,
-    types.boolean
-  }) / function(value)
-    return {
-      const = value
-    }
-  end,
-  match_type_class(types.one_of) * types.partial({
-    options = types.one_of({
-      types.array_of(types.string),
-      types.array_of(types.number)
-    })
-  }) / function(v)
-    return {
-      type = type(v.options[1]),
-      enum = setmetatable(v.options, json.array_mt)
-    }
-  end,
-  types.one_of({
-    match_type_class(types.partial),
-    match_type_class(types.shape)
-  }) * types.shape({
-    open = types.any,
-    shape = types.shape({ }, {
-      extra_fields = types.map_of(types.string, types.scope(types.proxy(function()
-        return json_schema_value
-      end) % function(v, state)
-        state = state or { }
-        v.description = state.description
-        state._type = v
-        return state
-      end))
-    })
-  }) / function(t)
-    local additional_properties
-    if t.open then
-      additional_properties = nil
-    else
-      additional_properties = false
+    local copy
+    do
+      local _tbl_0 = { }
+      for k, sv in pairs(schema) do
+        _tbl_0[k] = sv
+      end
+      copy = _tbl_0
     end
+    do
+      local mt = getmetatable(schema)
+      if mt then
+        setmetatable(copy, mt)
+      end
+    end
+    return copy, true
+  end
+  if cls == Literal then
+    return {
+      const = v.value
+    }, true
+  end
+  if cls == OneOf then
+    local options = v.options
+    if options[1] == nil then
+      return nil, "empty enum"
+    end
+    return {
+      type = type(options[1]),
+      enum = setmetatable((function()
+        local _accum_0 = { }
+        local _len_0 = 1
+        for _index_0 = 1, #options do
+          local o = options[_index_0]
+          _accum_0[_len_0] = o
+          _len_0 = _len_0 + 1
+        end
+        return _accum_0
+      end)(), json.array_mt)
+    }, true
+  end
+  if cls == Shape or cls == Partial then
     local properties = { }
     local required = { }
-    for k, v in pairs(t.shape) do
-      if not (v.optional) then
+    for k, field_type in pairs(v.shape) do
+      if not (type(k) == "string") then
+        return nil, "shape key is not a string"
+      end
+      local field_state = { }
+      local schema, err = json_schema_value(field_type, field_state)
+      if not (schema) then
+        return nil, tostring(k) .. ": " .. tostring(err)
+      end
+      schema.description = field_state.description
+      properties[k] = schema
+      if not (field_state.optional) then
         table.insert(required, k)
       end
-      properties[k] = v._type
     end
     table.sort(required)
     return {
       type = "object",
       properties = properties,
       required = setmetatable(required, json.array_mt),
-      additionalProperties = additional_properties
-    }
-  end,
-  match_type_class(types.array_of) * types.partial({
-    expected = types.scope(types.proxy(function()
-      return json_schema_value
-    end) * not_optional),
-    length_type = types.one_of({
-      not_optional_simplified * types.number / function(v)
-        return {
-          min_items = v,
-          max_items = v
-        }
-      end,
-      match_type_class(types.range) * types.partial({
-        left = not_optional_simplified * types.number,
-        right = not_optional_simplified * types.number
-      }) / function(v)
-        return {
-          min_items = v.left,
-          max_items = v.right
-        }
-      end,
-      types.any / nil
-    })
-  }) / function(v)
+      additionalProperties = (function()
+        if v.open then
+          return nil
+        else
+          return false
+        end
+      end)()
+    }, true
+  end
+  if cls == ArrayOf then
+    local item_state = { }
+    local items, err = json_schema_value(v.expected, item_state)
+    if not (items) then
+      return nil, "array item: " .. tostring(err)
+    end
+    if item_state.optional then
+      return nil, "array item: unexpected optional type"
+    end
+    local min_items, max_items
+    do
+      local length_type = v.length_type
+      if length_type then
+        local length_state = { }
+        local length
+        length, ok = simplify(length_type, length_state)
+        if ok and not length_state.optional and type(length) == "number" then
+          min_items, max_items = length, length
+        elseif class_of(length_type) == Range then
+          local left, left_ok = simplify(length_type.left, { })
+          local right, right_ok = simplify(length_type.right, { })
+          if left_ok and right_ok and type(left) == "number" and type(right) == "number" then
+            min_items, max_items = left, right
+          end
+        end
+      end
+    end
     return {
       type = "array",
-      items = v.expected,
-      minItems = v.length_type and v.length_type.min_items,
-      maxItems = v.length_type and v.length_type.max_items
-    }
-  end,
-  match_type_class(types.map_of) * types.partial({
-    expected_key = not_optional_simplified * match_type(types.string),
-    expected_value = types.scope(types.proxy(function()
-      return json_schema_value
-    end) * not_optional)
-  }) / function(v)
+      items = items,
+      minItems = min_items,
+      maxItems = max_items
+    }, true
+  end
+  if cls == MapOf then
+    local key_state = { }
+    local key
+    key, ok = simplify(v.expected_key, key_state)
+    if not (ok and not key_state.optional and key == types.string) then
+      return nil, "map key must be string"
+    end
+    local value_state = { }
+    local value_schema, err = json_schema_value(v.expected_value, value_state)
+    if not (value_schema) then
+      return nil, "map value: " .. tostring(err)
+    end
+    if value_state.optional then
+      return nil, "map value: unexpected optional type"
+    end
     return {
       type = "object",
-      additionalProperties = v.expected_value
-    }
+      additionalProperties = value_schema
+    }, true
   end
-})
-local to_json_schema = with_description(json_schema_value)
+  return nil, "unsupported type"
+end
+local ToJsonSchema
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    _transform = function(self, t, state)
+      local schema_state = { }
+      local schema, err = json_schema_value(t, schema_state)
+      if not (schema) then
+        return FailedTransform, "could not convert to json schema: " .. tostring(err)
+      end
+      if schema_state.optional then
+        error("unhandled optional state on type")
+      end
+      schema.description = schema_state.description
+      return schema, state
+    end,
+    _describe = function(self)
+      return "json schema"
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, ...)
+      return _class_0.__parent.__init(self, ...)
+    end,
+    __base = _base_0,
+    __name = "ToJsonSchema",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  ToJsonSchema = _class_0
+end
+local Simplify
+do
+  local _class_0
+  local _parent_0 = BaseType
+  local _base_0 = {
+    _transform = function(self, t, state)
+      local v, ok = simplify(t, { })
+      if not (ok) then
+        return FailedTransform, "could not simplify type"
+      end
+      return v, state
+    end,
+    _describe = function(self)
+      return "simplified type"
+    end
+  }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, ...)
+      return _class_0.__parent.__init(self, ...)
+    end,
+    __base = _base_0,
+    __name = "Simplify",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  Simplify = _class_0
+end
+local to_json_schema = ToJsonSchema()
 return {
   to_json_schema = to_json_schema,
-  simplify = simplify,
+  simplify = Simplify(),
   JsonSchema = JsonSchema
 }

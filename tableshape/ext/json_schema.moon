@@ -3,40 +3,39 @@
 --
 -- https://tour.json-schema.org/
 --
--- The goal of this module is to get good enough, not perflectly reproduce the
+-- The goal of this module is to get good enough, not perfectly reproduce the
 -- shape. A shape author should then have a custom node to influence how the
 -- json schema type is generated
-
--- TODO: add a special wrapper type that can be used to wrap types to allow
--- author to specify their own custom logic for creating json type
+--
+-- this works in two passes
+-- 1. simplify -> convert any complex types into their minimal type that can be serialized
+-- 2. to_json_schema -> operates on common subset of types that can be directly mapped to a json schema
+--
+-- Both passes are plain recursive walks dispatching on the class of the type
+-- object, not tableshape patterns matching over type objects: a failed one_of
+-- alternative builds an error string describing the whole type tree, which
+-- makes pattern based conversion of a moderate shape cost tens of milliseconds
 
 -- TODO: detect range structure in sequences to enhance string range support
 
-debug = (...) ->
-  require("moon").p ...
-  ...
-
--- this works in two passes
--- 1. simplify -> convert any complex types into their minimal type that can be serialized
--- 2. to_json_schema -> operates on common subset of types that can be directly mapped to a json shcmea
-
-
 json = require "cjson"
-import BaseType, types, is_type from require "tableshape"
-import class_type, instance_type from require "tableshape.moonscript"
+import BaseType, types, FailedTransform from require "tableshape"
 
-match_type_class = (t) ->
-  assert class_type(t), "expected class type"
-  types.metatable_is(types.literal t.__base)\describe "Type class: #{t.__name}"
-
--- directly match the type
-match_type = (t) ->
-  assert instance_type(t), "expected class type"
-  -- NOTE: types.literal is important, so the value of mt is tested directly
-  -- instead of treating it as a pattern for the mt
-  types.equivalent(t) * types.metatable_is(types.literal getmetatable t)
-
-field = (f) -> (t) -> t[f]
+Literal = types.literal
+Shape = types.shape
+Partial = types.partial
+ArrayOf = types.array_of
+MapOf = types.map_of
+OneOf = types.one_of
+Range = types.range
+OptionalType = types.optional
+DescribeNode = types.describe
+TransformNode = types._transform
+AnnotateNode = types.annotate
+TaggedType = types._tagged_type
+TagScopeType = types._tag_scope_type
+SequenceNode = types._sequence
+FirstOfNode = types._first_of
 
 -- TODO: consider using this type to wrap description/optional metadata instead of trying to pass it through state
 class JsonSchema extends BaseType
@@ -50,232 +49,269 @@ class JsonSchema extends BaseType
   _describe: =>
     @base_type\_describe!
 
-
--- simplifies a tableshape pattern, extracting metadata about the type into the
--- state, and returns a new tableshape type that can be serialized by json_schema_value
--- state: pushes {description:, optional:}
--- This should reject any type that can't be handled
-local simplify
-simplify_proxy = types.proxy -> simplify
-simplify = types.one_of {
-  -- literal values
-  types.string
-  types.number
-  types.boolean
-  types.nil
-
-  -- literal wrapped value
-  match_type_class(types.literal) / field("value")
-
-  -- basic types
-  types.literal types.any
-  types.literal types.string
-  types.literal types.number
-  types.literal types.boolean
-  types.literal types.nil
-  types.literal types.function
-  types.literal types.table
-  types.literal types.array
-  types.literal types.integer
-
-  -- instanced types
-  match_type_class types.shape
-  match_type_class types.partial
-  match_type_class types.array_of
-  match_type_class types.map_of
-  match_type_class JsonSchema
-
-  types.one_of({
-    match_type_class(types.optional)\tag((state) -> state.optional = true) / field "base_type"
-    match_type_class(types.describe)\tag((state, v) -> state.description or= tostring v) / field "node"
-
-    match_type_class(types._transform) / field("node")
-
-    match_type_class(types.annotate) / field("base_type")
-    match_type_class(types._tagged_type) / field("base_type")
-    match_type_class(types._tag_scope_type) / field("base_type")
-  }) * simplify_proxy
-
-  match_type_class(types.one_of) * types.one_of {
-    -- enum pattern, a list of simple terminals of all the same type
-    types.partial({
-      options: types.array_of(simplify_proxy) * types.one_of {
-        types.array_of types.string
-        types.array_of types.number
-      }
-    }) / (v) ->
-      -- rebuild it so it can be matched
-      types.one_of v.options
-
-    -- generic pattern, just take the first thing that shows up that is valid type
-    -- TODO: this is very basic, are there any common patterns to be extracted here?
-    -- TODO: warning, this will override description/optional state with right most array item
-    types.partial({
-      options: types.array_of simplify_proxy + types.any / nil
-    }) / (res) -> assert res.options[1], "options do not have valid type"
-  }
-
-  -- TODO: this doesn't handle state merging very well
-  match_type_class(types._sequence) * types.partial({
-    sequence: types.array_of simplify_proxy + types.any / nil
-  }) / (res) -> assert res.sequence[1], "sequence does not have valid type"
-
-  -- special case empty + value for optional wrapping
-  match_type_class(types._first_of) * types.partial({
-    options: types.shape {
-      types.scope(simplify_proxy) * match_type(types.nil)
-      types.scope simplify_proxy
-    }
-  }) / ((v) -> v.options[2]\is_optional!) * simplify_proxy
+-- basic type objects and the json schema type they map to
+basic_types = {
+  [types.any]: "any"
+  [types.string]: "string"
+  [types.number]: "number"
+  [types.boolean]: "boolean"
+  [types.nil]: "null"
+  [types.function]: "function"
+  [types.table]: "object"
+  [types.array]: "array"
+  [types.integer]: "integer"
 }
 
-not_optional = types.custom (val, state) ->
-  if state and state.optional
-    return nil, "expected non-optional type"
+passthrough_classes = {
+  [Shape]: true
+  [Partial]: true
+  [ArrayOf]: true
+  [MapOf]: true
+  [JsonSchema]: true
+}
 
-  true
+unwrap_classes = {
+  [TransformNode]: "node"
+  [AnnotateNode]: "base_type"
+  [TaggedType]: "base_type"
+  [TagScopeType]: "base_type"
+}
 
--- simplify a value and assert it's not optional, pushes no state
-not_optional_simplified = types.scope simplify * not_optional
+class_of = (t) ->
+  mt = getmetatable t
+  mt and mt.__class
 
--- inserts the description into the type from the state
-with_description = (t) ->
-  types.scope t % (v, state) ->
-    if state
-      if state.optional
-        error "unhandled optional state on type"
-
-      v.description = state.description
-    v
-
--- NOTE: since this calls simplify, it also pushes state about the wrapped type (description, optional)
-local json_schema_value
-json_schema_value = simplify * types.one_of {
-  match_type_class(JsonSchema) / ((t) ->
-    schema = switch type t.schema
-      when "function"
-        t.schema t.base_type
-      else
-        t.schema
-
-    assert type(schema) == "table", "expected table for schema"
-    schema
-  ) * types.clone
-
-  match_type(types.any) / -> {}
-  match_type(types.string) / -> { type: "string" }
-  match_type(types.number) / -> { type: "number" }
-  match_type(types.boolean) / -> { type: "boolean" }
-  match_type(types.nil) / -> { type: "null" }
-  match_type(types.function) / -> { type: "function" }
-  match_type(types.table) / -> { type: "object" }
-  match_type(types.array) / -> { type: "array" }
-  match_type(types.integer) / -> { type: "integer" }
-
-  match_type(types.userdata) / -> error "userdata not supported in JSON Schema"
-
-  -- extract value from literal pattern match
-  match_type_class(types.literal) / (t) -> { const: t.value }
-
-  -- actual literal types
-  types.one_of({
-    types.string
-    types.number
-    types.boolean
-  }) / (value) -> { const: value }
-
-  -- enum schema
-  match_type_class(types.one_of) * types.partial({
-    -- TODO: this doesn't handle empty arrays
-    options: types.one_of {
-      types.array_of(types.string)
-      types.array_of(types.number)
-    }
-  }) / (v) ->
-    {
-      type: type v.options[1] -- todo: this should be more strict
-      enum: setmetatable v.options, json.array_mt
-    }
-
-  -- object schema
-  types.one_of({
-    match_type_class types.partial
-    match_type_class types.shape
-  }) * types.shape({
-    open: types.any
-    shape: types.shape {}, {
-      -- have to extract optional, so we have to double some work
-      extra_fields: types.map_of(
-        types.string,
-        types.scope types.proxy(-> json_schema_value) % (v, state) ->
-          state or= {}
-          v.description = state.description
-          state._type = v
-          state
-      )
-    }
-  }) / (t) ->
-    additional_properties = if t.open
+-- reduces a type to the minimal value json_schema_value can serialize, writing
+-- description and optional into state in place. The second return value
+-- distinguishes failure from a successful nil
+local simplify
+simplify = (t, state) ->
+  switch type t
+    when "string", "number", "boolean", "nil"
+      return t, true
+    when "table"
       nil
     else
-      false
+      return nil, false
 
+  if basic_types[t]
+    return t, true
+
+  cls = class_of t
+  return nil, false unless cls
+
+  if cls == Literal
+    return t.value, true
+
+  if passthrough_classes[cls]
+    return t, true
+
+  if cls == OptionalType
+    state.optional = true
+    return simplify t.base_type, state
+
+  if cls == DescribeNode
+    -- the outermost description wins
+    state.description or= tostring t
+    return simplify t.node, state
+
+  if field = unwrap_classes[cls]
+    return simplify t[field], state
+
+  if cls == OneOf
+    -- state is threaded through every option, not just the one that is used
+    -- TODO: this is very basic, are there any common patterns to be extracted here?
+    simplified = {}
+    all_strings, all_numbers = true, true
+    all_ok = true
+
+    for opt in *t.options
+      v, ok = simplify opt, state
+      if ok
+        if v != nil
+          table.insert simplified, v
+        all_strings = false if type(v) != "string"
+        all_numbers = false if type(v) != "number"
+      else
+        all_ok = false
+
+    if all_ok and #simplified == #t.options and (all_strings or all_numbers)
+      return OneOf(simplified), true
+
+    return (assert simplified[1], "options do not have valid type"), true
+
+  if cls == SequenceNode
+    -- TODO: this doesn't handle state merging very well
+    first = nil
+    for item in *t.sequence
+      v, ok = simplify item, state
+      if ok and v != nil and first == nil
+        first = v
+
+    return (assert first, "sequence does not have valid type"), true
+
+  if cls == FirstOfNode
+    -- types.nil + T is the optional pattern. Metadata inside T is discarded
+    return nil, false unless #t.options == 2
+
+    a, ok = simplify t.options[1], {}
+    return nil, false unless ok and a == types.nil
+
+    b, ok = simplify t.options[2], {}
+    return nil, false unless ok
+
+    state.optional = true
+    return simplify b, state
+
+  nil, false
+
+-- state receives description and optional for the type, see simplify
+local json_schema_value
+json_schema_value = (t, state) ->
+  v, ok = simplify t, state
+  return nil, "unsupported type" unless ok
+
+  switch type v
+    when "string", "number", "boolean"
+      return { const: v }, true
+    when "table"
+      nil
+    else
+      return nil, "unsupported value"
+
+  if name = basic_types[v]
+    return (if name == "any" then {} else { type: name }), true
+
+  cls = class_of v
+
+  if cls == JsonSchema
+    schema = switch type v.schema
+      when "function"
+        v.schema v.base_type
+      else
+        v.schema
+
+    assert type(schema) == "table", "expected table for schema"
+
+    -- shallow copy so the caller's schema table is never mutated
+    copy = {k, sv for k, sv in pairs schema}
+    if mt = getmetatable schema
+      setmetatable copy, mt
+
+    return copy, true
+
+  if cls == Literal
+    return { const: v.value }, true
+
+  if cls == OneOf
+    -- simplify guarantees options are all strings or all numbers
+    options = v.options
+    return nil, "empty enum" if options[1] == nil
+
+    return {
+      type: type options[1]
+      enum: setmetatable [o for o in *options], json.array_mt
+    }, true
+
+  if cls == Shape or cls == Partial
     properties = {}
     required = {}
 
-    for k,v in pairs t.shape
-      unless v.optional
-        table.insert required, k
+    for k, field_type in pairs v.shape
+      return nil, "shape key is not a string" unless type(k) == "string"
 
-      properties[k] = v._type
+      field_state = {}
+      schema, err = json_schema_value field_type, field_state
+      return nil, "#{k}: #{err}" unless schema
+
+      schema.description = field_state.description
+      properties[k] = schema
+
+      unless field_state.optional
+        table.insert required, k
 
     table.sort required
 
-    {
+    return {
       type: "object"
       properties: properties
       required: setmetatable required, json.array_mt
-      additionalProperties: additional_properties
-    }
+      additionalProperties: if v.open then nil else false
+    }, true
 
-  -- array_of
-  match_type_class(types.array_of) * types.partial({
-    expected: types.scope types.proxy(-> json_schema_value) * not_optional
-    length_type: types.one_of {
-      not_optional_simplified * types.number / (v) -> {
-        min_items: v
-        max_items: v
-      }
+  if cls == ArrayOf
+    item_state = {}
+    items, err = json_schema_value v.expected, item_state
+    return nil, "array item: #{err}" unless items
+    return nil, "array item: unexpected optional type" if item_state.optional
 
-      match_type_class(types.range) * types.partial({
-        left: not_optional_simplified * types.number
-        right: not_optional_simplified * types.number
-      }) / (v) -> {
-        min_items: v.left
-        max_items: v.right
-      }
+    local min_items, max_items
+    if length_type = v.length_type
+      length_state = {}
+      length, ok = simplify length_type, length_state
+      if ok and not length_state.optional and type(length) == "number"
+        min_items, max_items = length, length
+      elseif class_of(length_type) == Range
+        left, left_ok = simplify length_type.left, {}
+        right, right_ok = simplify length_type.right, {}
+        if left_ok and right_ok and type(left) == "number" and type(right) == "number"
+          min_items, max_items = left, right
 
-      types.any / nil -- ignore
-    }
-  }) / (v) ->
-    {
+    return {
       type: "array"
-      items: v.expected
-      minItems: v.length_type and v.length_type.min_items
-      maxItems: v.length_type and v.length_type.max_items
-    }
+      items: items
+      minItems: min_items
+      maxItems: max_items
+    }, true
 
-  -- map_of(string, T)
-  match_type_class(types.map_of) * types.partial({
-    expected_key: not_optional_simplified * match_type(types.string)
-    expected_value: types.scope types.proxy(-> json_schema_value) * not_optional
-  }) / (v) ->
-    {
+  if cls == MapOf
+    key_state = {}
+    key, ok = simplify v.expected_key, key_state
+    unless ok and not key_state.optional and key == types.string
+      return nil, "map key must be string"
+
+    value_state = {}
+    value_schema, err = json_schema_value v.expected_value, value_state
+    return nil, "map value: #{err}" unless value_schema
+    return nil, "map value: unexpected optional type" if value_state.optional
+
+    return {
       type: "object"
-      additionalProperties: v.expected_value
-    }
-}
+      additionalProperties: value_schema
+    }, true
 
-to_json_schema = with_description json_schema_value
+  nil, "unsupported type"
 
-{:to_json_schema, :simplify, :JsonSchema}
+class ToJsonSchema extends BaseType
+  _transform: (t, state) =>
+    schema_state = {}
+    schema, err = json_schema_value t, schema_state
+
+    unless schema
+      return FailedTransform, "could not convert to json schema: #{err}"
+
+    if schema_state.optional
+      error "unhandled optional state on type"
+
+    schema.description = schema_state.description
+    schema, state
+
+  _describe: =>
+    "json schema"
+
+-- the exported simplify drops the metadata state
+class Simplify extends BaseType
+  _transform: (t, state) =>
+    v, ok = simplify t, {}
+
+    unless ok
+      return FailedTransform, "could not simplify type"
+
+    v, state
+
+  _describe: =>
+    "simplified type"
+
+to_json_schema = ToJsonSchema!
+
+{:to_json_schema, simplify: Simplify!, :JsonSchema}
