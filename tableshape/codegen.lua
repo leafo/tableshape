@@ -87,6 +87,8 @@ local ArrayContains = types.array_contains
 local MapOf = types.map_of
 local Range = types.range
 local Custom = types.custom
+local Equivalent = types.equivalent
+local MetatableIsType = types.metatable_is
 local TagScopeType = types.scope
 local Proxy = types.proxy
 local AnnotateNode = types.annotate
@@ -350,8 +352,14 @@ do
         end
       end
       local _exp_0 = node.__class
-      if AnyType == _exp_0 or Literal == _exp_0 or Range == _exp_0 or Custom == _exp_0 or ArrayType == _exp_0 then
+      if AnyType == _exp_0 or Literal == _exp_0 or Range == _exp_0 or Custom == _exp_0 or ArrayType == _exp_0 or Equivalent == _exp_0 then
         return true, false
+      elseif MetatableIsType == _exp_0 then
+        if node.allow_metatable_update then
+          return false, false
+        else
+          return self:is_pure(node.metatable_type)
+        end
       elseif Pattern == _exp_0 then
         return true, false
       elseif NotType == _exp_0 then
@@ -457,6 +465,15 @@ do
         end
       elseif Custom == _exp_0 then
         return "(" .. tostring(self:ref(node.fn)) .. "(" .. tostring(v) .. ", " .. tostring(s) .. "))"
+      elseif Equivalent == _exp_0 then
+        if type(node.val) == "table" then
+          return tostring(self:ref(Equivalent.values_equivalent)) .. "(" .. tostring(self:ref(node.val)) .. ", " .. tostring(v) .. ")"
+        else
+          return tostring(v) .. " == " .. tostring(self:value_expr(node.val))
+        end
+      elseif MetatableIsType == _exp_0 then
+        local inner = self:predicate_expr(node.metatable_type, "getmetatable(" .. tostring(v) .. ")", s)
+        return "(type(" .. tostring(v) .. ") == 'table' and " .. tostring(inner) .. ")"
       elseif OneOf == _exp_0 then
         if node.options_hash then
           return tostring(self:const(node.options_hash)) .. "[" .. tostring(v) .. "] ~= nil"

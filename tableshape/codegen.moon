@@ -152,6 +152,8 @@ ArrayContains = types.array_contains
 MapOf = types.map_of
 Range = types.range
 Custom = types.custom
+Equivalent = types.equivalent
+MetatableIsType = types.metatable_is
 TagScopeType = types.scope
 Proxy = types.proxy
 AnnotateNode = types.annotate
@@ -430,8 +432,15 @@ class Compiler
         return (custom and true or false), false
 
     switch node.__class
-      when AnyType, Literal, Range, Custom, ArrayType
+      when AnyType, Literal, Range, Custom, ArrayType, Equivalent
         true, false
+      when MetatableIsType
+        -- with allow_metatable_update the metatable type's result is written
+        -- back to the value
+        if node.allow_metatable_update
+          false, false
+        else
+          @is_pure node.metatable_type
       when Pattern
         -- a coerce type only produces the test value, the input passes
         -- through untouched
@@ -522,6 +531,14 @@ class Compiler
           "(type(#{v}) == 'string' and string_match(#{v}, #{pat}) ~= nil)"
       when Custom
         "(#{@ref node.fn}(#{v}, #{s}))"
+      when Equivalent
+        if type(node.val) == "table"
+          "#{@ref Equivalent.values_equivalent}(#{@ref node.val}, #{v})"
+        else
+          "#{v} == #{@value_expr node.val}"
+      when MetatableIsType
+        inner = @predicate_expr node.metatable_type, "getmetatable(#{v})", s
+        "(type(#{v}) == 'table' and #{inner})"
       when OneOf
         if node.options_hash
           "#{@const node.options_hash}[#{v}] ~= nil"

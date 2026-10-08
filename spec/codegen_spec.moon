@@ -67,7 +67,11 @@ describe "tableshape.codegen", ->
       "range string": types.range "a", "f"
       "pattern": types.pattern "^%d+$"
       "custom": types.custom (v) -> type(v) == "table"
-      "equivalent (fallback)": types.equivalent {1, 2, {3}}
+      "equivalent table": types.equivalent {1, 2, {3}}
+      "equivalent string": types.equivalent "hello"
+      "equivalent number": types.equivalent 5
+      "metatable_is table type": types.metatable_is types.table
+      "metatable_is nil type": types.metatable_is types["nil"]
 
       "transform": types.string / (s) -> "<#{s}>"
       "transform constant": types.string / "CONST"
@@ -242,7 +246,8 @@ describe "tableshape.codegen", ->
         "transform function": types.string / (s) -> s
         "function tag": types.string\tag (state, v) -> nil
         "table literal": types.literal {1, 2}
-        "fallback type": types.equivalent {1, 2}
+        "equivalent table": types.equivalent {1, 2}
+        "fallback type": types.assert types.string
       }
 
       for name, t in pairs cases
@@ -777,3 +782,38 @@ describe "tableshape.codegen large types", ->
     value, state = mod.transform input
     assert.same "v1", state.f1
     assert.same "v250", state.f250
+
+describe "tableshape.codegen metatable_is", ->
+  mt = { __name: "thing" }
+  other_mt = { __name: "other" }
+
+  it "matches a literal metatable", ->
+    t = types.metatable_is mt
+    compiled = compile t
+
+    assert_parity t, compiled, setmetatable {}, mt
+    assert_parity t, compiled, setmetatable {}, other_mt
+    assert_parity t, compiled, {}
+    assert_parity t, compiled, "hello"
+
+  it "matches a metatable through a shape", ->
+    t = types.metatable_is types.shape { __name: types.string }
+    compiled = compile t
+
+    assert_parity t, compiled, setmetatable {}, mt
+    assert_parity t, compiled, setmetatable {}, { __name: 5 }
+    assert_parity t, compiled, {}
+
+  it "fails when the metatable type changes the metatable", ->
+    t = types.metatable_is types.literal(mt) / other_mt
+    compiled = compile t
+    assert_parity t, compiled, setmetatable {}, mt
+
+  it "updates the metatable with allow_metatable_update", ->
+    t = types.metatable_is types.literal(mt) / other_mt, allow_metatable_update: true
+    compiled = compile t
+
+    input = setmetatable {}, mt
+    value = assert compiled\transform input
+    assert rawequal(input, value)
+    assert.equal other_mt, getmetatable value

@@ -970,6 +970,8 @@ class Equivalent extends BaseType
     else
       false
 
+  @values_equivalent: values_equivalent
+
   new: (@val) =>
 
   _describe: =>
