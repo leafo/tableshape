@@ -554,6 +554,84 @@ This includes composite type constructors like `types.shape`, `types.array_of`,
 `types.map_of`, etc. You only need to be careful about mutations when using
 custom transformation functions.
 
+## Compiling types
+
+`tableshape.codegen` turns a type into a single generated Lua function. Use
+it when the same type checks many values and the interpreted type shows up in
+a profile, for example a request validator on a hot path. A plain shape runs
+5-10x faster compiled depending on the Lua VM, a shape with tags or transforms
+around 3-4x.
+
+```lua
+local types = require("tableshape").types
+local codegen = require("tableshape.codegen")
+
+local player_shape = types.shape{
+  name = types.string,
+  position = types.shape{ x = types.number, y = types.number },
+}
+
+local compiled = codegen.compile(player_shape)
+
+-- a compiled type is a regular type checker
+assert(compiled(player))
+local value, state = compiled:transform(player)
+```
+
+Compiled types behave like the interpreted type with a few differences:
+
+* Error messages are not generated. A failed check returns a single generic
+  message built from the type's description. Pass `rerun_errors = true` to
+  get the exact message instead; on failure the interpreted type is run a
+  second time to produce it, so successful checks stay fast.
+* `types.proxy` is resolved once, when `compile` is called.
+* `types.one_of` only runs its type checker options against the value, it
+  does not also compare the value against them by identity.
+* The shape's table must not be modified after compiling.
+
+Any type can be compiled: types the compiler doesn't know, including your own
+`BaseType` subclasses, are called through their `_transform` method, so they
+work but don't get faster.
+
+#### `codegen.compile(type, options={})`
+
+Returns the compiled type. Available options:
+
+* `rerun_errors` - run the interpreted type on failure to produce its error message
+* `static` - fail with an error if the generated code would need to reference a runtime value, see below
+
+#### `codegen.generate_module(type)`
+
+Returns the Lua source of a standalone module for the type. The module has no
+dependencies, not even tableshape, and returns a table with `check_value`,
+`transform`, and `repair` functions. Use it to ship a validator without the
+library, or to generate the code at build time:
+
+```lua
+local source = codegen.generate_module(player_shape)
+-- write source to player_shape.lua, then elsewhere:
+local player_shape = require("player_shape")
+assert(player_shape.check_value(player))
+```
+
+The same type always generates identical source, so the output can be checked
+in and diffed. Only types that can be written out as plain Lua are supported:
+a type that holds a function or a table value, such as a transform, `custom`,
+a function tag, or a `literal` table, can't be made into a module. Calling
+`generate_module` on one raises an error naming the offending type. Error
+messages from the generated module are always the generic kind described
+above.
+
+#### `codegen.generate_code(type, options={})`
+
+Returns the source of a Lua chunk for the type along with an array of runtime
+values the chunk must be loaded with. This is what `compile` uses internally;
+it's useful for inspecting the output. The `static` option applies here too.
+
+Custom types can take part in code generation by implementing the
+`_compile_*` hooks described at the top of `tableshape/codegen.moon`. This
+interface is experimental and may change.
+
 ## Reference
 
 ```lua
