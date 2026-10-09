@@ -1176,5 +1176,5 @@ is_type = (val) ->
   BaseType\is_base_type val
 
 {
-  :check_shape, :types, :is_type, :BaseType, :FailedTransform, VERSION: "2.7.0"
+  :check_shape, :types, :is_type, :BaseType, :FailedTransform, VERSION: "2.8.0"
 }
