@@ -234,3 +234,19 @@ describe "tableshape.with_args", ->
     assert.has_error (->
       with_args {}, "not a function"
     ), "with_args expects function for second argument"
+  it "passes transformed value for omitted argument", ->
+    wrapped_fn = with_args {
+      types.string
+      types.nil / "default" + types.string
+    }, (a, b) -> "#{a}:#{b}"
+
+    assert.same { "x:default" }, { wrapped_fn "x" }
+    assert.same { "x:default" }, { wrapped_fn "x", nil }
+    assert.same { "x:y" }, { wrapped_fn "x", "y" }
+
+  it "handles tagged type that transforms to nil", ->
+    wrapped_fn = with_args {
+      (types.nil / nil)\tag "n"
+    }, (a) -> "ran"
+
+    assert.same { "ran" }, { wrapped_fn nil }

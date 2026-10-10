@@ -1,13 +1,12 @@
 
 unpack = unpack or table.unpack
 
-import types, BaseType from require "tableshape"
+import types, BaseType, FailedTransform from require "tableshape"
 
 with_args = (arg_types, fn) ->
   assert type(arg_types) == "table", "with_args expects table for first argument"
   assert type(fn) == "function", "with_args expects function for second argument"
 
-  -- Extract options from arg_types
   local assert_on_error, rest_type, positional_types
 
   if arg_types.assert != nil
@@ -19,7 +18,6 @@ with_args = (arg_types, fn) ->
     else
       types.literal arg_types.rest
 
-  -- Get positional argument types (non-string keys) and convert literals to types
   positional_types = {}
   for i, arg_type in ipairs arg_types
     if BaseType\is_base_type arg_type
@@ -27,48 +25,41 @@ with_args = (arg_types, fn) ->
     else
       table.insert positional_types, types.literal arg_type
 
+  num_positional = #positional_types
+
   (...) ->
     args = {...}
     select_count = select "#", ...
 
-    -- Validate positional arguments
     transformed_args = {}
     for i, expected_type in ipairs positional_types
-      arg_value = args[i]
-
-      -- Transform/validate the argument (all are now BaseTypes)
-      transformed_value, err = expected_type\transform arg_value
-      if transformed_value == nil and err
+      transformed_value, err = expected_type\_transform args[i]
+      if transformed_value == FailedTransform
         error_msg = "argument #{i}: #{err}"
         if assert_on_error
           error error_msg
         else
           return nil, error_msg
-      else
-        transformed_args[i] = transformed_value
 
-    -- Handle rest arguments if rest type is specified
-    if rest_type and select_count > #positional_types
-      for i = #positional_types + 1, select_count
-        arg_value = args[i]
+      transformed_args[i] = transformed_value
 
-        -- Transform/validate rest argument (now always a BaseType)
-        transformed_value, err = rest_type\transform arg_value
-        if transformed_value == nil and err
+    if rest_type and select_count > num_positional
+      for i = num_positional + 1, select_count
+        transformed_value, err = rest_type\_transform args[i]
+        if transformed_value == FailedTransform
           error_msg = "argument #{i} (rest): #{err}"
           if assert_on_error
             error error_msg
           else
             return nil, error_msg
-        else
-          transformed_args[i] = transformed_value
 
-    -- If no rest type specified but extra args provided, copy them as-is
-    elseif select_count > #positional_types
-      for i = #positional_types + 1, select_count
+        transformed_args[i] = transformed_value
+    elseif select_count > num_positional
+      for i = num_positional + 1, select_count
         transformed_args[i] = args[i]
 
-    -- Call the original function with validated/transformed arguments
-    fn unpack transformed_args, 1, select_count
+    -- a positional type may produce a value for an argument the caller
+    -- omitted, so the call can't be cut off at the caller's argument count
+    fn unpack transformed_args, 1, math.max select_count, num_positional
 
 {:with_args}
