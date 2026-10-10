@@ -776,7 +776,7 @@ describe "tableshape.codegen large types", ->
   it "generates a standalone module with more than 200 nodes", ->
     t = types.shape {"f#{i}", types.string\tag("f#{i}") for i=1,250}
     code = generate_module t
-    mod = assert(loadstring(code))!
+    mod = assert((loadstring or load) code)!
 
     input = {"f#{i}", "v#{i}" for i=1,250}
     value, state = mod.transform input
