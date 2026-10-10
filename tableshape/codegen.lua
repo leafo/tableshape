@@ -1398,7 +1398,7 @@ end
 local compile
 compile = function(node, opts)
   local code, refs = generate_code(node, opts)
-  local chunk = assert(load_code(code, "tableshape.codegen"))
+  local chunk = assert(load_code(code, "=tableshape.codegen"))
   local fn = chunk(FailedTransform, clone_state, refs)
   return CompiledType(node, fn, code, opts)
 end

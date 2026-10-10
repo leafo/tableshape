@@ -1355,7 +1355,7 @@ generate_module = (node) ->
 --  static: see generate_code
 compile = (node, opts) ->
   code, refs = generate_code node, opts
-  chunk = assert load_code code, "tableshape.codegen"
+  chunk = assert load_code code, "=tableshape.codegen"
   fn = chunk FailedTransform, clone_state, refs
   CompiledType node, fn, code, opts
 
